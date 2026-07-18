@@ -89,6 +89,13 @@ const CHIAVE_SNAPSHOT_PREC = 'lantern.snapshot.prec.v1';
 // ---- impianto ---------------------------------------------------------------
 
 const rig = new Rig(document.getElementById('scena'));
+// contesto WebGL perso/ripristinato: senza avviso si vedrebbe solo schermo nero
+// (NB: qui, DOPO la nascita di rig — assegnarlo più in alto sarebbe una
+// temporal dead zone e il gioco non partirebbe proprio)
+rig.onContesto = (perso) => {
+  if (perso) bannerErrore('Grafica azzerata dal sistema: schermo nero. Attendi qualche secondo o ricarica la pagina.');
+  else { const b = document.getElementById('erroreBanner'); if (b) b.remove(); }
+};
 // l'input vive su #scena (il DIV, non il canvas): in AR il canvas del gioco
 // è nascosto e il livello MindAR lascia passare i click (pointer-events:none)
 // — così ci si muove e si costruisce anche in AR
@@ -1640,10 +1647,27 @@ menuDebug.toggle(true);
 
 const elCaricamento = document.getElementById('caricamento');
 
+// CANE DA GUARDIA DELL'AVVIO: se il gioco non parte, la lanterna resta accesa
+// per sempre e non si capisce dove si sia impuntato (segnalato su Chromebook).
+// Qui si tiene traccia dell'ultimo passo e, dopo un po', lo si SCRIVE a schermo.
+let _passoAvvio = 'avvio';
+function passoAvvio(testo) {
+  _passoAvvio = testo;
+  const box = elCaricamento.querySelector('div');
+  if (box && box.lastChild) box.lastChild.textContent = testo;
+}
+const _vigile = [
+  setTimeout(() => passoAvvio(`${_passoAvvio} — ci sta mettendo un po'…`), 12000),
+  setTimeout(() => {
+    if (elCaricamento.classList.contains('via')) return;
+    passoAvvio(`Bloccato su: ${_passoAvvio}. Prova a ricaricare (Ctrl+Maiusc+R).`);
+  }, 30000),
+];
+function fineVigile() { for (const t of _vigile) clearTimeout(t); }
+
 async function avvia() {
-  await caricaModelli(FURNI, (nome) => {
-    elCaricamento.querySelector('div').lastChild.textContent = `Sistemo ${nome.toLowerCase()}…`;
-  });
+  passoAvvio('Carico i modelli…');
+  await caricaModelli(FURNI, (nome) => passoAvvio(`Sistemo ${nome.toLowerCase()}…`));
 
   // caricamento salvataggio A PROVA DI ERRORE: se il diorama salvato è corrotto
   // o incompatibile, si riparte da un'isola nuova SENZA cancellare il salvataggio
@@ -1715,6 +1739,7 @@ async function avvia() {
   rig.render();
 
   requestAnimationFrame(loop);
+  fineVigile();                                   // partito: niente più diagnosi
   setTimeout(() => elCaricamento.classList.add('via'), 250);
   // le texture dei FBX arrivano async: se il salvataggio non era in primavera,
   // il fogliame va ritinto quando le immagini sono pronte

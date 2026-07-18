@@ -25,8 +25,32 @@ function passaSniffer(testo) {
   return true;
 }
 
+// Un fetch senza timeout può restare appeso PER SEMPRE: essendo il primo await
+// dell'avvio, il gioco restava bloccato su "Accendo la lanterna…" senza dire
+// nulla (visto su Chromebook). Meglio rinunciare al modello e usare il
+// sostituto procedurale che non partire affatto.
+const TIMEOUT_MS = 8000;
+// Se la rete non risponde, aspettare il timeout per OGNI modello significa
+// moltiplicarlo per quanti sono. Al primo che scade si alza bandiera bianca e
+// gli altri usano subito il sostituto: l'avvio resta di pochi secondi.
+let _reteMorta = false;
+
 async function caricaFbx(percorso) {
-  const risposta = await fetch(percorso);
+  if (_reteMorta) throw new Error(`salto ${percorso}: la rete non risponde`);
+  const taglia = new AbortController();
+  const timer = setTimeout(() => taglia.abort(), TIMEOUT_MS);
+  let risposta;
+  try {
+    risposta = await fetch(percorso, { signal: taglia.signal });
+  } catch (e) {
+    if (taglia.signal.aborted) {
+      _reteMorta = true;                       // gli altri non ci riprovano
+      throw new Error(`timeout (${TIMEOUT_MS / 1000}s) su ${percorso}`);
+    }
+    throw new Error(`rete: ${e.message}`);
+  } finally {
+    clearTimeout(timer);
+  }
   if (!risposta.ok) throw new Error(`HTTP ${risposta.status} su ${percorso}`);
   const buffer = await risposta.arrayBuffer();
   const dir = percorso.slice(0, percorso.lastIndexOf('/') + 1);

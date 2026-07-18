@@ -70,6 +70,25 @@ export class Rig {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.dprMax));
     contenitore.appendChild(this.renderer.domElement);
 
+    // PERDITA DEL CONTESTO WebGL: su GPU deboli o in software il browser può
+    // resettare la grafica. Senza gestirlo il canvas resta NERO per sempre e
+    // non si capisce perché (segnalati "flash neri" su Chromebook). Chiamare
+    // preventDefault() è ciò che permette al browser di ripristinarlo.
+    this.contestoPerso = false;
+    this.onContesto = null;              // (perso: boolean) → lo mostra la GUI
+    const tela = this.renderer.domElement;
+    tela.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();                // senza questo il contesto NON torna
+      this.contestoPerso = true;
+      console.warn('[lantern] contesto WebGL perso');
+      if (this.onContesto) this.onContesto(true);
+    });
+    tela.addEventListener('webglcontextrestored', () => {
+      this.contestoPerso = false;
+      console.warn('[lantern] contesto WebGL ripristinato');
+      if (this.onContesto) this.onContesto(false);
+    });
+
     // ACCELERAZIONE HARDWARE: se il WebView è caduto sul renderer SOFTWARE
     // gli fps crollano — lo si sa subito invece di indagare a caso
     try {
