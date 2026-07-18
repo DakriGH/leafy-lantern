@@ -9,6 +9,22 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CAMERA } from '../config.js';
 
+/**
+ * Il browser sta disegnando via SOFTWARE (niente GPU)?
+ *
+ * ATTENZIONE a "mesa": Mesa è il DRIVER open source di quasi tutte le GPU
+ * Intel/AMD su Linux e ChromeOS — cercarlo qui dentro segnalava come "software"
+ * dei Chromebook con GPU vera ("Mesa DRI Intel(R) HD Graphics 400"). I renderer
+ * software veri sono SwiftShader (Chrome), llvmpipe/softpipe/swrast (Mesa) e i
+ * "basic/software adapter" di Windows.
+ */
+export function disegnaInSoftware(gpu) {
+  const s = String(gpu || '');
+  if (/llvmpipe|softpipe|swrast|swiftshader/i.test(s)) return true;
+  // "software"/"basic render" solo come parole a sé: mai dentro un nome di GPU
+  return /\bsoftware\b|basic render/i.test(s);
+}
+
 // Gaussiana 5 tap (campionamento lineare) pesata dalla distanza dalla banda a fuoco.
 const ShaderTiltShift = {
   name: 'TiltShiftLantern',
@@ -55,12 +71,12 @@ export class Rig {
     contenitore.appendChild(this.renderer.domElement);
 
     // ACCELERAZIONE HARDWARE: se il WebView è caduto sul renderer SOFTWARE
-    // (SwiftShader) gli fps crollano — lo si sa subito invece di indagare a caso
+    // gli fps crollano — lo si sa subito invece di indagare a caso
     try {
       const gl = this.renderer.getContext();
       const ext = gl.getExtension('WEBGL_debug_renderer_info');
       this.gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : 'sconosciuta';
-      this.software = /swiftshader|software|llvmpipe|mesa/i.test(this.gpu);
+      this.software = disegnaInSoftware(this.gpu);
     } catch { this.gpu = 'sconosciuta'; this.software = false; }
 
     this.scena = new THREE.Scene();
