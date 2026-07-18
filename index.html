@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Leafy‑Lantern</title>
+<!-- PWA: con questi il browser offre "Installa app" e apre a schermo intero
+     con la sua icona, invece che come una pagina qualunque -->
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#070b16">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" type="image/png" sizes="192x192" href="./icone/icona-192.png">
+<link rel="apple-touch-icon" href="./icone/icona-192.png">
+<style>
+  /* ================================================================
+     Design system "GEL AERO" — dark, vetro e caramelle.
+     Tre materiali soli, usati ovunque:
+      · VETRO   → pannelli scuri translucidi, bordo luce, alone interno
+      · GEL     → pastiglie lucide colorate (.gel + .g-<colore>) con riflesso
+      · ALONE   → il colore "sanguina" fuori dall'oggetto, mai ombre nere
+     La sfocatura vera (backdrop-filter) costa 5-15ms/frame su WebView: la
+     usiamo SOLO sui pannelli che si aprono (lì i fps non si giudicano), mai
+     sull'HUD sempre a schermo, che ottiene l'effetto con gradienti.
+     ================================================================ */
+  :root {
+    --notte: #070b16;
+    --pannello: linear-gradient(165deg, rgba(28,36,58,.82), rgba(12,17,32,.88));
+    --incasso: rgba(3,6,14,.5);
+    --bordo: rgba(255,255,255,.14);
+    --bordo-vivo: rgba(120,230,255,.6);
+    --testo: #eaf4ff;
+    --muto: rgba(197,216,236,.62);
+    --accento: #45d8ff;
+    --accento-giu: #2b9fe0;
+    --su-accento: #04202e;
+    --ok: #8ef04b;
+    --rosso: #ff6b8a;
+    /* alone morbido al posto delle ombre dure */
+    --dura: 0 10px 26px rgba(0,0,0,.45);
+    --dura-mini: 0 6px 16px rgba(0,0,0,.4);
+    --soffice: 0 24px 60px rgba(0,0,0,.5);
+    /* riflesso lucido riusabile da ogni pastiglia */
+    --lucido: linear-gradient(180deg, rgba(255,255,255,.42), rgba(255,255,255,.08) 46%, rgba(255,255,255,0) 52%);
+    --molla: cubic-bezier(.34, 1.4, .5, 1);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  button { -webkit-appearance: none; appearance: none; outline: none; }
+  html, body { height: 100%; overflow: hidden; background: var(--notte); touch-action: none; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--testo); }
+  button { font-family: inherit; }
+  :focus-visible { outline: 2px solid var(--accento); outline-offset: 2px; }
+  #scena { position: fixed; inset: 0; }
+  #scena canvas { display: block; }
+  /* velo subacqueo: si accende quando la camera è immersa */
+  #velo {
+    position: fixed; inset: 0; pointer-events: none; z-index: 5;
+    background: radial-gradient(ellipse at 50% 40%, rgba(30,90,140,.18), rgba(12,44,80,.42));
+    opacity: 0; transition: opacity .18s;
+  }
+
+  .hud { position: fixed; z-index: 10; user-select: none; -webkit-user-select: none; }
+  .pannello {
+    background: var(--pannello);
+    border: 2px solid var(--bordo);
+    border-radius: 16px;
+    box-shadow: var(--dura), var(--soffice);
+  }
+
+  /* ---- bottoni: UNA base per tutti — vetro scuro, testo chiaro ---- */
+  .stanza-big, .opz-tgl, .zaino-tab, #barraCostruisci button,
+  #aiuto .azioni button, #debug button, #pillaModo, #btnZaino, .ico {
+    background: linear-gradient(180deg, rgba(74,92,132,.55), rgba(28,38,62,.62));
+    color: var(--testo); border: 1px solid rgba(255,255,255,.16);
+    font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.22);
+    transition: transform .18s var(--molla), border-color .14s, background .14s, box-shadow .14s;
+  }
+  .stanza-big:hover, .opz-tgl:hover, .zaino-tab:hover, #barraCostruisci button:hover,
+  #aiuto .azioni button:hover, #debug button:hover, #pillaModo:hover, #btnZaino:hover, .ico:hover {
+    border-color: rgba(120,230,255,.55);
+    box-shadow: 0 4px 16px rgba(69,216,255,.28), inset 0 1px 0 rgba(255,255,255,.3);
+  }
+  .stanza-big:active, .opz-tgl:active, .zaino-tab:active, #barraCostruisci button:active,
+  #aiuto .azioni button:active, #debug button:active, #pillaModo:active, #btnZaino:active, .ico:active {
+    transform: scale(.94);
+  }
+  /* stato "attivo/acceso": gel aqua con testo scuro — identico ovunque */
+  .opz-tgl.attivo, .zaino-tab.attivo, #barraCostruisci button.attivo,
+  #debug button.attivo, #pillaModo.costruisci {
+    background: linear-gradient(180deg, #7eeaff, #1f9ad6);
+    color: #04202e; border-color: rgba(255,255,255,.45);
+    box-shadow: 0 5px 16px rgba(69,216,255,.45), inset 0 1px 0 rgba(255,255,255,.6);
+    text-shadow: none;
+  }
+  /* bottoni ✕ "fantasma" (chiusura pannelli) */
+  #opzioniChiudi, #stanzaChiudi, .zaino-chiudi, .stanza-indietro, #debug .dbg-testa button {
+    background: none; border: none; color: var(--testo); cursor: pointer;
+    opacity: .6; box-shadow: none; transition: opacity .12s;
+  }
+  #opzioniChiudi:hover, #stanzaChiudi:hover, .zaino-chiudi:hover,
+  .stanza-indietro:hover, #debug .dbg-testa button:hover { opacity: 1; }
+
+  /* ---- slider: manopola ambra su binario scavato, ovunque uguali ---- */
+  input[type="range"] { -webkit-appearance: none; appearance: none; height: 22px; background: transparent; cursor: pointer; }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 8px; border-radius: 99px; background: var(--incasso);
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--accento); border: 2px solid var(--su-accento);
+    margin-top: -6px; box-shadow: 0 2px 0 rgba(0,0,0,0.40);
+  }
+  input[type="range"]::-moz-range-track {
+    height: 8px; border-radius: 99px; background: var(--incasso);
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accento); border: 2px solid var(--su-accento);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.40);
+  }
+
+  /* ---- campi testo/textarea "scavati" ---- */
+  textarea, input[type="text"], input[type="number"], select {
+    background: var(--incasso); color: var(--testo);
+    border: 1px solid rgba(255,255,255,0.19); border-radius: 9px;
+  }
+
+  /* ---- teste dei pannelli: riga con titolo + azioni, riga calda sotto ---- */
+  .stanza-testa, .zaino-testa {
+    display: flex; align-items: center; gap: 8px;
+    padding-bottom: 8px; margin-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.18);
+  }
+  .stanza-testa b { flex: 1; font-size: 14px; letter-spacing: .3px; }
+
+  /* ---- BARRA IN ALTO: una riga flex, mai pezzi sovrapposti ----
+     Il contenitore prende tutta la larghezza e non intercetta i click
+     (pointer-events:none); li riattivano solo i figli veri. */
+  #hudAlto {
+    top: 0; left: 0; right: 0; pointer-events: none;
+    padding: max(10px, env(safe-area-inset-top)) 12px 0;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  }
+  #hudAlto > *, #hudAltoDx > * { pointer-events: auto; }
+  #hudAltoDx { display: flex; align-items: flex-start; gap: 8px; flex: 0 1 auto; min-width: 0; }
+  #hudIcone { display: flex; gap: 8px; flex: 0 0 auto; }
+
+  #titolo { padding: 8px 14px; pointer-events: none; flex: 0 1 auto; min-width: 0; }
+  #titolo h1 { font-size: 15px; font-weight: 800; letter-spacing: .4px; white-space: nowrap; }
+  #titolo small { color: var(--muto); font-size: 11px; }
+
+  #meteo { padding: 8px 12px; display: flex; align-items: center; gap: 10px; flex: 0 1 auto; min-width: 0; }
+  #orologio { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 15px; min-width: 46px; text-align: center; }
+  #fase { font-size: 16px; }
+  #barraTempo { width: 110px; flex: 0 1 110px; min-width: 0; }
+
+  .ico { border-radius: 14px; width: 42px; height: 42px; font-size: 17px; display: grid; place-items: center; padding: 0; flex: 0 0 auto; }
+
+  /* stretto: il titolo si riduce alla lanterna, l'orologio perde lo slider.
+     Così in verticale su telefono NIENTE si tronca e niente si accavalla. */
+  @media (max-width: 720px) {
+    #titolo h1 { font-size: 0; }                    /* resta solo l'emoji */
+    #titolo h1::first-letter { font-size: 19px; }
+    #titolo { padding: 8px 10px; }
+    #barraTempo { display: none; }
+  }
+  @media (max-width: 400px) {
+    #titolo small { display: none; }
+  }
+
+
+  /* ---- Impostazioni ---- */
+  #opzioni {
+    top: calc(max(10px, env(safe-area-inset-top)) + 100px); right: 12px;
+    width: min(340px, calc(100vw - 24px));
+    max-height: calc(100vh - 130px - env(safe-area-inset-bottom));
+    overflow-y: auto; overscroll-behavior: contain;
+    padding: 12px 14px; display: none; z-index: 40; font-size: 13px;
+  }
+  #opzioni.aperto { display: block; }
+  .opz-schede { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+  .opz-scheda {
+    flex: 1 1 0; min-width: 0; padding: 7px 4px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;   /* 4 schede su UNA riga */
+    background: linear-gradient(180deg, rgba(74,92,132,.5), rgba(28,38,62,.58));
+    color: var(--testo); border: 2px solid var(--bordo); cursor: pointer;
+  }
+  .opz-scheda.attivo {
+    background: linear-gradient(180deg, var(--accento), var(--accento-giu));
+    color: var(--su-accento); border-color: rgba(255,255,255,.4);
+  }
+  .opz-pagina { display: none; }
+  .opz-pagina.attivo { display: block; }
+  .opz-tit-sez { font-size: 11px; font-weight: 800; color: var(--muto); letter-spacing: .4px; margin: 12px 0 6px; }
+  /* lista slot di salvataggio */
+  .slot-lista { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+  .slot-lista:empty::before { content: 'Nessuna partita salvata: usa «Salva partita».'; font-size: 11px; color: var(--muto); }
+  .slot-voce {
+    display: flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 10px;
+    background: rgba(3,6,14,.5); border: 1px solid rgba(255,255,255,0.18);
+  }
+  .slot-voce .slot-info { flex: 1; min-width: 0; }
+  .slot-voce b { font-size: 12px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot-voce small { font-size: 10px; color: var(--muto); }
+  .slot-voce button {
+    background: rgba(3,6,14,.5); border: 1px solid var(--bordo); color: var(--testo);
+    border-radius: 8px; padding: 5px 8px; font-size: 12px; cursor: pointer; flex: 0 0 auto;
+  }
+  .slot-voce button.pericolo { color: var(--rosso); }
+  /* il pannello debug MONTATO nella scheda Avanzate perde la sua cornice */
+  #paginaAvanzate #debug {
+    position: static; width: auto; max-height: none; overflow: visible;
+    padding: 0; border: none; box-shadow: none; background: none; display: block !important;
+  }
+  #paginaAvanzate #debug .dbg-testa { display: none; }
+  #opzioni::-webkit-scrollbar { width: 8px; }
+  #opzioni::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); border-radius: 99px; }
+  #opzioniChiudi { font-size: 14px; margin-left: auto; }
+  .opz-riga { display: block; margin: 10px 0; font-weight: 600; }
+  .opz-riga input[type="range"] { width: 100%; margin-top: 2px; }
+  .opz-val { float: right; color: var(--muto); font-variant-numeric: tabular-nums; font-weight: 700; }
+  .opz-toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .opz-fps { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+  .opz-fps .opz-tgl { padding: 9px 0; font-size: 13px; }
+  .opz-tgl { padding: 9px 6px; border-radius: 11px; font-size: 12px; opacity: .55; }
+  .opz-tgl.attivo { opacity: 1; }
+
+  /* ---- Gioca insieme (P2P): procedura a passi numerati ---- */
+  #stanza {
+    top: calc(max(10px, env(safe-area-inset-top)) + 100px); right: 12px;
+    width: min(330px, calc(100vw - 24px));
+    max-height: calc(100vh - 130px - env(safe-area-inset-bottom));
+    overflow-y: auto; overscroll-behavior: contain;
+    padding: 12px 14px; display: none; z-index: 40; font-size: 13px;
+  }
+  #stanza.aperto { display: block; }
+  #stanzaStato {
+    font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+    background: var(--incasso); border: 1px solid rgba(255,255,255,0.18);
+  }
+  #stanzaChiudi { font-size: 14px; }
+  #stanza p { margin: 10px 0 5px; display: flex; align-items: center; gap: 7px; }
+  /* numeri dei passi: gettone ambra */
+  .stanza-fase p b {
+    display: inline-grid; place-items: center; flex: 0 0 auto;
+    width: 21px; height: 21px; border-radius: 50%;
+    background: var(--accento); color: var(--su-accento); font-size: 12px;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.34);
+  }
+  #stanza textarea {
+    width: 100%; height: 58px; resize: none; padding: 7px 8px;
+    font-size: 10px; font-family: ui-monospace, Consolas, monospace;
+  }
+  .stanza-big { width: 100%; margin: 7px 0; padding: 10px; border-radius: 12px; font-size: 13px; }
+  .stanza-hint { font-size: 11px; color: var(--muto); line-height: 1.45; }
+  .stanza-fase { display: none; }
+  .stanza-fase.aperto { display: block; }
+  #stanza.in-fase #stanzaScelta { display: none; }
+  .stanza-indietro { margin-top: 6px; font-size: 12px; }
+  .stanza-ok { color: var(--ok); font-size: 11px; }
+  .stanza-mini { width: 100%; margin: 2px 0 6px; padding: 7px; border-radius: 9px; font-size: 12px; }
+  #rcCodice { font-size: 30px; font-weight: 800; letter-spacing: 6px; text-align: center; color: var(--accento); margin: 6px 0; min-height: 0; }
+  #rcCodice:empty { display: none; }
+  #rcInput { width: 100%; margin: 4px 0; padding: 9px; font-size: 15px; }
+  #rcServer { margin: 4px 0 10px; }
+  #rcServer summary { font-size: 11px; color: var(--muto); cursor: pointer; }
+  #rcServer input { width: 100%; margin: 4px 0; padding: 7px 9px; font-size: 11px; }
+  #turnBox { margin-top: 8px; }
+  #turnBox summary { font-size: 12px; color: var(--accento); cursor: pointer; padding: 4px 0; }
+  #turnBox input { width: 100%; margin: 4px 0; padding: 7px 9px; font-size: 11px; }
+  /* membri + chat della stanza */
+  .membro {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 5px 9px; margin: 4px 0; border-radius: 10px; font-size: 12px; font-weight: 700;
+    background: rgba(3,6,14,.5); border: 1px solid rgba(255,255,255,0.18);
+  }
+  .membro button { background: none; border: none; color: var(--rosso); cursor: pointer; font-weight: 800; }
+  #chatLog {
+    max-height: 130px; overflow-y: auto; margin: 8px 0 6px; padding: 6px 8px;
+    background: var(--incasso); border: 1px solid rgba(255,255,255,0.18); border-radius: 10px;
+    font-size: 12px; line-height: 1.5; touch-action: pan-y;
+  }
+  #chatLog:empty::before { content: 'La chat è qui: scrivi qualcosa 💬'; opacity: .5; }
+  .chat-riga b { color: var(--accento); margin-right: 4px; }
+  .chat-riga.mia b { color: var(--ok); }
+  .chat-riga-invio { display: flex; gap: 6px; }
+  .chat-riga-invio input { flex: 1; padding: 8px 10px; font-size: 13px; }
+
+  /* ---- BARRA BASSA: una colonna sola (comandi sopra, poi utility + hotbar).
+     Tutto vive dentro #hudBasso: impossibile che si sovrapponga. ---- */
+  #hudBasso {
+    left: 0; right: 0; bottom: 0; pointer-events: none;
+    padding: 0 10px calc(12px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  #hudBasso > *, #rigaBasso > *, #utilBtn > * { pointer-events: auto; }
+  /* utility + hotbar sulla stessa riga: la hotbar scorre, i tasti restano fissi */
+  #rigaBasso {
+    display: flex; align-items: flex-end; gap: 8px;
+    width: 100%; max-width: 860px; justify-content: center;
+  }
+  #utilBtn { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; }
+
+  /* ---- comandi modalità: UN gruppo centrato (pillola + azioni), mai sovrapposti ---- */
+  #comandi {
+    display: flex; align-items: center; gap: 8px; max-width: 100%;
+    flex-wrap: wrap; justify-content: center;
+  }
+  #pillaModo {
+    flex: 0 0 auto;
+    padding: 8px 18px; font-size: 13px; letter-spacing: .5px; border-radius: 999px;
+  }
+  #pillaModo:active { transform: translateY(2px); }
+
+  #barraCostruisci {
+    display: none; gap: 5px; padding: 5px 6px; border-radius: 999px;
+  }
+  #barraCostruisci.visibile { display: flex; }
+  #barraCostruisci button { padding: 8px 14px; border-radius: 999px; font-size: 13px; box-shadow: none; }
+  #barraCostruisci button:active { transform: none; }
+
+  /* ---- hotbar: scorre in orizzontale quando non ci sta, senza mai tagliare ---- */
+  #hotbar {
+    display: flex; gap: 7px; padding: 8px; overflow-x: auto; scrollbar-width: none;
+    min-width: 0; flex: 0 1 auto;
+    scroll-snap-type: x proximity; overscroll-behavior-x: contain; touch-action: pan-x;
+  }
+  #hotbar .slot { scroll-snap-align: center; }
+  #hotbar::-webkit-scrollbar { display: none; }
+  .slot {
+    position: relative;
+    width: 56px; height: 60px; border-radius: 13px; border: 2px solid rgba(255,255,255,0.15);
+    background: linear-gradient(180deg, rgba(74,92,132,.5), rgba(28,38,62,.58));
+    cursor: pointer; flex: 0 0 auto;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.31);
+    transition: transform .12s, border-color .12s, box-shadow .12s;
+  }
+  .slot:hover { transform: translateY(-3px); border-color: var(--bordo-vivo); }
+  .slot.attivo {
+    border-color: var(--accento); background: rgba(247,169,59,.20);
+    transform: translateY(-4px);
+    box-shadow: 0 0 12px rgba(247,169,59,.55), var(--dura-mini);
+  }
+  .slot .icona { width: 26px; height: 26px; border-radius: 7px; font-size: 21px; line-height: 26px; text-align: center; }
+  .slot .nome {
+    font-size: 9px; opacity: .8; white-space: nowrap;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: 0 3px;
+  }
+  .slot .tasto { position: absolute; top: 3px; left: 6px; font-size: 9px; opacity: .45; font-weight: 800; }
+  .slot .conta {
+    position: absolute; bottom: 2px; right: 4px; font-size: 9px; font-weight: 800;
+    padding: 0 4px; border-radius: 999px; background: rgba(0,0,0,0.42);
+  }
+  .slot.esaurito { opacity: .45; }
+  .slot.esaurito .conta { color: var(--rosso); }
+
+  /* scorciatoie da tastiera: solo dove una tastiera c'è DAVVERO */
+  #suggerimento {
+    bottom: calc(16px + env(safe-area-inset-bottom)); right: 12px;
+    padding: 7px 12px; font-size: 11px; color: var(--muto);
+    pointer-events: none; box-shadow: var(--dura-mini);
+  }
+  @media (max-width: 900px), (pointer: coarse) { #suggerimento { display: none; } }
+
+  #btnZaino, #btnOfficina {
+    width: 46px; height: 46px; font-size: 20px; border-radius: 15px;
+    display: grid; place-items: center; cursor: pointer;
+  }
+  #btnZaino:hover, #btnOfficina:hover { transform: translateY(-2px); }
+
+  /* ---- zaino (modale) ---- */
+  #zaino { inset: 0; display: none; place-items: center; background: rgba(4,8,18,.55); z-index: 22; }
+  #zaino.aperto { display: grid; }
+  #zaino .scheda { width: min(560px, 96vw); max-height: 84vh; overflow-y: auto; padding: 16px 18px; }
+  /* banco = la tua barra dentro lo zaino: bersaglio del trascinamento */
+  .zaino-banco-tit { font-size: 11px; font-weight: 800; color: var(--muto); letter-spacing: .3px; margin: 14px 0 6px; }
+  .zaino-banco { display: flex; gap: 7px; flex-wrap: wrap; }
+  .zaino-bslot {
+    position: relative; width: 56px; height: 60px; border-radius: 12px; flex: 0 0 auto;
+    border: 2px dashed rgba(255,255,255,0.21); background: rgba(255,255,255,.04);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    cursor: grab; touch-action: none;
+  }
+  .zaino-bslot.pieno { border-style: solid; border-color: rgba(255,255,255,0.32); background: linear-gradient(180deg, rgba(74,92,132,.5), rgba(28,38,62,.58)); }
+  .zaino-bslot.attivo { border-color: var(--accento); box-shadow: 0 0 10px rgba(247,169,59,.55); }
+  .zaino-bslot.drop-qui { border-color: #3f9e57; background: rgba(99,175,86,.26); }
+  .zaino-bslot .icona { width: 26px; height: 26px; border-radius: 7px; font-size: 21px; line-height: 26px; text-align: center; }
+  .zaino-bslot .tasto { position: absolute; top: 3px; left: 5px; font-size: 9px; opacity: .5; font-weight: 800; }
+  .zaino-bslot .conta { position: absolute; bottom: 2px; right: 4px; font-size: 9px; font-weight: 800; padding: 0 3px; border-radius: 99px; background: rgba(0,0,0,0.42); }
+  #zaino h2 { font-size: 16px; letter-spacing: .3px; }
+  #zaino .zaino-testa { justify-content: space-between; }
+  #zaino .zaino-slot {
+    font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+    background: var(--incasso); border: 1px solid rgba(255,255,255,0.18); color: var(--accento);
+  }
+  #zaino .zaino-chiudi { font-size: 18px; }
+  #zaino .zaino-tabs { display: flex; gap: 5px; flex-wrap: wrap; margin: 10px 0 8px; }
+  #zaino .zaino-tab { padding: 6px 11px; border-radius: 999px; font-size: 11px; box-shadow: none; }
+  #zaino .zaino-tab:active { transform: none; }
+  #zaino .zaino-filtro { width: 100%; padding: 7px 10px; font-size: 12px; margin-bottom: 8px; }
+  #zaino .zaino-tit { font-size: 11px; font-weight: 800; color: var(--muto); letter-spacing: .4px; margin: 12px 0 6px; }
+  #zaino .zaino-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
+  #zaino .zaino-carta {
+    position: relative; border: 2px solid rgba(255,255,255,0.15); border-radius: 13px;
+    background: linear-gradient(180deg, rgba(74,92,132,.5), rgba(28,38,62,.58));
+    padding: 10px 6px 8px; text-align: center; cursor: grab; touch-action: none;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    min-height: 74px; box-shadow: var(--dura-mini);
+    transition: transform .1s, border-color .12s, box-shadow .1s;
+  }
+  #zaino .zaino-carta:hover { border-color: var(--accento); transform: translateY(-2px); }
+  #zaino .zaino-carta:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0,0,0,0.40); }
+  #zaino .zaino-carta .icona { width: 32px; height: 32px; border-radius: 8px; font-size: 26px; line-height: 32px; }
+  /* slot PIENO vs VUOTO: differenza netta a colpo d'occhio */
+  #zaino .zaino-carta { border-color: rgba(255,255,255,0.29); }
+  #zaino .zaino-carta.esaurito { opacity: .38; border-color: rgba(255,255,255,0.15); box-shadow: none; }
+  #zaino .zaino-vuota {
+    border: 2px dashed rgba(255,255,255,0.25); background: rgba(255,255,255,0.03);
+    box-shadow: none; cursor: default; pointer-events: none; justify-content: center;
+  }
+  #zaino .zaino-vuota-eti { font-size: 9px; color: rgba(122,100,78,.8); font-weight: 700; letter-spacing: .5px; }
+  /* trascinamento: chip che segue il dito + slot bersaglio evidenziato */
+  .drag-ghost {
+    position: fixed; z-index: 95; width: 44px; height: 44px; border-radius: 12px;
+    transform: translate(-50%, -50%); display: grid; place-items: center;
+    font-size: 26px; background: rgba(255,253,247,.97); border: 2px solid var(--accento);
+    box-shadow: 0 6px 14px rgba(0,0,0,.5); pointer-events: none;
+  }
+  .slot.drop-qui { border-color: #3f9e57; background: rgba(99,175,86,.26); transform: translateY(-6px); }
+  #zaino .zaino-carta .nome { font-size: 10px; opacity: .85; }
+  #zaino .zaino-carta .conta { font-size: 9px; font-weight: 800; color: var(--muto); }
+  #zaino .zaino-ingr { font-size: 8.5px; color: var(--muto); line-height: 1.2; }
+
+  /* ---- Officina: l'editor dei contenuti (modale a due colonne) ---- */
+  #officina { position: fixed; inset: 0; display: none; place-items: center; background: rgba(4,8,18,.55); z-index: 24; }
+  #officina.aperto { display: grid; }
+  #officina .scheda { width: min(560px, 94vw); max-height: 82vh; overflow-y: auto; padding: 16px 18px; }
+  #officina h2 { font-size: 16px; letter-spacing: .3px; }
+  .officina-sotto { font-size: 11px; color: var(--muto); flex: 1; }
+  .officina-corpo { display: flex; gap: 12px; margin-top: 10px; }
+  .officina-tipi { display: flex; flex-direction: column; gap: 6px; flex: 0 0 128px; }
+  .officina-tipo {
+    text-align: left; padding: 8px 10px; border-radius: 11px; font-size: 12px; font-weight: 700;
+    background: linear-gradient(180deg, rgba(74,92,132,.5), rgba(28,38,62,.58));
+    color: var(--testo); border: 2px solid var(--bordo); cursor: pointer; box-shadow: var(--dura-mini);
+  }
+  .officina-tipo.attivo { background: linear-gradient(180deg, var(--accento), var(--accento-giu)); color: var(--su-accento); border-color: rgba(255,255,255,.4); }
+  .officina-tipo:disabled { opacity: .4; cursor: default; box-shadow: none; }
+  .officina-tipo small { opacity: .7; font-weight: 600; }
+  .officina-pagina { flex: 1; min-width: 0; }
+  .officina-nuovo {
+    width: 100%; padding: 10px; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer;
+    background: linear-gradient(180deg, var(--accento), var(--accento-giu)); color: var(--su-accento);
+    border: 2px solid rgba(255,255,255,.4); box-shadow: var(--dura-mini); margin-bottom: 8px;
+  }
+  .officina-nuovo:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.40); }
+  .officina-vuoto { font-size: 12px; color: var(--muto); line-height: 1.5; }
+  .officina-riga {
+    display: flex; align-items: center; gap: 8px; padding: 7px 9px; margin-bottom: 6px;
+    border: 2px solid var(--bordo); border-radius: 11px;
+    background: linear-gradient(180deg, rgba(74,92,132,.5), rgba(28,38,62,.58));
+  }
+  .officina-riga b { flex: 1; font-size: 13px; }
+  .officina-riga button { background: none; border: none; cursor: pointer; font-size: 14px; opacity: .75; }
+  .officina-riga button:hover { opacity: 1; }
+  .officina-cubo { width: 24px; height: 24px; border-radius: 6px; border: 1px solid #ffffff; flex: 0 0 auto; }
+  .officina-cubo.grande { width: 52px; height: 52px; border-radius: 12px; }
+  .officina-campo { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; margin: 8px 0; font-size: 12px; font-weight: 600; }
+  .officina-campo input[type="text"] { width: 150px; padding: 6px 8px; font-size: 12px; }
+  .officina-campo input[type="color"] { width: 46px; height: 28px; border: 2px solid var(--bordo); border-radius: 8px; background: var(--incasso); cursor: pointer; padding: 2px; }
+  .officina-campo input[type="range"] { width: 120px; }
+  .officina-campo select { padding: 5px 6px; font-size: 12px; }
+  .officina-campo em { font-style: normal; color: var(--muto); font-variant-numeric: tabular-nums; min-width: 28px; }
+  .officina-anteprima { display: flex; align-items: center; gap: 10px; margin: 12px 0; }
+  .officina-anteprima small { color: var(--muto); }
+  .officina-azioni { display: flex; align-items: center; gap: 10px; }
+
+
+  /* ---- comandi touch (joystick + tasti) ---- */
+  #comandiTouch { position: fixed; inset: 0; z-index: 12; pointer-events: none; user-select: none; -webkit-user-select: none; }
+  #comandiTouch > * { pointer-events: auto; }
+  .ct-stick {
+    position: absolute; left: calc(20px + env(safe-area-inset-left)); bottom: calc(96px + env(safe-area-inset-bottom));
+    width: 120px; height: 120px; border-radius: 50%; touch-action: none;
+    background: radial-gradient(circle, #ffffff, rgba(150,110,70,.12));
+    border: 2px solid rgba(255,255,255,0.29); box-shadow: var(--dura);
+  }
+  .ct-knob {
+    position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px;
+    border-radius: 50%; background: linear-gradient(180deg, var(--accento), var(--accento-giu));
+    border: 2px solid var(--su-accento); box-shadow: 0 2px 0 rgba(0,0,0,0.40);
+    transition: transform .04s linear;
+  }
+  .ct-tasti {
+    position: absolute; right: calc(16px + env(safe-area-inset-right)); bottom: calc(96px + env(safe-area-inset-bottom));
+    display: grid; grid-template-columns: 64px 64px; gap: 10px;
+  }
+  .ct-btn {
+    width: 62px; height: 62px; border-radius: 50%; font-size: 25px; cursor: pointer; touch-action: none;
+    color: var(--testo); border: 2px solid rgba(255,255,255,0.25);
+    box-shadow: 0 3px 0 rgba(0,0,0,0.40), inset 0 1px 0 #ffffff;
+    background: radial-gradient(circle at 50% 35%, #ffffff, rgba(255,253,247,.96));
+    display: grid; place-items: center; transition: transform .06s, box-shadow .06s, background .12s;
+  }
+  .ct-btn:active, .ct-btn.premuto { transform: translateY(3px); box-shadow: 0 0 0 rgba(0,0,0,0.40), inset 0 2px 6px rgba(0,0,0,.45); }
+  .ct-rompi { color: #b8432c; border-color: rgba(207,79,56,.45); }
+  .ct-piazza { color: #2f7d45; border-color: rgba(63,158,87,.45); }
+  .ct-salta, .ct-giu { color: var(--accento); }
+  /* ---- toast: fumetto che "salta" ---- */
+  #toast {
+    top: 16%; left: 50%; padding: 10px 18px; font-size: 14px; font-weight: 700;
+    opacity: 0; transform: translateX(-50%) scale(.85);
+    transition: opacity .2s, transform .2s cubic-bezier(.34, 1.56, .64, 1);
+    pointer-events: none; border-radius: 999px; border-color: var(--bordo-vivo);
+  }
+  #toast.visibile { opacity: 1; transform: translateX(-50%) scale(1); }
+
+  /* ---- aiuto (modale) ---- */
+  #aiuto { inset: 0; display: none; place-items: center; background: rgba(4,8,18,.55); z-index: 20; }
+  #aiuto.aperto { display: grid; }
+  #aiuto .scheda { max-width: 440px; width: 92vw; padding: 20px 24px; max-height: 84vh; overflow-y: auto; }
+  #aiuto h2 { font-size: 17px; margin-bottom: 12px; letter-spacing: .3px; }
+  #aiuto table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #aiuto td { padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.15); }
+  #aiuto td:first-child { font-weight: 800; color: var(--accento); white-space: nowrap; padding-right: 14px; }
+  #aiuto .azioni { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  #aiuto .azioni button { padding: 9px 14px; border-radius: 11px; font-size: 12px; }
+
+  /* ---- menu debug (tecnico ma della stessa famiglia) ---- */
+  #debug {
+    top: calc(max(10px, env(safe-area-inset-top)) + 52px); right: 12px;
+    width: 300px; max-height: calc(100vh - 140px); overflow-y: auto;
+    padding: 10px 12px; font-size: 12px; z-index: 15; border-radius: 14px;
+  }
+  #debug .dbg-testa { display: flex; justify-content: space-between; align-items: center; font-weight: 800; margin-bottom: 6px; }
+  #debug .dbg-testa button { font-size: 16px; }
+  #debug .dbg-sez { border-top: 1px solid rgba(255,255,255,0.15); padding: 7px 0; }
+  #debug .dbg-tit { font-size: 11px; font-weight: 800; color: var(--muto); margin-bottom: 5px; letter-spacing: .3px; }
+  #debug .dbg-stat { font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre; opacity: .9; }
+  #debug .dbg-riga { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 4px; }
+  #debug .dbg-riga.dbg-colonna { flex-direction: column; align-items: flex-start; gap: 6px; }
+  #debug .dbg-sep { flex: 0 0 6px; }
+  #debug button { padding: 4px 9px; border-radius: 8px; font-size: 11px; font-weight: 600; box-shadow: none; }
+  #debug button:active { transform: none; }
+  #debug label { display: flex; align-items: center; gap: 5px; font-size: 11px; opacity: .9; }
+  #debug input[type="number"] { width: 58px; padding: 3px 5px; font-size: 11px; }
+  #debug select { padding: 3px 4px; font-size: 11px; }
+  #debug input[type="checkbox"] { accent-color: var(--accento); }
+  #debug textarea { width: 100%; font: 10px ui-monospace, monospace; padding: 4px 6px; resize: vertical; margin: 3px 0; }
+
+  /* ---- barre di scorrimento dei pannelli ---- */
+  #zaino .scheda::-webkit-scrollbar, #aiuto .scheda::-webkit-scrollbar, #debug::-webkit-scrollbar { width: 8px; }
+  #zaino .scheda::-webkit-scrollbar-thumb, #aiuto .scheda::-webkit-scrollbar-thumb, #debug::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.22); border-radius: 99px;
+  }
+
+  /* ---- visore del marker AR: schermo intero, bianco, senza fronzoli ---- */
+  #markerView {
+    position: fixed; inset: 0; z-index: 70; display: none;
+    background: rgba(3,6,14,.5); cursor: pointer;
+    flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  }
+  #markerView.aperto { display: flex; }
+  #markerView img { width: min(94vmin, 100%); height: auto; image-rendering: auto; }
+  #markerView small { color: #666; font-size: 12px; }
+
+  /* ---- schermata di avvio ---- */
+  #caricamento {
+    position: fixed; inset: 0; display: grid; place-items: center; z-index: 30;
+    background: radial-gradient(ellipse at 50% 38%, #fffaf0 0%, #f0dfc0 70%);
+    transition: opacity .5s; font-size: 15px; letter-spacing: .3px; font-weight: 600;
+  }
+  #caricamento.via { opacity: 0; pointer-events: none; }
+  #loading {
+    position: fixed; inset: 0; display: none; place-items: center; z-index: 80;
+    background: radial-gradient(ellipse at 50% 40%, rgba(255,250,240,.95), rgba(240,223,192,.96));
+    font-size: 15px; letter-spacing: .3px; font-weight: 600; text-align: center;
+    -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  }
+  #loading.attivo { display: grid; }
+  #loading .lanterna { font-size: 44px; animation: dondola 1.4s ease-in-out infinite; display: block; text-align: center; margin-bottom: 12px; filter: drop-shadow(0 0 16px rgba(255,200,110,.5)); }
+  #caricamento .lanterna {
+    font-size: 48px; animation: dondola 1.6s ease-in-out infinite;
+    display: block; text-align: center; margin-bottom: 14px;
+    filter: drop-shadow(0 0 18px rgba(255,200,110,.55));
+  }
+  @keyframes dondola { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+
+  /* ---- touch: bersagli più grandi, pannelli scorrevoli col dito ---- */
+  @media (pointer: coarse) {
+    .slot { width: 56px; height: 60px; }
+    .ico { width: 44px; height: 44px; }
+    #opzioni, #stanza, #zaino .scheda, #aiuto .scheda, #officina .scheda, #debug {
+      touch-action: pan-y;                /* html ha touch-action:none: senza, niente scroll */
+      font-size: 14px;
+    }
+    #opzioni { width: min(340px, calc(100vw - 20px)); }
+
+  }
+  /* Quando i comandi A SCHERMO sono accesi occupano la fascia bassa: la barra
+     bassa si solleva sopra di loro. La condizione è "comandi accesi" (classe sul
+     body), NON "puntatore grosso": così vale anche su ibridi e in anteprima.
+     VERTICALE: i tasti prendono tutta la fascia → la colonna sale.
+     ORIZZONTALE: c'è spazio ai lati → basta rientrare ai bordi. */
+  @media (orientation: portrait) {
+    body.comandi-touch #hudBasso { padding-bottom: calc(212px + env(safe-area-inset-bottom)); }
+  }
+  @media (orientation: landscape) {
+    body.comandi-touch #hudBasso {
+      padding-left: 128px; padding-right: 128px;   /* lascia liberi joystick e tasti */
+    }
+    body.comandi-touch #utilBtn { flex-direction: row; }   /* meno altezza dove scarseggia */
+  }
+  @media (pointer: coarse) and (orientation: landscape) {
+    /* i pannelli non devono superare l'altezza ridotta */
+    #opzioni, #stanza { max-height: calc(100vh - 70px); top: 58px; }
+    #zaino .scheda, #aiuto .scheda, #officina .scheda { max-height: 90vh; }
+    /* in orizzontale c'è meno altezza: il joystick si stringe (la posizione la
+       decidono le variabili --ct-* più in basso, non regole sparse) */
+    :root { --ct-stick: 104px; }
+  }
+
+  /* ==================================================================
+     GEL AERO — la passata che ridefinisce i materiali. Sta in fondo di
+     proposito: sovrascrive per ordine di sorgente le regole storiche.
+     ================================================================== */
+
+  /* ---- VETRO: i pannelli ---- */
+  .pannello {
+    background:
+      radial-gradient(circle at 16% 6%, rgba(69,216,255,.20), transparent 46%),
+      radial-gradient(circle at 88% 4%, rgba(255,94,196,.16), transparent 44%),
+      radial-gradient(circle, rgba(255,255,255,.055) 1.1px, transparent 1.2px) 0 0/17px 17px,
+      linear-gradient(165deg, rgba(30,39,63,.86), rgba(10,15,29,.9));
+    border: 1px solid var(--bordo);
+    border-radius: 22px;
+    box-shadow: var(--dura), inset 0 1px 0 rgba(255,255,255,.24);
+    color: var(--testo);
+  }
+  /* sfocatura VERA solo sui pannelli che si aprono (non sull'HUD sempre a
+     schermo): lì il costo non si nota perché il gioco è coperto comunque */
+  #opzioni.aperto, #stanza.aperto, #zaino .scheda, #officina .scheda,
+  #aiuto .scheda, #debug, .ruota-velo {
+    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+    backdrop-filter: blur(18px) saturate(1.6);
+  }
+  body.no-vetro *, body.no-vetro *::before, body.no-vetro *::after {
+    -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  }
+
+  /* ---- GEL: le pastiglie lucide ---- */
+  .gel {
+    position: relative; border: none; cursor: pointer; color: #fff;
+    font-weight: 800; letter-spacing: .2px;
+    background: linear-gradient(180deg, var(--c1, #6ee7ff), var(--c2, #1f9ad6));
+    box-shadow:
+      0 8px 20px var(--glow, rgba(69,216,255,.45)),
+      inset 0 2px 0 rgba(255,255,255,.55),
+      inset 0 -9px 18px rgba(0,0,0,.3);
+    text-shadow: 0 1px 2px rgba(0,0,0,.4);
+    transition: transform .2s var(--molla), box-shadow .2s, filter .2s;
+  }
+  .gel::after {                                   /* riflesso lucido in alto */
+    content: ''; position: absolute; left: 9%; right: 9%; top: 5%; height: 40%;
+    border-radius: 999px; background: var(--lucido); pointer-events: none;
+  }
+  .gel:hover { filter: brightness(1.1); }
+  .gel:active { transform: scale(.9); box-shadow: 0 3px 10px var(--glow, rgba(69,216,255,.4)), inset 0 2px 0 rgba(255,255,255,.4), inset 0 -6px 14px rgba(0,0,0,.35); }
+  .g-aqua    { --c1:#7eeaff; --c2:#1f9ad6; --glow: rgba(69,216,255,.5); }
+  .g-lime    { --c1:#c8f877; --c2:#4fae2a; --glow: rgba(142,240,75,.45); }
+  .g-magenta { --c1:#ffa2dd; --c2:#d8329b; --glow: rgba(255,94,196,.45); }
+  .g-viola   { --c1:#c9b0ff; --c2:#6f47d6; --glow: rgba(155,123,255,.45); }
+  .g-ambra   { --c1:#ffdd93; --c2:#e8952a; --glow: rgba(255,200,100,.45); }
+
+  /* ---- HUD MINIMAL: in alto restano orologio e due tondi, nient'altro ---- */
+  #titolo { background: none; border: none; box-shadow: none; padding: 4px 8px; }
+  #titolo h1 { display: none; }                    /* il nome sta sulla copertina */
+  #titolo small { color: rgba(210,230,250,.5); font-size: 10.5px; font-weight: 700; }
+  #meteo { padding: 7px 14px; border-radius: 999px; gap: 9px; }
+  #orologio { font-size: 14px; }
+  .ico {
+    border-radius: 50%; width: 44px; height: 44px; border: none;
+    background: linear-gradient(180deg, rgba(52,66,98,.92), rgba(20,28,48,.94));
+    box-shadow: 0 6px 16px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.28);
+    color: var(--testo);
+  }
+  .ico:hover { box-shadow: 0 6px 20px rgba(69,216,255,.4), inset 0 1px 0 rgba(255,255,255,.35); }
+
+  /* niente più pillola modalità e hotbar: ci pensa la ruota */
+  #pillaModo, #hotbar, #suggerimento { display: none !important; }
+  /* su touch il diamante ha già rompi/piazza: la barra doppia sparisce */
+  body.comandi-touch #barraCostruisci { display: none !important; }
+  #barraCostruisci { border-radius: 999px; padding: 5px 6px; }
+
+  /* ---- RUOTA degli strumenti ---- */
+  #btnStrumenti {
+    position: fixed; z-index: 18; left: 50%; transform: translateX(-50%);
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    width: 62px; height: 62px; border-radius: 50%;
+    --c1:#7eeaff; --c2:#1f9ad6; --glow: rgba(69,216,255,.55);
+    display: grid; place-items: center;
+  }
+  #btnStrumenti:active { transform: translateX(-50%) scale(.9); }
+  .ruota-icona { font-size: 30px; line-height: 1; display: grid; place-items: center; }
+  .ruota-icona.rv-cubo, .rv-icona.rv-cubo {
+    width: 30px; height: 30px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.4); box-shadow: inset 0 2px 6px rgba(255,255,255,.3);
+  }
+  .ruota { position: fixed; inset: 0; z-index: 46; display: none; }
+  .ruota.aperta { display: block; }
+  .ruota-velo { position: absolute; inset: 0; background: rgba(4,8,18,.42); }
+  .ruota-perno { position: absolute; width: 0; height: 0; }
+  .ruota-centro {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    min-width: 74px; padding: 9px 14px; border-radius: 999px; text-align: center;
+    font-size: 12px; font-weight: 800; color: var(--testo);
+    background: linear-gradient(180deg, rgba(40,52,82,.94), rgba(14,20,38,.96));
+    border: 1px solid rgba(255,255,255,.16);
+    box-shadow: 0 8px 22px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.22);
+  }
+  .ruota-voce {
+    position: absolute; left: 50%; top: 50%;
+    width: 62px; height: 62px; margin: -31px 0 0 -31px; border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    background: linear-gradient(180deg, rgba(56,70,104,.95), rgba(18,26,46,.96));
+    border: 1px solid rgba(255,255,255,.16);
+    box-shadow: 0 8px 20px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.24);
+    /* chiusa: tutte accatastate al centro, invisibili */
+    transform: translate(0, 0) scale(.2); opacity: 0;
+    transition: transform .32s var(--molla), opacity .22s, box-shadow .2s;
+    cursor: pointer;
+  }
+  .ruota.aperta .ruota-voce { transform: translate(var(--x), var(--y)) scale(1); opacity: 1; }
+  .ruota-voce.e-esplora { background: linear-gradient(180deg, #c8f877, #4fae2a); }
+  /* ✕ per svuotare uno slot della barra (prima non c'era modo di togliere) */
+  .bslot-via {
+    position: absolute; top: -6px; right: -6px; width: 20px; height: 20px;
+    border-radius: 50%; border: 1px solid rgba(255,255,255,.35); cursor: pointer;
+    background: linear-gradient(180deg, #ff9ab0, #d8324f); color: #fff;
+    font-size: 11px; font-weight: 800; line-height: 1; display: grid; place-items: center;
+    box-shadow: 0 3px 10px rgba(216,50,79,.5); opacity: 0; transition: opacity .16s, transform .16s var(--molla);
+  }
+  .zaino-bslot:hover .bslot-via, .zaino-bslot.attivo .bslot-via { opacity: 1; }
+  @media (pointer: coarse) { .bslot-via { opacity: 1; } }   /* col dito niente hover */
+  .bslot-via:active { transform: scale(.85); }
+
+  .ruota-voce.e-azione { background: linear-gradient(180deg, #c9b0ff, #6f47d6); }
+  .ruota-voce.e-azione .rv-nome { color: #f0e8ff; }
+  .ruota-voce.in-mano { border-color: rgba(120,230,255,.75); }
+  .ruota.aperta .ruota-voce.mirata {
+    transform: translate(var(--x), var(--y)) scale(1.28);
+    box-shadow: 0 0 0 3px rgba(120,230,255,.85), 0 10px 28px rgba(69,216,255,.6);
+    z-index: 2;
+  }
+  .ruota-voce.vuoto { opacity: .42; }
+  .ruota.aperta .ruota-voce.vuoto { opacity: .42; }
+  .rv-icona { font-size: 25px; line-height: 1; }
+  .rv-nome {
+    font-size: 8px; font-weight: 800; color: rgba(230,242,255,.8);
+    max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .rv-conta { position: absolute; bottom: 2px; right: 6px; font-size: 9px; font-weight: 800; color: #9ff0ff; }
+  .ruota-voce.e-esplora .rv-nome { color: #12330a; }
+
+  /* ---- comandi touch: joystick di vetro + diamante di gel ---- */
+  /* joystick = anello di vetro: quasi trasparente al centro (si vede il gioco),
+     bordo luminoso, alone aqua. Non una macchia grigia. */
+  #comandiTouch .ct-stick {
+    background:
+      radial-gradient(circle at 50% 30%, rgba(160,215,255,.16), transparent 62%),
+      radial-gradient(circle, rgba(6,12,26,.14) 54%, rgba(8,14,30,.5) 78%);
+    border: 2px solid rgba(180,230,255,.34);
+    box-shadow:
+      0 10px 28px rgba(0,0,0,.4),
+      inset 0 2px 0 rgba(255,255,255,.28),
+      0 0 22px rgba(69,216,255,.22);
+  }
+  #comandiTouch .ct-knob {
+    background: linear-gradient(180deg, #7eeaff, #1f9ad6);
+    box-shadow: 0 6px 16px rgba(69,216,255,.55), inset 0 2px 0 rgba(255,255,255,.6), inset 0 -6px 12px rgba(0,0,0,.3);
+    border: none;
+  }
+  /* il salto è il più usato: sta in basso ed è più grosso (come la A di un pad) */
+  .ct-btn.premuto { transform: scale(.9); filter: brightness(1.15); }
+
+  /* ---- rifiniture aero su campi, slider, schede ---- */
+  input[type="range"]::-webkit-slider-runnable-track { background: rgba(3,6,14,.55); border: 1px solid rgba(255,255,255,.1); }
+  input[type="range"]::-webkit-slider-thumb {
+    background: linear-gradient(180deg, #7eeaff, #1f9ad6); border: none;
+    box-shadow: 0 3px 10px rgba(69,216,255,.6), inset 0 1px 0 rgba(255,255,255,.6);
+  }
+  textarea, input[type="text"], input[type="number"], select {
+    background: rgba(3,6,14,.5); color: var(--testo);
+    border: 1px solid rgba(255,255,255,.12); border-radius: 12px;
+  }
+  .opz-tgl.attivo, .zaino-tab.attivo, .opz-scheda.attivo,
+  #barraCostruisci button.attivo, #debug button.attivo, .officina-tipo.attivo {
+    background: linear-gradient(180deg, #7eeaff, #1f9ad6) !important;
+    color: #04202e !important; border-color: rgba(255,255,255,.4) !important;
+    box-shadow: 0 6px 18px rgba(69,216,255,.5), inset 0 1px 0 rgba(255,255,255,.6) !important;
+    text-shadow: none;
+  }
+  /* carte dello zaino: vetrini con puntinato */
+  #zaino .zaino-carta, .zaino-bslot, .officina-riga {
+    background: linear-gradient(180deg, rgba(52,66,98,.7), rgba(16,23,42,.75));
+    border-color: rgba(255,255,255,.14);
+  }
+  #zaino .zaino-carta:hover { border-color: rgba(120,230,255,.7); box-shadow: 0 8px 20px rgba(69,216,255,.28); }
+  #zaino .zaino-vuota { background: rgba(255,255,255,.03); border: 2px dashed rgba(255,255,255,.16); }
+  #zaino .zaino-vuota-eti { color: rgba(200,220,240,.4); }
+  .drag-ghost { background: linear-gradient(180deg, rgba(52,66,98,.96), rgba(16,23,42,.97)); border-color: rgba(120,230,255,.8); }
+  .slot.drop-qui, .zaino-bslot.drop-qui { border-color: #8ef04b; background: rgba(142,240,75,.2); }
+
+  /* ---- schermate di avvio: notte aero con bolle ---- */
+  #caricamento, #loading {
+    background:
+      radial-gradient(circle at 22% 18%, rgba(69,216,255,.22), transparent 45%),
+      radial-gradient(circle at 78% 78%, rgba(255,94,196,.18), transparent 45%),
+      radial-gradient(ellipse at 50% 40%, #131c34 0%, #060a14 70%);
+    color: var(--testo);
+  }
+  /* ---- animazioni morbide condivise ---- */
+  #opzioni, #stanza, #zaino .scheda, #officina .scheda, #aiuto .scheda {
+    animation: entra .26s var(--molla);
+  }
+  @keyframes entra { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+  #toast { animation: entra .22s var(--molla); }
+
+  /* ---- ZAINO stile Animal Crossing: tocchi e scegli, niente trascinamenti ---- */
+  .zn-tit { font-size: 11px; font-weight: 800; color: var(--muto); margin: 10px 0 6px; letter-spacing: .3px; }
+  .zn-ruota { display: grid; grid-template-columns: repeat(9, 1fr); gap: 5px; }
+  .zn-slot {
+    position: relative; aspect-ratio: 1; border-radius: 12px; cursor: pointer;
+    display: grid; place-items: center;
+    border: 2px dashed rgba(255,255,255,.18); background: rgba(255,255,255,.04);
+    transition: transform .18s var(--molla), border-color .16s, box-shadow .16s;
+  }
+  .zn-slot.pieno { border-style: solid; border-color: rgba(255,255,255,.22); background: linear-gradient(180deg, rgba(74,92,132,.55), rgba(28,38,62,.6)); }
+  .zn-slot.attivo { border-color: #45d8ff; box-shadow: 0 0 0 2px rgba(69,216,255,.35), 0 6px 16px rgba(69,216,255,.3); transform: translateY(-2px); }
+  .zn-slot:active { transform: scale(.93); }
+  .zn-via {
+    position: absolute; top: -5px; right: -5px; width: 16px; height: 16px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.4); cursor: pointer; padding: 0;
+    background: linear-gradient(180deg, #ff9ab0, #d8324f); color: #fff;
+    font-size: 9px; font-weight: 800; line-height: 1; display: grid; place-items: center;
+    box-shadow: 0 2px 7px rgba(216,50,79,.55);
+  }
+  .zn-via:active { transform: scale(.85); }
+
+  .zn-tabs { display: flex; gap: 6px; margin: 14px 0 8px; }
+  .zn-tabs .zaino-tab { flex: 1; padding: 8px 6px; border-radius: 999px; font-size: 12px; }
+
+  .zn-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+  .zn-carta {
+    position: relative; border-radius: 14px; cursor: pointer; padding: 10px 6px 8px;
+    display: flex; flex-direction: column; align-items: center; gap: 5px; min-height: 92px;
+    border: 1px solid rgba(255,255,255,.14); color: var(--testo); font: inherit;
+    background: linear-gradient(180deg, rgba(74,92,132,.5), rgba(28,38,62,.58));
+    box-shadow: 0 4px 12px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.2);
+    transition: transform .18s var(--molla), border-color .16s, box-shadow .16s;
+  }
+  .zn-carta:hover { border-color: rgba(120,230,255,.6); box-shadow: 0 6px 18px rgba(69,216,255,.28); }
+  .zn-carta:active { transform: scale(.94); }
+  .zn-carta.in-mano { border-color: rgba(120,230,255,.7); }
+  .zn-carta.spenta { opacity: .42; }
+  .zn-nome { font-size: 10.5px; font-weight: 700; line-height: 1.15; text-align: center; }
+  .zn-q { font-size: 10px; font-weight: 800; color: #9ff0ff; }
+  .zn-ingr { font-size: 8.5px; color: var(--muto); line-height: 1.2; text-align: center; }
+  .zn-bollino {
+    position: absolute; top: -6px; left: -6px; min-width: 20px; height: 20px; border-radius: 999px;
+    background: linear-gradient(180deg, #7eeaff, #1f9ad6); color: #04202e;
+    font-size: 11px; font-weight: 800; display: grid; place-items: center;
+    box-shadow: 0 3px 9px rgba(69,216,255,.5);
+  }
+  .zn-icona { display: grid; place-items: center; line-height: 1; flex: 0 0 auto; }
+  .zn-icona.cubo { border-radius: 7px; border: 1px solid rgba(255,255,255,.3); box-shadow: inset 0 2px 5px rgba(255,255,255,.25); }
+  .zn-vuoto { text-align: center; font-size: 12.5px; color: var(--muto); line-height: 1.7; padding: 26px 10px; }
+
+  /* foglietto delle azioni: appare sopra lo zaino, azioni grandi e leggibili */
+  .zn-foglio { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(4,8,18,.5); }
+  .zn-foglio[hidden] { display: none; }
+  .zn-foglio-carta {
+    width: min(300px, 86vw); padding: 14px; border-radius: 20px;
+    background: linear-gradient(165deg, rgba(34,44,70,.98), rgba(14,20,38,.99));
+    border: 1px solid rgba(255,255,255,.16); box-shadow: 0 20px 50px rgba(0,0,0,.6);
+    animation: entra .2s var(--molla);
+  }
+  .zn-foglio-tit { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; font-size: 14px; }
+  .zn-azione {
+    display: block; width: 100%; margin-top: 7px; padding: 12px; border-radius: 13px;
+    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; color: var(--testo);
+    border: 1px solid rgba(255,255,255,.16);
+    background: linear-gradient(180deg, rgba(74,92,132,.6), rgba(28,38,62,.65));
+    transition: transform .16s var(--molla), border-color .14s;
+  }
+  .zn-azione:active { transform: scale(.96); }
+  .zn-azione.rossa { background: linear-gradient(180deg, rgba(150,50,70,.7), rgba(90,25,40,.75)); border-color: rgba(255,140,160,.35); }
+  .zn-annulla { background: none; border-color: rgba(255,255,255,.12); color: var(--muto); }
+
+  /* ---- collocazione finale dei pochi comandi rimasti ----
+     Sparita la hotbar, la barra bassa serve solo alla barra Costruisci del
+     desktop; zaino e officina diventano due tondi fissi a sinistra. */
+  #rigaBasso { display: contents; }
+  /* zaino e officina ora vivono DENTRO la ruota: niente tondi flottanti */
+  #utilBtn { display: none; }
+  #btnZaino, #btnOfficina {
+    width: 44px; height: 44px; border-radius: 50%; font-size: 19px;
+    background: linear-gradient(180deg, rgba(52,66,98,.92), rgba(20,28,48,.94));
+    border: 1px solid rgba(255,255,255,.14);
+    box-shadow: 0 6px 16px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.26);
+    transition: transform .2s var(--molla), box-shadow .2s;
+  }
+  #btnZaino:active, #btnOfficina:active { transform: scale(.9); }
+  /* col joystick acceso la fascia bassa è occupata: utility in alto a sinistra,
+     e la ruota sale sopra i comandi (in verticale; in orizzontale il centro è libero) */
+  body.comandi-touch #utilBtn { bottom: auto; top: calc(max(10px, env(safe-area-inset-top)) + 62px); }
+  /* ==================================================================
+     COLLOCAZIONE DEI COMANDI — una griglia sola, non tre pezzi scollegati.
+     Prima joystick (96px dal fondo) e diamante (14px) stavano su DUE basi
+     diverse e la bolla galleggiava al centro dello schermo agganciata a
+     nulla: da qui l'aria "storta". Ora:
+       · joystick e diamante condividono LA STESSA base
+       · la bolla sta nella colonna sinistra, sullo STESSO asse del joystick
+     Tutto deriva da due variabili, così le distanze restano vere ovunque.
+     ================================================================== */
+  :root { --ct-giu: 18px; --ct-stick: 120px; --ct-lato: 18px; }
+  @media (max-width: 380px) { :root { --ct-stick: 100px; } }
+
+  #comandiTouch .ct-stick {
+    left: calc(var(--ct-lato) + env(safe-area-inset-left));
+    bottom: calc(var(--ct-giu) + env(safe-area-inset-bottom));
+    width: var(--ct-stick); height: var(--ct-stick);
+  }
+  /* LA BOLLA è il tasto principale: sta sotto il pollice DESTRO, grande.
+     Tocco = usa quello che hai in mano · trascini = si apre la ruota. */
+  body.comandi-touch #btnStrumenti {
+    left: auto;
+    right: calc(var(--ct-lato) + env(safe-area-inset-right));
+    bottom: calc(var(--ct-giu) + env(safe-area-inset-bottom));
+    width: 84px; height: 84px;
+    transform: none;
+  }
+  body.comandi-touch #btnStrumenti:active,
+  body.comandi-touch #btnStrumenti.giu { transform: scale(.92); }
+  body.comandi-touch #btnStrumenti .ruota-icona { font-size: 38px; }
+  body.comandi-touch #btnStrumenti .ruota-icona.rv-cubo { width: 38px; height: 38px; }
+
+  /* SALTO: unico altro tasto, accanto alla bolla sulla stessa base */
+  .ct-salto {
+    position: absolute; right: calc(var(--ct-lato) + env(safe-area-inset-right) + 84px + 14px);
+    bottom: calc(var(--ct-giu) + env(safe-area-inset-bottom) + 8px);
+    width: 62px; height: 62px; border-radius: 50%;
+    font-size: 25px; display: grid; place-items: center; padding: 0;
+  }
+  .ct-salto.premuto { transform: scale(.9); filter: brightness(1.15); }
+
+  /* bolla del BERSAGLIO: speculare, sopra il diamante. Compare solo quando
+     serve (Costruisci + comandi a schermo), così a riposo non c'è nulla. */
+  /* bolla del BERSAGLIO: impilata SOPRA la bolla principale, stesso asse.
+     Compare solo in Costruisci, così a riposo lo schermo è vuoto. */
+  #btnPosa {
+    position: fixed; z-index: 18; display: none; place-items: center;
+    width: 52px; height: 52px; border-radius: 50%;
+    --c1:#ffdd93; --c2:#e8952a; --glow: rgba(255,200,100,.5);
+    right: calc(var(--ct-lato) + env(safe-area-inset-right) + (84px - 52px) / 2);
+    bottom: calc(var(--ct-giu) + env(safe-area-inset-bottom) + 84px + 14px);
+  }
+  body.mostra-posa #btnPosa { display: grid; }
+  #btnPosa:active { transform: scale(.9); }
+  #btnPosa .ruota-icona { font-size: 23px; }
+
+  /* schermi molto stretti: anche il diamante si stringe */
+  @media (max-width: 380px) {
+  }
+
+  .zn-aiuto { font-size: 11.5px; color: var(--muto); margin: 2px 0 10px; }
+
+  /* ---- OFFICINA: sezioni, pittore delle facce, interruttori ---- */
+  .officina-sezione {
+    font-size: 11px; font-weight: 800; color: #9ff0ff; letter-spacing: .4px;
+    margin: 14px 0 4px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.1);
+  }
+  .officina-campo.largo { display: block; }
+  .officina-facce { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 7px; }
+  .off-faccia { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .off-faccia input[type="color"] {
+    width: 100%; height: 34px; padding: 0; border-radius: 9px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.2); background: none;
+  }
+  .off-faccia small { font-size: 9px; color: var(--muto); font-weight: 700; }
+  .off-aiuto { display: block; font-size: 10px; color: var(--muto); line-height: 1.35; margin-top: 3px; }
+  .officina-campo input[type="checkbox"] {
+    appearance: none; width: 42px; height: 24px; border-radius: 99px; cursor: pointer;
+    background: rgba(3,6,14,.55); border: 1px solid rgba(255,255,255,.16); position: relative;
+    transition: background .18s;
+  }
+  .officina-campo input[type="checkbox"]::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+    border-radius: 50%; background: linear-gradient(180deg, #b8c6dd, #7e8da8);
+    transition: transform .2s var(--molla);
+  }
+  .officina-campo input[type="checkbox"]:checked { background: linear-gradient(180deg, #7eeaff, #1f9ad6); }
+  .officina-campo input[type="checkbox"]:checked::after { transform: translateX(18px); background: #fff; }
+  /* schermi stretti: etichetta SOPRA il campo, altrimenti va a capo su 3 righe
+     e le etichette lunghe ("…(culling)") si tagliano */
+  @media (max-width: 560px) {
+    .officina-campo { grid-template-columns: 1fr; gap: 5px; }
+    .officina-campo > span { font-size: 11.5px; }
+    .officina-campo input[type="text"], .officina-campo select,
+    .officina-campo input[type="range"] { width: 100%; }
+    .officina-campo input[type="color"] { width: 100%; }
+    .officina-corpo { flex-direction: column; }
+    .officina-tipi { flex-direction: row; flex-wrap: wrap; flex: 0 0 auto; }
+    .officina-tipo { flex: 1 1 auto; text-align: center; }
+  }
+  .zn-bollino { font-size: 11px; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./node_modules/three/build/three.module.js",
+    "three/addons/": "./node_modules/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+  <div id="scena"></div>
+  <div id="velo"></div>
+
+  <!-- BARRA ALTA: una riga flex (titolo a sx · orologio+tasti a dx). Essendo un
+       contenitore unico, i pezzi si stringono invece di sovrapporsi. -->
+  <div id="hudAlto" class="hud">
+    <div id="titolo" class="pannello"><h1>🏮 Leafy‑Lantern</h1><small id="fps">— fps</small></div>
+    <div id="hudAltoDx">
+      <div id="meteo" class="pannello">
+        <span id="fase">☀️</span>
+        <span id="orologio">12:00</span>
+        <input id="barraTempo" type="range" min="0" max="1000" value="500" aria-label="Ora del giorno">
+      </div>
+      <div id="hudIcone">
+        <button id="btnOpzioni" class="pannello ico" title="Impostazioni">⚙️</button>
+        <button id="btnStanza" class="pannello ico" title="Gioca insieme (P2P)">👥</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MENU UNICO a schede: Gioco · Grafica · AR · Avanzate (il debug vive lì) -->
+  <div id="opzioni" class="hud pannello">
+    <div class="stanza-testa"><b>⚙️ Menu</b><button id="opzioniChiudi" title="Chiudi">✕</button></div>
+    <div class="opz-schede">
+      <button class="opz-scheda attivo" data-scheda="gioco">🎮 Gioco</button>
+      <button class="opz-scheda" data-scheda="grafica">🖼 Grafica</button>
+      <button class="opz-scheda" data-scheda="ar">📷 AR</button>
+      <button class="opz-scheda" data-scheda="avanzate">🔧 Avanzate</button>
+    </div>
+
+    <div class="opz-pagina attivo" data-pagina="gioco">
+      <label class="opz-riga">🌫 Nebbia <span id="valFog" class="opz-val"></span>
+        <input id="opzFog" type="range" min="0" max="150" step="5">
+      </label>
+      <label class="opz-riga">👁 Distanza visiva <span id="valDist" class="opz-val"></span>
+        <input id="opzDist" type="range" min="150" max="900" step="50">
+      </label>
+      <div class="opz-riga opz-toggles">
+        <button id="opzTouch" class="opz-tgl" title="Joystick e tasti a schermo (WASD, salta, scendi, distruggi, piazza)">🎮 Comandi touch</button>
+        <button id="opzMeteo" class="opz-tgl" title="Il cielo vive da solo: rovesci e schiarite (neve d’inverno)">🌦 Meteo auto</button>
+        <button id="opzPioggia" class="opz-tgl">🌧 Pioggia</button>
+        <button id="opzCamera" class="opz-tgl" title="La camera attraversa i muri invece di fermarsi">👻 Camera fantasma</button>
+      </div>
+      <div class="opz-tit-sez">⛏ Resistenza dei blocchi</div>
+      <div class="opz-riga opz-toggles opz-durezza">
+        <button class="opz-tgl" data-durezza="creativa">✨ Creativa</button>
+        <button class="opz-tgl" data-durezza="normale">⛏ Normale</button>
+        <button class="opz-tgl" data-durezza="dura">🪨 Dura</button>
+      </div>
+      <div class="opz-tit-sez">🔊 Audio</div>
+      <label class="opz-riga">🔊 Volume <span id="valVol" class="opz-val"></span>
+        <input id="opzVol" type="range" min="0" max="100" step="5">
+      </label>
+      <div class="opz-riga opz-toggles">
+        <button id="opzMuto" class="opz-tgl">🔇 Muto</button>
+      </div>
+      <div class="opz-tit-sez">💾 Salvataggi</div>
+      <div class="opz-riga opz-toggles">
+        <button id="btnSalvaSlot" class="opz-tgl" title="Salva lo stato attuale come una partita a parte">💾 Salva partita…</button>
+        <button id="btnEsporta" class="opz-tgl" title="Esporta su file (per backup o scambio)">📤 Esporta file</button>
+        <button id="btnImporta" class="opz-tgl">📂 Importa file</button>
+      </div>
+      <div id="slotLista" class="slot-lista"></div>
+
+      <div class="opz-tit-sez">Diorama</div>
+      <div class="opz-riga opz-toggles">
+        <button id="btnReset" class="opz-tgl">🌱 Ricomincia isola</button>
+        <button id="opzResetTutto" class="opz-tgl" title="Riporta TUTTE le impostazioni ai valori di fabbrica (il diorama non si tocca)">♻️ Reset impostazioni</button>
+      </div>
+    </div>
+
+    <div class="opz-pagina" data-pagina="grafica">
+      <div class="opz-tit-sez">🎬 Limite FPS (fluidità costante)</div>
+      <div class="opz-riga opz-fps">
+        <button class="opz-tgl" data-fps="20">20</button>
+        <button class="opz-tgl" data-fps="30">30</button>
+        <button class="opz-tgl" data-fps="60">60</button>
+        <button class="opz-tgl" data-fps="90">90</button>
+        <button class="opz-tgl" data-fps="120">120</button>
+        <button class="opz-tgl" data-fps="0">∞</button>
+      </div>
+      <div class="opz-tit-sez">Preset (un tocco e via)</div>
+      <div class="opz-riga opz-toggles">
+        <button id="preBassa" class="opz-tgl">🥔 Bassa</button>
+        <button id="preMedia" class="opz-tgl">⚖️ Media</button>
+        <button id="preAlta" class="opz-tgl">✨ Alta</button>
+        <button id="preUltra" class="opz-tgl">🚀 Ultra</button>
+      </div>
+      <label class="opz-riga">🎚 Risoluzione <span id="valScala" class="opz-val"></span>
+        <input id="opzScala" type="range" min="50" max="100" step="5">
+      </label>
+      <label class="opz-riga">✨ Forza riflessi <span id="valRifl" class="opz-val"></span>
+        <input id="opzRiflForza" type="range" min="0" max="150" step="10">
+      </label>
+      <label class="opz-riga">🎞 Quantità tilt‑shift <span id="valTiltQ" class="opz-val"></span>
+        <input id="opzTiltQ" type="range" min="0" max="300" step="10">
+      </label>
+      <div class="opz-riga opz-toggles">
+        <button id="opzRiflessi" class="opz-tgl">✨ Riflessi</button>
+        <button id="opzTilt" class="opz-tgl">🎞 Tilt‑shift</button>
+        <button id="opzAutoQ" class="opz-tgl" title="Se gli fps calano, abbassa da sola gli effetti">🚀 Qualità auto</button>
+      </div>
+    </div>
+
+    <div class="opz-pagina" data-pagina="ar">
+      <div class="opz-riga opz-toggles">
+        <button id="opzAR" class="opz-tgl" title="Il diorama appare sul marker inquadrato dalla camera">📷 Gioca in AR</button>
+        <button id="opzXR" class="opz-tgl" title="Senza marker: il telefono mappa lo spazio (ARCore), scegli tu la superficie">🪄 AR avanzata</button>
+        <button id="opzMarker" class="opz-tgl" title="Mostra il marker a schermo intero: stampalo o inquadralo da un altro dispositivo">🖼 Mostra marker</button>
+        <button id="opzArProva" class="opz-tgl" title="AR con una camera FINTA che inquadra il marker: per provare senza webcam">🧪 AR di prova</button>
+      </div>
+      <label class="opz-riga">🧭 Rotazione diorama <span id="valArRot" class="opz-val"></span>
+        <input id="opzArRot" type="range" min="0" max="360" step="15">
+      </label>
+      <label class="opz-riga">📐 Scala diorama <span id="valArScala" class="opz-val"></span>
+        <input id="opzArScala" type="range" min="30" max="300" step="10">
+      </label>
+      <label class="opz-riga" title="Se la webcam è scarsa, abbassala: il marker si aggancia meglio">💡 Esposizione camera <span id="valArEspo" class="opz-val"></span>
+        <input id="opzArEspo" type="range" min="0" max="100" step="5">
+      </label>
+      <label class="opz-riga" title="0 = fuoco vicino, 100 = lontano; doppio tocco = automatico">🔍 Fuoco camera <span id="valArFuoco" class="opz-val"></span>
+        <input id="opzArFuoco" type="range" min="0" max="100" step="5">
+      </label>
+    </div>
+
+    <div class="opz-pagina" data-pagina="avanzate" id="paginaAvanzate"></div>
+
+    <p class="stanza-hint">Le impostazioni si salvano da sole.</p>
+  </div>
+
+  <div id="stanza" class="hud pannello">
+    <div class="stanza-testa">
+      <b>👥 Gioca insieme</b>
+      <span id="stanzaStato">🔴 da soli</span>
+      <button id="stanzaChiudi" title="Chiudi">✕</button>
+    </div>
+    <div id="stanzaScelta">
+      <div id="codiceBox">
+        <div class="opz-tit-sez">✨ Con codice stanza (facile)</div>
+        <button id="rcCrea" class="stanza-big">🏠 Crea stanza</button>
+        <div id="rcCodice"></div>
+        <input id="rcInput" type="text" maxlength="5" placeholder="CODICE (es. K7QF)" spellcheck="false" style="text-transform:uppercase;text-align:center;font-weight:800;letter-spacing:3px">
+        <button id="rcEntra" class="stanza-big">🚪 Entra col codice</button>
+        <details id="rcServer">
+          <summary>⚙️ Server di segnalazione (una volta sola)</summary>
+          <p class="stanza-hint">Serve un piccolo server gratis (istruzioni in server/signaling.mjs → Deno Deploy). Incolla qui l'indirizzo, es. <code>wss://tuo.deno.dev</code></p>
+          <input id="rcUrl" type="text" placeholder="wss://…" spellcheck="false">
+          <button id="rcUrlSalva" class="stanza-mini">💾 Salva server</button>
+        </details>
+      </div>
+      <div class="opz-tit-sez">📋 Oppure con codici manuali (senza server)</div>
+      <button id="stanzaCrea" class="stanza-big">🏠 Crea la stanza / ➕ invita un altro</button>
+      <button id="stanzaEntra" class="stanza-big">🚪 Entra in una stanza</button>
+      <p class="stanza-hint">Uno crea, gli altri entrano (un codice per ciascuno: rifai «invita» per ogni amico). Connessione diretta e cifrata.</p>
+      <details id="turnBox">
+        <summary>🌐 Non vi connettete su rete mobile? Aggiungi un TURN gratuito</summary>
+        <p class="stanza-hint">Registrati gratis su metered.ca (20 GB/mese), copia i 3 valori TURN e incollali qui: la connessione diventa affidabile ovunque.</p>
+        <input id="turnUrl" type="text" placeholder="turn:… (URL del server)" spellcheck="false">
+        <input id="turnUser" type="text" placeholder="username" spellcheck="false">
+        <input id="turnPass" type="text" placeholder="password / credential" spellcheck="false">
+        <button id="turnSalva" class="stanza-mini">💾 Salva TURN</button>
+      </details>
+    </div>
+    <div class="opz-tit-sez">Nella stanza</div>
+    <div id="stanzaMembri"></div>
+    <div id="chatLog"></div>
+    <div class="chat-riga-invio">
+      <input id="chatTesto" type="text" maxlength="200" placeholder="scrivi in chat…">
+      <button id="chatInvia" class="stanza-big" style="width:auto;margin:0;padding:8px 12px">➤</button>
+    </div>
+    <div id="stanzaHost" class="stanza-fase">
+      <p><b>1</b> Manda questo codice all'amico <span class="stanza-ok" id="okMio"></span></p>
+      <textarea id="codiceMio" readonly spellcheck="false"></textarea>
+      <button id="copiaMio" class="stanza-big">📋 Copia il codice stanza</button>
+      <p><b>2</b> Incolla qui la sua risposta:</p>
+      <textarea id="codiceSuo" placeholder="incolla qui la risposta dell'amico…" spellcheck="false"></textarea>
+      <button id="incollaSuo" class="stanza-mini">📥 Incolla dagli appunti</button>
+      <button id="confermaHost" class="stanza-big">🔗 Collega!</button>
+      <button class="stanza-indietro">← indietro</button>
+    </div>
+    <div id="stanzaOspite" class="stanza-fase">
+      <p><b>1</b> Incolla il codice della stanza:</p>
+      <textarea id="codiceStanza" placeholder="incolla qui il codice ricevuto…" spellcheck="false"></textarea>
+      <button id="incollaStanza" class="stanza-mini">📥 Incolla dagli appunti</button>
+      <button id="generaRisposta" class="stanza-big">➡️ Genera la mia risposta</button>
+      <p><b>2</b> Rimandala a chi ha creato la stanza <span class="stanza-ok" id="okRisposta"></span></p>
+      <textarea id="codiceRisposta" readonly spellcheck="false"></textarea>
+      <button id="copiaRisposta" class="stanza-big">📋 Copia la risposta</button>
+      <p class="stanza-hint">Quando l'amico la conferma, siete collegati.</p>
+      <button class="stanza-indietro">← indietro</button>
+    </div>
+  </div>
+
+  <!-- BARRA BASSA: colonna unica (modalità sopra, poi zaino/officina + hotbar).
+       Un solo contenitore = niente più sovrapposizioni con la hotbar. -->
+  <div id="hudBasso" class="hud">
+    <div id="comandi">
+      <div id="pillaModo" class="pannello">🐾 ESPLORA</div>
+      <div id="barraCostruisci" class="pannello">
+        <button id="btnPiazza" class="attivo">🧱 Piazza</button>
+        <button id="btnRompi">⛏ Rompi</button>
+        <button id="btnRuota">🔄</button>
+      </div>
+    </div>
+    <div id="rigaBasso">
+      <div id="utilBtn">
+        <div id="btnOfficina" class="pannello" title="Officina: definisci i tuoi blocchi (U)">🛠️</div>
+        <div id="btnZaino" class="pannello" title="Zaino (I)">🎒</div>
+      </div>
+      <div id="hotbar" class="pannello"></div>
+    </div>
+  </div>
+
+  <div id="zaino" class="hud">
+    <div class="scheda pannello">
+      <div class="zaino-testa">
+        <h2>🎒 Zaino</h2>
+        <span class="zaino-slot"></span>
+        <button class="zaino-chiudi" id="btnChiudiZaino">×</button>
+      </div>
+      <div style="font-size:11px;opacity:.65">Tocca per assegnare, o TIENI PREMUTO e trascina un oggetto sugli slot in basso.</div>
+      <div class="zaino-tabs"></div>
+      <input class="zaino-filtro" type="text" placeholder="🔎 cerca…">
+      <div class="zaino-corpo"></div>
+      <div class="zaino-banco-tit">La tua barra — trascina qui, o tra gli slot per riordinare</div>
+      <div class="zaino-banco"></div>
+    </div>
+  </div>
+  <div id="suggerimento" class="hud pannello">B costruisci · H aiuto</div>
+  <div id="toast" class="hud pannello"></div>
+
+  <div id="aiuto" class="hud">
+    <div class="scheda pannello">
+      <h2>🏮 Come si gioca</h2>
+      <table>
+        <tr><td>Click sul terreno</td><td>il gatto ci va da solo (sale i gradini col salto)</td></tr>
+        <tr><td>WASD + Spazio</td><td>movimento manuale e salto</td></tr>
+        <tr><td>Trascina / Rotella</td><td>orbita la camera / zoom</td></tr>
+        <tr><td>B</td><td>passa tra Esplora e Costruisci</td></tr>
+        <tr><td>1–9</td><td>scegli blocco o furni</td></tr>
+        <tr><td>R</td><td>ruota il furni prima di piazzare</td></tr>
+        <tr><td>Click destro</td><td>(in Costruisci) rimuovi blocco o furni</td></tr>
+        <tr><td>Click sul lampione</td><td>(in Esplora) accendi / spegni</td></tr>
+        <tr><td>Click sulla panchina</td><td>(in Esplora) il gatto ci va e si siede — muoviti per alzarti</td></tr>
+        <tr><td>Raccolta</td><td>rompere rimette nell'inventario, piazzare consuma (∞ nel debug)</td></tr>
+        <tr><td>T</td><td>manda avanti il tempo</td></tr>
+        <tr><td>I (o 🎒)</td><td>zaino: assegna blocchi, furni e attrezzi agli slot</td></tr>
+        <tr><td>🪣 Secchio</td><td>(in Costruisci) raccoglie una sorgente / la versa — 2 sorgenti vicine = acqua infinita</td></tr>
+        <tr><td>F3</td><td>menu di debug (stats, arcipelago, overlay, P2P di prova)</td></tr>
+        <tr><td>V</td><td>volo libero (Spazio sali · Shift scendi)</td></tr>
+      </table>
+      <div class="azioni">
+        <button id="btnChiudiAiuto">Chiudi (H)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- marker AR a schermo intero: sempre la versione GIUSTA, da inquadrare
+       con un altro dispositivo o da stampare (Ctrl+P) -->
+  <div id="markerView">
+    <img src="./AR-Marker/marker-lanterna.png" alt="Marker AR di Leafy-Lantern">
+    <small>inquadra questo schermo dall'altro dispositivo · tocca per chiudere</small>
+  </div>
+
+  <div id="caricamento"><div><span class="lanterna">🏮</span>Accendo la lanterna…</div></div>
+  <!-- overlay riusabile per le operazioni pesanti (AR, cambio mappa, generazione) -->
+  <div id="loading"><div><span class="lanterna">🏮</span><span id="loadingTxt">Un momento…</span></div></div>
+
+  <input id="fileImporta" type="file" accept="application/json" style="display:none">
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

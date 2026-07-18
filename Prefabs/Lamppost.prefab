@@ -1,0 +1,73 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &8991700318619004462
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9025853647542413564}
+  - component: {fileID: -6218539479349004356}
+  - component: {fileID: -706391504563475531}
+  m_Layer: 3
+  m_Name: Lamppost
+  m_TagString: Block
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9025853647542413564
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8991700318619004462}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &-6218539479349004356
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8991700318619004462}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6da4da80daaefd489ab78018f27d90e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridObjectData
+  definition: {fileID: 11400000, guid: 9851018c3f2e187418c42394a87c0306, type: 2}
+  meshFilter: {fileID: 0}
+  currentStateIndex: 0
+  currentGrowth: 0
+  runtimeHealth: 0
+  runtimeEmitterTimers: []
+  metadata: []
+  skipStartupStability: 0
+--- !u!114 &-706391504563475531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8991700318619004462}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6767de35b3005b41a67280f698a5463, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridObjectIntegrity
+  regenDelay: 3
+  regenAmount: 5
+  regenSpeed: 20
+  damageMaterial: {fileID: 2100000, guid: ec5dc22c6ba82b7459ed1ed14aed93d3, type: 2}
+  crackColor: {r: 0.3018868, g: 0.3018868, b: 0.3018868, a: 1}
+  shellScaleMultiplier: 1.002

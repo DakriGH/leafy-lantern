@@ -1,0 +1,103 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45779a684da193246af4d263d05792cf, type: 3}
+  m_Name: Def_GrassBlock
+  m_EditorClassIdentifier: Assembly-CSharp::BlockDefinition
+  identity:
+    prefabUniqueID: block_grass
+    myTag:
+      id: 1
+      subId: 0
+    displayName: Blocco di Erba
+    icon: {fileID: 21300000, guid: d565b5d9d6a9a5c4090a7112cd49f8e2, type: 3}
+    stackSize: 64
+    isPlaceable: 1
+    scaleInHand: 1
+    allowRotation: 1
+  requiresSpecificBase: 0
+  destroyIfSupportRemoved: 0
+  acceptableBases: []
+  useGravity: 1
+  breakIfBaseIsInvalidAfterFall: 0
+  useCustomColliders: 0
+  navigation:
+    type: 0
+    movementCost: 10
+  health:
+    useHealth: 1
+    maxHealth: 100
+    breakEffect: {fileID: 0}
+    toolModifiers:
+    - toolTag:
+        id: 0
+        subId: 0
+      damageMultiplier: 1
+    - toolTag:
+        id: 22
+        subId: 0
+      damageMultiplier: 2
+  loot:
+    dropsLoot: 1
+    possibleDrops:
+    - lootPrefab: {fileID: 8346917809811718954, guid: 20d372ffd7aef614da02c602ffebbb2e, type: 3}
+      minAmount: 1
+      maxAmount: 5
+      chance: 100
+      requiredTool:
+        id: 0
+        subId: 0
+    - lootPrefab: {fileID: 8346917809811718954, guid: 20d372ffd7aef614da02c602ffebbb2e, type: 3}
+      minAmount: 99
+      maxAmount: 99
+      chance: 100
+      requiredTool:
+        id: 22
+        subId: 0
+    crushedLootPrefab: {fileID: 0}
+  hasStates: 0
+  states: []
+  canGrow: 0
+  growthPrefab: {fileID: 0}
+  growthRequirement: 100
+  layers:
+  - cells: 00000000000000000000000001000000000000000000000000
+  pivot: {x: 2, y: 0, z: 2}
+  emitters:
+  - canEmit: 1
+    command: BREAK
+    power: 10
+    intValue: 1
+    type: 2
+    range: 5
+    coneAngle: 45
+    slices:
+    - yOffset: 0
+      width: 5
+      height: 5
+      cells: 00000000000000000000000000000000000100000001010100
+    interval: 1
+    activeOnlyInSpecificState: 0
+    requiredState: 1
+    nextEmitTime: 0
+  omniReactions:
+  - command: BREAK
+    onlyInSpecificState: 0
+    requiredState: 0
+    useInternalValues: 0
+    successChance: 100
+    cooldown: 0
+    lastExecutionTime: 68.98841
+    action: 4
+    value: 0
+    toolID: 22
+    toolSubID: 0
+    lootDest: 1

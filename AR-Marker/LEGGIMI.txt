@@ -1,0 +1,34 @@
+MARKER AR DI LEAFY-LANTERN
+==========================
+
+marker-lanterna.png è l'IMMAGINE-BERSAGLIO del tracking (image target).
+NON è un QR code: non si "scansiona" — la camera deve VEDERE l'immagine
+intera e nitida, e il diorama compare appoggiato sopra.
+
+COME USARLO BENE
+----------------
+• STAMPALO su carta opaca, 12-20 cm di lato (il meglio in assoluto:
+  niente riflessi), oppure aprilo A SCHERMO INTERO su tablet/telefono
+  con la luminosità al massimo.
+• L'immagine deve riempire ALMENO UN TERZO dell'inquadratura.
+• Tienilo DRITTO (frontale) e FERMO per 1-2 secondi per il primo
+  aggancio: poi il tracking segue anche i movimenti.
+• Serve luce nella stanza; evita riflessi sullo schermo/foglio.
+
+IN GIOCO
+--------
+⚙️ Impostazioni → 📷 Gioca in AR. Il chip in alto dice sempre a che
+punto è: "Camera attiva", "Riscaldo il tracking" (lì l'immagine si
+ferma qualche secondo: è normale), "Pronto!", e poi "🎯 Marker
+agganciato!" quando ti vede. Se non aggancia, ogni 4 secondi il chip
+mostra quante analisi al secondo sta facendo il tracker.
+
+LA PRIMA VOLTA
+--------------
+Alla prima attivazione l'app COMPILA il marker (~1 minuto, il chip lo
+dice). Il risultato resta in cache: dalle volte dopo è immediato.
+Se il marker viene rigenerato (scripts/genera-marker.py), le stampe
+vecchie non funzionano più: va ristampato quello nuovo.
+
+Il gioco è IDENTICO con o senza AR: stessa isola, stessi salvataggi,
+stesso multiplayer. L'AR è solo un altro modo di guardarlo.
