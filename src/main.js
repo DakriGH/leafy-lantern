@@ -2103,6 +2103,7 @@ function pianoAcquaVicino() {
 }
 const _acquaNascoste = [];
 let _riflAlterna = false, _riflUltimo = false;
+let _schiumaDt = 0;              // tempo accumulato fra due render della schiuma
 const RIFL_DIST2 = 70 * 70;
 /** Cosa NON entra nel render specchiato: tutta l'acqua (feedback loop) più
  *  chunk e furni LONTANI — tra fresnel e wobble il riflesso mostra solo il
@@ -2338,10 +2339,13 @@ function passo(adesso, frameXR) {
   // mondo (riflesso, silhouette schiuma) si spengono, resta la schiuma di riva
   const pianoAcqua = (modalitaAR.attiva || modalitaXR.attiva) ? null : pianoAcquaVicino();
 
-  // schiuma a silhouette: la fetta di geometria che buca il pelo — ogni frame
-  // su desktop, a frame ALTERNI su mobile (micro-render dei soli oggetti)
-  if (pianoAcqua === null) schiumaTop.spegni();
-  else if (!rig.mobile || _riflAlterna) schiumaTop.aggiorna(rig.scena, rig.bersaglio, pianoAcqua);
+  // schiuma a silhouette: la fetta di geometria che buca il pelo. A frame
+  // ALTERNI su OGNI dispositivo — su desktop girava a ogni frame ed era il 30%
+  // del costo del frame (render extra su target 512²). Ora che la scia sfuma a
+  // tempo e non a frame, dimezzare le chiamate non cambia quello che si vede.
+  _schiumaDt += dt;
+  if (pianoAcqua === null) { schiumaTop.spegni(); _schiumaDt = 0; }
+  else if (_riflAlterna) { schiumaTop.aggiorna(rig.scena, rig.bersaglio, pianoAcqua, _schiumaDt); _schiumaDt = 0; }
   impostaSchiumaTop(schiumaTop.rt.texture, schiumaTop.info);
 
   // riflesso planare: a FRAME ALTERNI (la RT resta valida, il wobble copre il

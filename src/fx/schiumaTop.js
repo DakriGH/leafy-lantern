@@ -18,7 +18,11 @@ export const LAYER_SCHIUMA = 3;
 const ESTENSIONE = 64;           // unità di mondo coperte, centrate sul fuoco
 const GRIGLIA_CENTRO = 16;       // il centro salta di 16u: la scia resta allineata
 const SOPRA = 0.25, SOTTO = 0.3; // fetta stretta attorno al pelo
-const DISSOLVENZA = 0.025;       // quanto svanisce la scia a ogni frame (~mezzo secondo)
+// La scia svanisce a TEMPO, non a frame: prima era 0.025 fisso per chiamata,
+// così la stessa scia durava 0.25s a 120fps e 1s a 30fps (e il doppio su mobile,
+// che aggiorna a frame alterni). Con tau = 0.66s il conto a 60fps dà 0.025 —
+// identico a prima — ma adesso è uguale ovunque e a qualsiasi cadenza.
+const TAU_SCIA = 0.66;
 
 export class SchiumaTop {
   constructor(renderer, mobile = false) {
@@ -40,17 +44,19 @@ export class SchiumaTop {
     this._colorePrec = new THREE.Color();
     this._cx = null; this._cz = null;
 
-    // quad a tutto schermo che "sbianca via" la scia un po' per frame
+    // quad a tutto schermo che "sbianca via" la scia: l'opacità la decide
+    // aggiorna() in base al tempo passato dall'ultima chiamata
     this._camFade = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
+    this._matFade = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.025, depthTest: false, depthWrite: false });
     this._scenaFade = new THREE.Scene();
-    this._scenaFade.add(new THREE.Mesh(
-      new THREE.PlaneGeometry(2, 2),
-      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: DISSOLVENZA, depthTest: false, depthWrite: false }),
-    ));
+    this._scenaFade.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this._matFade));
   }
 
-  /** Renderizza la fetta al pelo `pelo`, centrata sul fuoco. */
-  aggiorna(scena, fuoco, pelo) {
+  /** Renderizza la fetta al pelo `pelo`, centrata sul fuoco. `dt` = secondi dall'ultimo aggiorna. */
+  aggiorna(scena, fuoco, pelo, dt = 1 / 60) {
+    // dt grande (scheda in secondo piano, caricamento) non deve cancellare la
+    // scia in un colpo: si tappa a 0.25s, e il decadimento resta esponenziale
+    this._matFade.opacity = 1 - Math.exp(-Math.min(dt, 0.25) / TAU_SCIA);
     const cx = Math.round(fuoco.x / GRIGLIA_CENTRO) * GRIGLIA_CENTRO;
     const cz = Math.round(fuoco.z / GRIGLIA_CENTRO) * GRIGLIA_CENTRO;
     const ricentrato = cx !== this._cx || cz !== this._cz;

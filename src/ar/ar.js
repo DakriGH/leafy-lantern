@@ -86,20 +86,9 @@ export class ModalitaAR {
         import('../../node_modules/mind-ar/dist/mindar-image.prod.js'),
       ]);
 
-      // Nell'APK (Capacitor) il permesso Android va chiesto dal NATIVO: senza,
-      // getUserMedia resta in sospeso PER SEMPRE. Il plugin Camera è sul bridge.
-      const cap = window.Capacitor;
-      const pluginCam = cap && cap.Plugins && cap.Plugins.Camera;
-      if (pluginCam && pluginCam.requestPermissions) {
-        this._stato('📷 Chiedo il permesso per la camera…');
-        const st = await this._conTimeout(
-          pluginCam.requestPermissions({ permissions: ['camera'] }), 25000, 'permesso camera',
-        );
-        const esito = st && st.camera;
-        if (esito && esito !== 'granted' && esito !== 'limited') {
-          throw new Error('permesso camera negato — riattivalo dalle impostazioni Android dell’app');
-        }
-      }
+      // Il permesso camera lo chiede getUserMedia qui sotto: nel browser è il
+      // percorso normale e vale su ogni dispositivo. Serve però un contesto
+      // sicuro — https:// oppure localhost — altrimenti il browser lo nega.
 
       // dati del marker (precompilato → cache → compilazione dal PNG)
       const buffer = await this._conTimeout(this._datiMarker(Compiler), 240000, 'dati del marker');
