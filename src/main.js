@@ -1857,6 +1857,7 @@ const PRESET_GRAFICA = {
   ultra: { scala: 1, riflessi: true, tilt: true, tiltQ: 2.6, riflForza: 1.2, dist: 900, fog: 0.4, autoQ: false },
 };
 
+let _riflDim = '';
 function applicaQualita() {
   const q = LIVELLI_Q[qLivello];
   rig.impostaTiltShift(qManuale ? (opzioni.tilt ? opzioni.tiltQ : 0) : Math.min(q.tilt, opzioni.tiltQ || 2.2));
@@ -1864,7 +1865,11 @@ function applicaQualita() {
   // su mobile i riflessi partono spenti (default opzioni) ma se l'utente li
   // ACCENDE valgono anche lì: niente più divieto assoluto
   riflesso.attivo = (qManuale ? true : q.rifl) && riflessiUtente;
-  riflesso.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight), rig.renderer.getPixelRatio());
+  // ridimensionare rifà i buffer del riflesso = un frame nero: farlo SOLO se
+  // le misure sono davvero cambiate, non a ogni passaggio di qui
+  const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight), pr = rig.renderer.getPixelRatio();
+  const firma = `${w}x${h}@${pr.toFixed(3)}`;
+  if (firma !== _riflDim) { _riflDim = firma; riflesso.dimensiona(w, h, pr); }
 }
 
 function applicaOpzioni(salva = true) {
@@ -2119,10 +2124,32 @@ function nascostiPerRiflesso() {
   }
   return _acquaNascoste;
 }
+// QUALITÀ ADATTIVA — con isteresi e raffreddamento.
+// Prima decideva ogni mezzo secondo sull'ULTIMO campione: su una macchina che
+// sta sulla soglia (28 fps → abbasso → 55 fps → rialzo → 28…) oscillava di
+// continuo, e siccome ogni cambio rifà i buffer di rendering si vedevano
+// FLASH NERI ininterrotti (segnalati su Chromebook). Ora:
+//  · servono più campioni CONSECUTIVI d'accordo, non uno solo;
+//  · dopo un cambio si aspetta, così non si rincorre da solo;
+//  · risalire chiede molto più margine che scendere (asimmetria voluta:
+//    meglio restare un gradino sotto che lampeggiare).
+const CAMPIONI_GIU = 2;      // ~1s di fps bassi prima di alleggerire
+const CAMPIONI_SU = 8;       // ~4s di fps alti prima di riprovare la qualità
+const ATTESA_CAMBIO = 4000;  // ms di silenzio dopo ogni cambio
+let _giu = 0, _su = 0, _ultimoCambio = 0;
+
 function adattaQualita(fps) {
   if (qManuale) return;
-  if (fps < 30 && qLivello < LIVELLI_Q.length - 1) { qLivello++; applicaQualita(); }
-  else if (fps >= 52 && qLivello > 0) { qLivello--; applicaQualita(); }
+  const adesso = performance.now();
+  if (adesso - _ultimoCambio < ATTESA_CAMBIO) return;      // sta assestandosi
+
+  if (fps < 28) { _giu++; _su = 0; } else if (fps >= 58) { _su++; _giu = 0; } else { _giu = 0; _su = 0; }
+
+  if (_giu >= CAMPIONI_GIU && qLivello < LIVELLI_Q.length - 1) {
+    qLivello++; _giu = _su = 0; _ultimoCambio = adesso; applicaQualita();
+  } else if (_su >= CAMPIONI_SU && qLivello > 0) {
+    qLivello--; _giu = _su = 0; _ultimoCambio = adesso; applicaQualita();
+  }
 }
 
 let _ultimoFrame = 0;
