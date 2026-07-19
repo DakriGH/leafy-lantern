@@ -1,57 +1,57 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrsd6jrw';
-import { Rig } from './engine/renderer.js?v=mrsd6jrw';
-import { Input } from './engine/input.js?v=mrsd6jrw';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrsd6jrw';
-import { Cadenza } from './engine/cadenza.js?v=mrsd6jrw';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=mrsd6jrw';
-import { componiDiagnostica } from './engine/diagnostica.js?v=mrsd6jrw';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrsd6jrw';
-import { Mondo } from './world/world.js?v=mrsd6jrw';
-import { SimAcqua } from './world/acqua.js?v=mrsd6jrw';
-import { Lobby } from './net/lobby.js?v=mrsd6jrw';
-import { Segnalatore } from './net/segnalatore.js?v=mrsd6jrw';
-import { Ruota } from './ui/ruota.js?v=mrsd6jrw';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrsd6jrw';
-import { Zaino } from './ui/zaino.js?v=mrsd6jrw';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mrsd6jrw';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrsd6jrw';
-import { generaMostra } from './world/mostra.js?v=mrsd6jrw';
-import { generaCollaudo } from './world/collaudo.js?v=mrsd6jrw';
-import { generaTestLuci } from './world/testLuci.js?v=mrsd6jrw';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mrsd6jrw';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrsd6jrw';
-import { Meteo } from './fx/meteo.js?v=mrsd6jrw';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrsd6jrw';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrsd6jrw';
-import { CicloGiorno } from './fx/daynight.js?v=mrsd6jrw';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrsd6jrw';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrsd6jrw';
-import { ModalitaAR } from './ar/ar.js?v=mrsd6jrw';
-import { Nuvole } from './fx/nuvole.js?v=mrsd6jrw';
-import { SegnaPercorso } from './fx/percorso.js?v=mrsd6jrw';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mrsd6jrw';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mrsd6jrw';
-import { Pioggia } from './fx/pioggia.js?v=mrsd6jrw';
-import { Particelle } from './fx/particelle.js?v=mrsd6jrw';
-import { Audio } from './fx/audio.js?v=mrsd6jrw';
-import { Creature } from './gioco/creature.js?v=mrsd6jrw';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrsd6jrw';
-import { Palla } from './gioco/palla.js?v=mrsd6jrw';
-import { Gatto } from './player/player.js?v=mrsd6jrw';
-import { ManoStrumento } from './player/mano.js?v=mrsd6jrw';
-import { dropDi } from './gioco/drop.js?v=mrsd6jrw';
-import { Controller } from './player/controller.js?v=mrsd6jrw';
-import { FURNI, centroide } from './furniture/registry.js?v=mrsd6jrw';
-import { caricaModelli } from './furniture/loader.js?v=mrsd6jrw';
-import { Arredo } from './furniture/furniture.js?v=mrsd6jrw';
-import { HUD } from './ui/hud.js?v=mrsd6jrw';
-import { MenuDebug } from './ui/debug.js?v=mrsd6jrw';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrsd6jrw';
-import { ModalitaXR } from './ar/ar-xr.js?v=mrsd6jrw';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrsd6jrw';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrsenxmm';
+import { Rig } from './engine/renderer.js?v=mrsenxmm';
+import { Input } from './engine/input.js?v=mrsenxmm';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrsenxmm';
+import { Cadenza } from './engine/cadenza.js?v=mrsenxmm';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=mrsenxmm';
+import { componiDiagnostica } from './engine/diagnostica.js?v=mrsenxmm';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrsenxmm';
+import { Mondo } from './world/world.js?v=mrsenxmm';
+import { SimAcqua } from './world/acqua.js?v=mrsenxmm';
+import { Lobby } from './net/lobby.js?v=mrsenxmm';
+import { Segnalatore } from './net/segnalatore.js?v=mrsenxmm';
+import { Ruota } from './ui/ruota.js?v=mrsenxmm';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrsenxmm';
+import { Zaino } from './ui/zaino.js?v=mrsenxmm';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mrsenxmm';
+import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrsenxmm';
+import { generaMostra } from './world/mostra.js?v=mrsenxmm';
+import { generaCollaudo } from './world/collaudo.js?v=mrsenxmm';
+import { generaTestLuci } from './world/testLuci.js?v=mrsenxmm';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mrsenxmm';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrsenxmm';
+import { Meteo } from './fx/meteo.js?v=mrsenxmm';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrsenxmm';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrsenxmm';
+import { CicloGiorno } from './fx/daynight.js?v=mrsenxmm';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrsenxmm';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrsenxmm';
+import { ModalitaAR } from './ar/ar.js?v=mrsenxmm';
+import { Nuvole } from './fx/nuvole.js?v=mrsenxmm';
+import { SegnaPercorso } from './fx/percorso.js?v=mrsenxmm';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mrsenxmm';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mrsenxmm';
+import { Pioggia } from './fx/pioggia.js?v=mrsenxmm';
+import { Particelle } from './fx/particelle.js?v=mrsenxmm';
+import { Audio } from './fx/audio.js?v=mrsenxmm';
+import { Creature } from './gioco/creature.js?v=mrsenxmm';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrsenxmm';
+import { Palla } from './gioco/palla.js?v=mrsenxmm';
+import { Gatto } from './player/player.js?v=mrsenxmm';
+import { ManoStrumento } from './player/mano.js?v=mrsenxmm';
+import { dropDi } from './gioco/drop.js?v=mrsenxmm';
+import { Controller } from './player/controller.js?v=mrsenxmm';
+import { FURNI, centroide } from './furniture/registry.js?v=mrsenxmm';
+import { caricaModelli } from './furniture/loader.js?v=mrsenxmm';
+import { Arredo } from './furniture/furniture.js?v=mrsenxmm';
+import { HUD } from './ui/hud.js?v=mrsenxmm';
+import { MenuDebug } from './ui/debug.js?v=mrsenxmm';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrsenxmm';
+import { ModalitaXR } from './ar/ar-xr.js?v=mrsenxmm';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrsenxmm';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -2569,6 +2569,9 @@ for (const [nome, valori] of Object.entries(PRESET_GRAFICA)) {
     hud.toast(`🖼 Grafica «${nome}» applicata`);
   });
 }
+// il tasto Diagnostica DUPLICATO nella scheda Grafica (vedi index.html): stessa
+// azione del gemello in Avanzate, così chi ha cali di fps lo trova subito
+document.getElementById('opzDiagnostica')?.addEventListener('click', () => eseguiDiagnostica());
 document.getElementById('opzResetTutto').addEventListener('click', () => {
   Object.assign(opzioni, OPZ_DEFAULT);
   localStorage.removeItem(OPZ_CHIAVE);
