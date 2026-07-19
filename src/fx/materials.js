@@ -124,8 +124,8 @@ const uniformi = {
   uLuceMin: { value: 0.34 },                     // luminosità residua al buio
   uLumeColore: { value: new THREE.Color(1.0, 0.86, 0.62) },   // caldo di lanterna
   uSole: { value: new THREE.Vector3(0.4, 0.8, 0.45).normalize() },
-  uSoleForza: { value: 0.38 },                   // 0 = nessuna ombra dal sole
-  uSchiumaRiva: { value: 0.62 },                 // quanto la banda di riva entra al largo (0..1)
+  uSoleForza: { value: 0 },                      // SPENTO: vedi ombraSole() nel GLSL
+  uSchiumaRiva: { value: 0.62 },                 // soglia banda di riva: più bassa = più larga
   // in AR il mondo vive dentro un pivot ruoto-scalato: questa è la sua INVERSA,
   // così vPosMondo resta in coordinate MONDO e luci/ombre/schiuma funzionano
   // anche sul diorama in AR (identità quando l'AR è spenta)
@@ -234,7 +234,24 @@ const GLSL_FRAGMENT = /* glsl */`
   uniform sampler2D uCielo;
   uniform vec4 uCieloInfo;
 
-  // OMBRE DEL SOLE — quelle che si muovono con l'ora.
+  // OMBRE DEL SOLE — TENTATIVO NON RIUSCITO, LASCIATO SPENTO (uSoleForza = 0).
+  //
+  // L'idea: camminare nell'altimetria del mondo verso il sole e dichiarare in
+  // ombra i punti dove una colonna sul cammino è più alta del raggio. Niente
+  // shadow map, pochi campionamenti, ombre che si muovono con l'ora.
+  //
+  // PERCHÉ NON FUNZIONA QUI. Il terreno è a TERRAZZE di un blocco: ogni
+  // gradino diventa un occlusore, quindi mezzo mondo si dichiara in ombra. Con
+  // il passo di marcia (0.7-2.4 unità) si saltano colonne, e l'altimetria è
+  // campionata con filtro NEAREST — il risultato non è un'ombra ma un mosaico
+  // di rettangoli verde scuro sparsi sui prati piatti, senza rapporto con la
+  // geometria che dovrebbe proiettarli.
+  //
+  // Perché servirebbe per farlo davvero: marcia a passo di mezza cella (3-4
+  // volte i campionamenti), bias proporzionale alla pendenza del terreno per
+  // togliere l'auto-ombreggiamento dei gradini, e un bordo morbido invece del
+  // taglio binario. Cioè un'altra cosa, da misurare prima su GPU debole.
+  // Il codice resta perché la struttura è giusta e il difetto è documentato.
   //
   // Il canale CIELO della luce cotta scende dritto in giù, quindi sotto cielo
   // aperto vale il massimo OVUNQUE: moltiplicarlo per l'ora scuriva tutto in
@@ -245,7 +262,9 @@ const GLSL_FRAGMENT = /* glsl */`
   // che già serve alle nuvole) verso il sole. Se una colonna lungo il cammino
   // è più alta del raggio, il punto è in ombra. Costa qualche campionamento e
   // dà ombre lunghe all'alba, corte a mezzogiorno, dal lato giusto.
+  // SPENTA DI DEFAULT (uSoleForza = 0) — vedi il commento sopra sul perché.
   float ombraSole() {
+    if (uSoleForza <= 0.001) return 1.0;          // niente marcia, niente costo
     if (uSole.y <= 0.06) return 1.0;              // sole sotto l'orizzonte: notte
     // passo proporzionale all'inclinazione: col sole basso le ombre sono lunghe
     float passo = mix(2.4, 0.7, clamp(uSole.y, 0.0, 1.0));
@@ -501,19 +520,16 @@ const GLSL_ACQUA_COLORE = /* glsl */`
     vec2 uvS = (vPosMondo.xz - uCieloInfo.xy) * uCieloInfo.z;
     float maschera = step(0.5, texture2D(uSchiuma, uvS).r);   // impatti cascate
     float vivo = lanternaRumore(vPosMondo.xz * 4.6 + uTempo * vec2(1.2, 0.9));
-    // SCHIUMA DI RIVA, rifatta. Adesso aRiva è una DISTANZA vera dalla sponda
-    // (0 = addosso, 1 = a RIVA_PORTATA celle di distanza), non più un sì/no:
-    // per questo la banda può finalmente essere larga più di una cella.
+    // SCHIUMA DI RIVA. La formula è tornata quella semplice a soglia dopo un
+    // tentativo fallito: avevo provato una "cresta" (smoothstep dentro e fuori)
+    // per allargare la banda, ma vRiva è interpolato sui triangoli e le due
+    // soglie ne seguivano gli spigoli — sulla riva comparivano zigzag bianchi
+    // netti, a scatti, molto peggio della banda stretta che volevo migliorare.
     //
-    // La forma è una CRESTA, non una soglia secca: massima appena staccata
-    // dalla riva, poi si dirada verso il largo. Questo è anche ciò che salva i
-    // canali stretti che una volta diventavano fogli bianchi — lì l'acqua sta
-    // tutta a ridosso delle sponde, cioè nella parte iniziale della cresta, e
-    // non nel suo massimo. uSchiumaRiva regola quanto la banda entra al largo.
-    float dist = clamp(vRiva / max(uSchiumaRiva, 0.001), 0.0, 1.0);
-    float cresta = smoothstep(0.0, 0.22, dist) * (1.0 - smoothstep(0.55, 1.0, dist));
-    // il noise la sfrangia: bordo vivo e irregolare, mai una lastra geometrica
-    float schiumaRiva = smoothstep(0.34, 0.62, cresta * (0.55 + 0.75 * frasta));
+    // Quello che RESTA del tentativo, ed è un guadagno vero, è il dato a monte:
+    // aRiva adesso è una distanza (0, 0.33, 0.67, 1) e non più un sì/no, quindi
+    // uSchiumaRiva allarga davvero la banda invece di non fare niente.
+    float schiumaRiva = step(uSchiumaRiva, bordoRiva * (0.45 + 0.55 * frasta));
     // silhouette e SCIA (il RT sfuma la storia): chiazze che vivono col tempo
     float schiumaSag = step(0.62, sagoma * (0.55 + 0.55 * vivo));
     float schiuma = max(max(schiumaRiva, maschera), schiumaSag);
