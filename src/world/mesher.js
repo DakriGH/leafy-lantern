@@ -18,11 +18,13 @@ import { materialeMondo, materialeAcqua, aggiornaCielo } from '../fx/materials.j
 import { CHUNK } from './world.js';
 
 const U = 1 / 16;                 // 1 pixel in unità mondo
-// quanto può scurire al massimo l'ombra cotta nella mesh: oltre, gli anfratti
-// diventano macchie nere e si perde la lettura delle forme
-const OMBRA_COTTA_MAX = 0.42;
-// fin dove si guarda in su cercando un tetto che faccia ombra
-const OMBRA_PORTATA = 7;
+// Velo di occlusione negli anfratti. TENUTO BASSO di proposito: essendo
+// per-BLOCCO scurisce tutte e sei le facce insieme, e a 0.42 si vedevano fasce
+// squadrate su ogni lato dei blocchi invece di un'ombra. Le ombre vere adesso
+// le fa il sole nello shader; questa resta solo a dare profondità agli incavi.
+const OMBRA_COTTA_MAX = 0.16;
+// fin dove si guarda in su cercando un tetto (corto: il resto lo fa il sole)
+const OMBRA_PORTATA = 3;
 // quante celle può essere larga al massimo la banda di schiuma sulla riva
 const RIVA_PORTATA = 3;
 const COPPIE_SMUSSO = [[0, 1], [0, 2], [1, 2]];

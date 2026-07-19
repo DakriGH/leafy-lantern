@@ -75,10 +75,17 @@ export function impostaSchiumaAcqua(celle, cerchi = []) {
   ctx.fillRect(0, 0, SCHIUMA_DIM, SCHIUMA_DIM);
   ctx.fillStyle = '#fff';
   for (const [x, z] of celle) ctx.fillRect((x - OR - 0.42) * S, (z - OR - 0.42) * S, 1.84 * S, 1.84 * S);
+  // ANELLI, non dischi. Erano `fill()` di cerchi pieni: ai piedi di una
+  // cascata OGNI faccia d'acqua entro il raggio finiva a schiuma piena, a
+  // qualsiasi quota (la maschera si campiona solo in XZ) — una delle ragioni
+  // del lenzuolo bianco. Il passaggio che li svuotava iterava su `celle`, che
+  // il gioco passa sempre vuota, quindi non ha mai svuotato niente.
+  ctx.lineWidth = Math.max(2, 0.55 * S);
+  ctx.strokeStyle = '#fff';
   for (const c of cerchi) {
     ctx.beginPath();
-    ctx.arc((c.x - OR) * S, (c.z - OR) * S, c.r * S, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.arc((c.x - OR) * S, (c.z - OR) * S, Math.max(0.1, c.r * S - ctx.lineWidth * 0.5), 0, Math.PI * 2);
+    ctx.stroke();
   }
   // interni neri DOPO tutti i bianchi: la schiuma è il contorno dell'UNIONE
   ctx.fillStyle = '#000';
@@ -116,6 +123,8 @@ const uniformi = {
   uGradini: { value: 4 },                        // scalini del cel shading
   uLuceMin: { value: 0.34 },                     // luminosità residua al buio
   uLumeColore: { value: new THREE.Color(1.0, 0.86, 0.62) },   // caldo di lanterna
+  uSole: { value: new THREE.Vector3(0.4, 0.8, 0.45).normalize() },
+  uSoleForza: { value: 0.38 },                   // 0 = nessuna ombra dal sole
   uSchiumaRiva: { value: 0.62 },                 // quanto la banda di riva entra al largo (0..1)
   // in AR il mondo vive dentro un pivot ruoto-scalato: questa è la sua INVERSA,
   // così vPosMondo resta in coordinate MONDO e luci/ombre/schiuma funzionano
@@ -215,6 +224,44 @@ const GLSL_FRAGMENT = /* glsl */`
   uniform float uGradini;           // quanti scalini ha il cel shading
   uniform float uLuceMin;           // quanto resta al buio (mai 0: niente macchie nere)
   uniform vec3  uLumeColore;        // tinta della luce artificiale
+  uniform vec3  uSole;              // direzione VERSO il sole (normalizzata)
+  uniform float uSoleForza;         // quanto scurisce l'ombra del sole
+  // L'altimetria del mondo. Dichiarata QUI, in cima, e non più più in basso
+  // accanto alle ombre delle nuvole: GLSL pretende la dichiarazione prima
+  // dell'uso, e ombraSole() la usa. Averla lasciata sotto faceva fallire la
+  // compilazione dell'intero shader — schermo vuoto, senza che il gioco desse
+  // il minimo segno di errore se non in console.
+  uniform sampler2D uCielo;
+  uniform vec4 uCieloInfo;
+
+  // OMBRE DEL SOLE — quelle che si muovono con l'ora.
+  //
+  // Il canale CIELO della luce cotta scende dritto in giù, quindi sotto cielo
+  // aperto vale il massimo OVUNQUE: moltiplicarlo per l'ora scuriva tutto in
+  // modo uniforme, cioè un dimmer, non un'ombra. Le ombre vere richiedono la
+  // DIREZIONE del sole, e cambiano forma e lunghezza durante il giorno.
+  //
+  // Niente shadow map: si cammina nell'altimetria del mondo (la stessa texture
+  // che già serve alle nuvole) verso il sole. Se una colonna lungo il cammino
+  // è più alta del raggio, il punto è in ombra. Costa qualche campionamento e
+  // dà ombre lunghe all'alba, corte a mezzogiorno, dal lato giusto.
+  float ombraSole() {
+    if (uSole.y <= 0.06) return 1.0;              // sole sotto l'orizzonte: notte
+    // passo proporzionale all'inclinazione: col sole basso le ombre sono lunghe
+    float passo = mix(2.4, 0.7, clamp(uSole.y, 0.0, 1.0));
+    vec3 p = vPosMondo + uSole * (passo * 0.6);   // staccato: niente auto-ombra
+    for (int i = 0; i < 10; i++) {
+      vec2 uv = (p.xz - uCieloInfo.xy) * uCieloInfo.z;
+      if (uv.x <= 0.0 || uv.x >= 1.0 || uv.y <= 0.0 || uv.y >= 1.0) break;
+      float quota = texture2D(uCielo, uv).r;
+      if (quota > p.y + 0.3) {
+        // bordo a gradini, come tutto il resto della grafica
+        return 1.0 - uSoleForza;
+      }
+      p += uSole * passo;
+    }
+    return 1.0;
+  }
 
   // IL CEL SHADING. I due canali si combinano prendendo il massimo: una stanza
   // chiusa e illuminata resta illuminata anche a mezzogiorno, e di notte —
@@ -222,7 +269,9 @@ const GLSL_FRAGMENT = /* glsl */`
   // Il risultato si QUANTIZZA a pochi gradini: le fasce nette non sono un
   // effetto aggiunto sopra, sono la luce stessa arrotondata.
   vec3 luceCotta() {
-    float cielo = (1.0 - vCieloMan) * uOraLuce;
+    // il sole ombreggia SOLO il canale cielo: una lanterna dentro casa non si
+    // spegne perché fuori è passata una nuvola o è calata la sera
+    float cielo = (1.0 - vCieloMan) * uOraLuce * ombraSole();
     float lume = vLume;
     float grezzo = max(cielo, lume);
     float scalino = floor(grezzo * uGradini + 0.5) / uGradini;
@@ -239,8 +288,6 @@ const GLSL_FRAGMENT = /* glsl */`
   uniform int uOmbraNum;
   uniform float uOmbraForza;
   uniform sampler2D uOmbraMask;
-  uniform sampler2D uCielo;
-  uniform vec4 uCieloInfo;
 
   // Ombra delle nuvole: la sagoma (unione dei rettangoli-scatola) è pre-disegnata
   // in una maschera → UN campionamento a pixel, forma esatta della nuvola.
@@ -272,31 +319,28 @@ const GLSL_FRAGMENT = /* glsl */`
     float f = 1.0;
     if (uPgNum == 0) return f;
 
-    // CANCELLO SULLA SUPERFICIE. Il test qui sotto è puramente geometrico: un
-    // tronco di cono verticale, con la distanza misurata SOLO in orizzontale.
-    // Senza questo cancello ogni frammento dentro il cono veniva scurito —
-    // il piano del tavolo, il pavimento sotto il tavolo e il soffitto della
-    // grotta più in basso tutti insieme: è l'ombra che "trapassa gli oggetti".
-    // La stessa altimetria che ferma le ombre delle nuvole risolve anche
-    // questa: l'ombra si posa solo sulla cima della colonna, una volta sola.
-    vec2 uvC = (vPosMondo.xz - uCieloInfo.xy) * uCieloInfo.z;
-    if (uvC.x > 0.0 && uvC.x < 1.0 && uvC.y > 0.0 && uvC.y < 1.0) {
-      float quota = texture2D(uCielo, uvC).r;
-      if (vPosMondo.y < quota - 0.35) return 1.0;
-    }
-
+    // PROFONDITÀ CORTA invece del cancello sull'altimetria. Il test qui sotto è
+    // geometrico — un tronco di cono verticale con distanza solo orizzontale —
+    // e con 6 unità di portata scuriva insieme il tavolo, il pavimento sotto e
+    // il soffitto della grotta: era l'ombra che "trapassa gli oggetti".
+    // Il primo tentativo (posare l'ombra solo sulla cima della colonna, come
+    // le nuvole) ha risolto quello ma ne ha creato uno peggiore: DENTRO UNA
+    // CAVERNA il pavimento non è la cima di nessuna colonna, e l'ombra spariva
+    // del tutto. Bastava accorciare la portata: sotto i piedi c'è quasi sempre
+    // il terreno entro un'unità e mezza, e un soffitto cinque metri più giù
+    // resta fuori. Funziona anche al chiuso.
     for (int i = 0; i < 6; i++) {
       if (i >= uPgNum) break;
       vec4 o = uPgPos[i];
       float prof = o.y - vPosMondo.y;
-      if (prof < -0.06 || prof > 6.0) continue;
-      float raggio = o.w * (1.0 - prof * 0.10);
+      if (prof < -0.06 || prof > 1.6) continue;
+      float raggio = o.w * (1.0 - prof * 0.30);
       if (raggio <= 0.02) continue;
       float d = distance(vPosMondo.xz, o.xz);
       if (d >= raggio) continue;
       // UN solo disco netto (le due bande concentriche non piacevano);
       // il fade con la profondità va a scatti (niente gradienti morbidi)
-      float fade = ceil((1.0 - prof / 6.0) * 3.0) / 3.0;
+      float fade = ceil((1.0 - prof / 1.6) * 3.0) / 3.0;
       f = min(f, 1.0 - 0.45 * fade);
     }
     return f;
@@ -547,6 +591,20 @@ export function impostaAmbiente(colore) {
   const l = colore.r * 0.299 + colore.g * 0.587 + colore.b * 0.114;
   // la notte non va a zero: resterebbe un buio illeggibile invece di una notte
   uniformi.uOraLuce.value = Math.max(0.18, Math.min(1, l));
+}
+
+/**
+ * Posizione del sole dall'ora del giorno (t: 0 mezzanotte, 0.5 mezzogiorno).
+ * È QUESTA a produrre le ombre che si muovono: all'alba il sole è basso a est
+ * e le ombre sono lunghe verso ovest, a mezzogiorno è alto e sono corte, al
+ * tramonto si allungano dall'altra parte.
+ */
+export function impostaSole(t) {
+  // t=0.25 alba (orizzonte est) · 0.5 zenit · 0.75 tramonto (orizzonte ovest)
+  const a = (t - 0.25) * Math.PI * 2;
+  // la componente z inclinata evita che le ombre cadano perfettamente lungo un
+  // asse della griglia, dove sparirebbero dietro i blocchi che le generano
+  uniformi.uSole.value.set(Math.cos(a), Math.sin(a), 0.42).normalize();
 }
 
 /** Il colore ambiente corrente (per chi si tinge a mano, es. le nuvole). */
