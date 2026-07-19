@@ -22,7 +22,7 @@ import { Meteo } from './fx/meteo.js';
 import { Inventario, ATTREZZI } from './gioco/inventario.js';
 import { Scavo, DUREZZE } from './gioco/scavo.js';
 import { CicloGiorno } from './fx/daynight.js';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, rimuoviLuce, uniformiCondivise } from './fx/materials.js';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, rimuoviLuce } from './fx/materials.js';
 import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js';
 import { ModalitaAR } from './ar/ar.js';
 import { Nuvole } from './fx/nuvole.js';
@@ -1720,7 +1720,7 @@ async function avvia() {
   applicaOpzioni(false);     // fog/distanza/effetti salvati dall'utente (⚙️)
 
   // debug in console
-  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, generaArcipelago, generaOpenWorld, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, hud, cadenza, opzioni, uniformi: uniformiCondivise() };
+  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, generaArcipelago, generaOpenWorld, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, hud, cadenza, opzioni };
 
   // accelerazione hardware: avvisa se il WebView disegna in SOFTWARE (fps bassi)
   if (rig.software) {

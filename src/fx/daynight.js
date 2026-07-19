@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import { TEMPO } from '../config.js';
-import { impostaAmbiente, impostaSole } from './materials.js';
+import { impostaAmbiente } from './materials.js';
 
 const CHIAVI = [
   { t: 0.00, cielo: 0x0e1630, ambiente: new THREE.Color(0.32, 0.36, 0.55), fog: 0.030 },
@@ -79,7 +79,6 @@ export class CicloGiorno {
       this.scena.background.copy(_cielo);
     }
     impostaAmbiente(_ambiente);
-    impostaSole(this.t);        // ombre del sole: si muovono con l'ora
 
     if (this._eraNotte !== this.eNotte) {
       this._eraNotte = this.eNotte;

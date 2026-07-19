@@ -13,20 +13,10 @@ import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js';
 import { paletteBlocco, coloreFaccia } from './stagioni.js';
 import { FORME_EXTRA, FORME_VUOTE } from './forme.js';
 import { tintaPalette } from './motivi.js';
-import { GrigliaLuce, MAX_LIVELLO } from './luce.js';
 import { materialeMondo, materialeAcqua, aggiornaCielo } from '../fx/materials.js';
 import { CHUNK } from './world.js';
 
 const U = 1 / 16;                 // 1 pixel in unità mondo
-// Velo di occlusione negli anfratti. TENUTO BASSO di proposito: essendo
-// per-BLOCCO scurisce tutte e sei le facce insieme, e a 0.42 si vedevano fasce
-// squadrate su ogni lato dei blocchi invece di un'ombra. Le ombre vere adesso
-// le fa il sole nello shader; questa resta solo a dare profondità agli incavi.
-const OMBRA_COTTA_MAX = 0.16;
-// fin dove si guarda in su cercando un tetto (corto: il resto lo fa il sole)
-const OMBRA_PORTATA = 3;
-// quante celle può essere larga al massimo la banda di schiuma sulla riva
-const RIVA_PORTATA = 3;
 const COPPIE_SMUSSO = [[0, 1], [0, 2], [1, 2]];
 const LATI = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const _colore = new THREE.Color();
@@ -38,26 +28,7 @@ class Costruttore {
     // riscrive solo questi float nel color buffer, senza ricostruire nulla
     this.erbe = [];
     this._erbaHex = null; this._erbaY = 0;
-    // ombra cotta nella mesh, per-vertice. 0 = piena luce, 1 = massimo buio.
-    // Il verso è QUESTO e non l'opposto per un motivo preciso: in WebGL un
-    // attributo che la geometria non ha legge 0, e le mesh che condividono lo
-    // shader ma non passano dal mesher (gatto, mano, mobili) devono restare
-    // intatte. Con "0 = nessuna ombra" ci restano da sole.
-    this.omb = []; this._omb = 0;
-    // due canali di luce cotta, per-vertice. Restano SEPARATI perché l'ora del
-    // giorno modula solo il cielo: la lanterna resta accesa di notte.
-    // Anche qui il verso è scelto per il default WebGL dell'attributo mancante
-    // (0): il cielo si memorizza come "quanto ne MANCA", così le geometrie che
-    // non passano dal mesher leggono 0 = cielo pieno e non si scuriscono.
-    this.cieMan = []; this._cieMan = 0;
-    this.blo = []; this._blo = 0;
   }
-
-  /** Imposta l'ombra cotta dei triangoli emessi da qui in avanti. */
-  ombra(v) { this._omb = v; }
-
-  /** Luce cotta 0..1 dei triangoli emessi da qui: cielo e lume artificiale. */
-  luceCotta(cielo, blocco) { this._cieMan = 1 - cielo; this._blo = blocco; }
 
   /** Attiva/spegne la marcatura dei triangoli color pal.cima come "erba". */
   erba(hexCima, quotaCella) { this._erbaHex = hexCima; this._erbaY = quotaCella; }
@@ -88,7 +59,6 @@ class Costruttore {
     this.pos.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
     _colore.setHex(colore);
     for (let i = 0; i < 3; i++) this.col.push(_colore.r, _colore.g, _colore.b);
-    for (let i = 0; i < 3; i++) { this.omb.push(this._omb); this.cieMan.push(this._cieMan); this.blo.push(this._blo); }
     if (this.acq) {
       const e = this._ex || [0, 0, 5];
       for (let i = 0; i < 3; i++) this.acq.push(e[0], e[1], e[2]);
@@ -105,9 +75,6 @@ class Costruttore {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
-    g.setAttribute('aOmbra', new THREE.Float32BufferAttribute(this.omb, 1));
-    g.setAttribute('aCieloMan', new THREE.Float32BufferAttribute(this.cieMan, 1));
-    g.setAttribute('aLume', new THREE.Float32BufferAttribute(this.blo, 1));
     if (this.acq) {
       g.setAttribute('aAcqua', new THREE.Float32BufferAttribute(this.acq, 3));
       g.setAttribute('aRiva', new THREE.Float32BufferAttribute(this.riv, 1));
@@ -267,23 +234,11 @@ function acquaBox(b, cx, cy, cz, pal, info) {
 
   if (!mioSopra) {
     // riva per angolo: 0 se uno dei 3 vicini dell'angolo è un SOLIDO
-    // DISTANZA vera dalla riva, non più un sì/no. Prima questa funzione
-    // tornava 0 o 1 guardando i 3 vicini dell'angolo: la banda di schiuma
-    // poteva quindi essere larga UNA cella e basta, e nessuna soglia nello
-    // shader riusciva ad allargarla. Ora si cerca il solido più vicino nel
-    // quadrante dell'angolo fino a RIVA_PORTATA celle e si torna la distanza
-    // normalizzata 0..1, così la larghezza della schiuma è davvero regolabile.
     const riva = (sx, sz) => {
-      let piuVicino = RIVA_PORTATA + 1;
-      for (let i = 0; i <= RIVA_PORTATA; i++) {
-        for (let j = 0; j <= RIVA_PORTATA; j++) {
-          if (i === 0 && j === 0) continue;
-          const d = i > j ? i : j;                  // distanza di Chebyshev
-          if (d >= piuVicino) continue;             // già trovato di più vicino
-          if (vicinoAcqua(sx * i, sz * j) === null && vicinoPieno(sx * i, 0, sz * j)) piuVicino = d;
-        }
+      for (const [dx, dz] of [[sx, 0], [0, sz], [sx, sz]]) {
+        if (vicinoAcqua(dx, dz) === null && vicinoPieno(dx, 0, dz)) return 0;
       }
-      return Math.min(1, (piuVicino - 1) / RIVA_PORTATA);
+      return 1;
     };
     b.extra(flusso[0], flusso[1], scorre ? 1 : 0);
     b.quad(p(-F, hMM, -F), p(F, hPM, -F), p(F, hPP, F), p(-F, hMP, F), pal.cima, [0, 1, 0],
@@ -323,7 +278,7 @@ function acquaBox(b, cx, cy, cz, pal, info) {
 
 // ---- smistamento per blocco ---------------------------------------------------
 
-function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo, luce = null) {
+function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo) {
   const def = defDi(tipo);
   let pal = paletteBlocco(tipoBase(tipo), y);   // stagione + rampa d'altezza
   // MOTIVO: variazione deterministica cella per cella (la "texture" qui)
@@ -398,57 +353,6 @@ function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo, luce = null) {
     // si aprirebbero buchi nel mondo
     return !d.acqua && !FORME_VUOTE.has(d.forma);
   };
-  // OMBRA COTTA: quanto cielo vede questo blocco. Si guarda la lastra 3×3
-  // sopra la testa — se è occupata, il blocco sta sotto qualcosa e va scurito.
-  // È da qui che nasce "i cubi fanno ombra su quelli sotto", e costa 9 letture
-  // per blocco al momento della costruzione, zero a schermo.
-  // Il valore è a GRADINI perché l'ombra deve stamparsi a fasce nette come il
-  // resto della grafica, non sfumare.
-  let coperto = 0;
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dz = -1; dz <= 1; dz++) {
-      if (!vicinoSolido(dx, 1, dz)) continue;
-      // il blocco esattamente sopra pesa molto più di uno di sbieco
-      coperto += (dx === 0 && dz === 0) ? 4 : 1;
-    }
-  }
-  let grezzo = Math.min(1, coperto / 8);
-  // Se la cella sopra è libera si guarda comunque IN SU lungo la colonna: una
-  // tettoia a qualche blocco di distanza deve fare ombra sul pavimento, non
-  // solo il blocco appoggiato addosso. L'ombra si dirada con la distanza dal
-  // tetto. Costa al massimo OMBRA_PORTATA letture e solo quando serve.
-  if (grezzo === 0) {
-    for (let h = 2; h <= OMBRA_PORTATA; h++) {
-      if (!vicinoSolido(0, h, 0)) continue;
-      grezzo = 1 - (h - 2) / (OMBRA_PORTATA - 1);
-      break;
-    }
-  }
-  bSolidi.ombra(Math.round(grezzo * 3) / 3 * OMBRA_COTTA_MAX);
-
-  // LUCE COTTA dai due canali della griglia. Si legge nella cella d'ARIA più
-  // illuminata fra le sei attorno: è quella che il blocco affaccia, ed è il
-  // motivo per cui una lanterna dietro un muro non lo illumina più — la sua
-  // luce non è mai arrivata in quelle celle.
-  // I due canali restano SEPARATI fino allo shader: il cielo lo modula l'ora
-  // del giorno, la luce artificiale no. È da qui che nascono sia il ciclo
-  // giorno/notte sia la luce fievole notturna, senza ricostruire la mesh.
-  if (luce) {
-    let c = 0, l = 0;
-    for (let d = 0; d < 6; d++) {
-      const nx = x + (d === 0 ? 1 : d === 1 ? -1 : 0);
-      const ny = y + (d === 2 ? 1 : d === 3 ? -1 : 0);
-      const nz = z + (d === 4 ? 1 : d === 5 ? -1 : 0);
-      const vc = luce.livelloCielo(nx, ny, nz);
-      const vl = luce.livelloBlocco(nx, ny, nz);
-      if (vc > c) c = vc;
-      if (vl > l) l = vl;
-    }
-    bSolidi.luceCotta(c / MAX_LIVELLO, l / MAX_LIVELLO);
-  } else {
-    bSolidi.luceCotta(1, 0);         // senza griglia: pieno cielo, nessun lume
-  }
-
   // forme non-cubiche dell'Officina: non cullano (non riempiono la cella)
   const extra = def.forma && FORME_EXTRA[def.forma];
   if (extra) { extra(bSolidi, cx, cy, cz, pal, () => false); return; }
@@ -476,70 +380,7 @@ export class Mesher {
   constructor(scena) {
     this.scena = scena;
     this.chunks = new Map();       // "cx,cz" → { solidi: Mesh, acqua: Mesh }
-    this.statistiche = { ultimaMs: 0, chunkAttivi: 0, luceMs: 0, luceCelle: 0 };
-    this.luce = null;              // GrigliaLuce, ricalcolata prima dei chunk
-    this.sorgentiExtra = [];       // luci dei furni (lampioni): {x,y,z,livello}
-  }
-
-  /**
-   * Ricalcola la griglia di luce sull'estensione occupata dal mondo.
-   * Si fa QUI, una volta per ricostruzione, e non a ogni frame: il risultato
-   * finisce nei vertici. Il ciclo giorno/notte poi non richiede di rifare
-   * niente — è lo shader che modula il canale cielo con l'ora.
-   */
-  _ricalcolaLuce(mondo) {
-    const t0 = performance.now();
-    let minX = Infinity, minY = Infinity, minZ = Infinity;
-    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
-    const sorgenti = [];
-    for (const b of mondo.tutti()) {
-      if (b.x < minX) minX = b.x; if (b.x > maxX) maxX = b.x;
-      if (b.y < minY) minY = b.y; if (b.y > maxY) maxY = b.y;
-      if (b.z < minZ) minZ = b.z; if (b.z > maxZ) maxZ = b.z;
-      const d = defDi(b.tipo);
-      if (d && d.luce) {
-        // il raggio in unità di mondo diventa il livello di partenza: la luce
-        // perde un livello per cella, quindi raggio 5 = livello 5
-        sorgenti.push({ x: b.x, y: b.y, z: b.z, livello: Math.round(d.luce.raggio) });
-      }
-    }
-    if (!isFinite(minX)) { this.luce = null; return; }
-    // margine: sopra serve aria per far scendere il cielo, di lato per la
-    // diffusione della luce artificiale
-    const M = MAX_LIVELLO + 1;
-    const scatola = {
-      minX: minX - M, minY: minY - 2, minZ: minZ - M,
-      larghezza: (maxX - minX) + 2 * M + 1,
-      altezza: (maxY - minY) + M + 3,
-      profondita: (maxZ - minZ) + 2 * M + 1,
-    };
-    const celle = scatola.larghezza * scatola.altezza * scatola.profondita;
-    // paracadute: su un mondo enorme il ricalcolo totale costerebbe troppo,
-    // meglio nessuna luce cotta che mezzo secondo di blocco
-    if (celle > 6e6) { this.luce = null; this.statistiche.luceCelle = 0; return; }
-    for (const s of this.sorgentiExtra) sorgenti.push(s);
-    this.luce = new GrigliaLuce(scatola);
-
-    // MAPPA DI SOLIDITÀ PRECALCOLATA. Passare direttamente `mondo.pieno` come
-    // test costava 423 ms su 195k celle: quella funzione compone una stringa
-    // "x,y,z" e fa due lookup su Map, e la propagazione la interroga per ogni
-    // cella e per ognuno dei 6 vicini. Qui si riempie un array piatto con UNA
-    // passata sui blocchi esistenti (poche migliaia) e la propagazione legge
-    // memoria contigua. Stessa risposta, due ordini di grandezza in meno.
-    const solidi = new Uint8Array(celle);
-    for (const b of mondo.tutti()) {
-      if (!this.luce.dentro(b.x, b.y, b.z)) continue;
-      const d = defDi(b.tipo);
-      if (!d || d.acqua) continue;               // l'acqua non ferma la luce
-      solidi[this.luce.indice(b.x, b.y, b.z)] = 1;
-    }
-    const g = this.luce;
-    this.luce.calcola(
-      (x, y, z) => (g.dentro(x, y, z) ? solidi[g.indice(x, y, z)] === 1 : false),
-      sorgenti,
-    );
-    this.statistiche.luceMs = performance.now() - t0;
-    this.statistiche.luceCelle = celle;
+    this.statistiche = { ultimaMs: 0, chunkAttivi: 0 };
   }
 
   _entry(kc) {
@@ -602,7 +443,7 @@ export class Mesher {
       const scarto = new Costruttore();
       for (const { x, y, z, tipo } of mondo.blocchiDelChunk(kc)) {
         if (!defDi(tipo).acqua) continue;
-        costruisciBlocco(scarto, acqua, mondo, x, y, z, tipo, this.luce);
+        costruisciBlocco(scarto, acqua, mondo, x, y, z, tipo);
       }
       e0.acqua.geometry.dispose();
       e0.acqua.geometry = acqua.geometria();
@@ -616,7 +457,7 @@ export class Mesher {
     const acqua = new Costruttore();
     acqua.flussi = []; acqua.impatti = [];
     for (const { x, y, z, tipo } of mondo.blocchiDelChunk(kc)) {
-      costruisciBlocco(solidi, acqua, mondo, x, y, z, tipo, this.luce);
+      costruisciBlocco(solidi, acqua, mondo, x, y, z, tipo);
     }
     this._cieloChunk(kc, mondo);
     if (solidi.vuoto && acqua.vuoto) { this._rimuovi(kc); return; }
@@ -654,7 +495,6 @@ export class Mesher {
   /** Ricostruzione totale (avvio, import, reset): via gli orfani, su tutto il resto. */
   ricostruisciTutto(mondo) {
     const t0 = performance.now();
-    this._ricalcolaLuce(mondo);
     for (const kc of [...this.chunks.keys()]) {
       if (!mondo.chunks.has(kc)) this._rimuovi(kc);
     }
