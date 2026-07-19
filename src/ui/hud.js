@@ -289,7 +289,16 @@ export class HUD {
   }
 
   fps(n) {
-    if (n !== this._uFps) { this._uFps = n; this.elFps.textContent = `${n} fps`; }
+    if (n === this._uFps) return;
+    this._uFps = n;
+    this.elFps.textContent = `${n} fps`;
+    // semaforo: verde/bianco sopra 50, ambra 30-50, rosso sotto 30 — si capisce
+    // se il gioco sta soffrendo senza dover leggere il numero
+    const classe = n < 30 ? 'fps-bassi' : n < 50 ? 'fps-medi' : '';
+    if (classe !== this._uFpsClasse) {
+      this._uFpsClasse = classe;
+      this.elFps.className = 'hud' + (classe ? ' ' + classe : '');
+    }
   }
 
   toast(msg, durata = 2200) {

@@ -110,6 +110,8 @@ const uniformi = {
   uSchiumaRTInfo: { value: new THREE.Vector4(0, 0, 0, 0) },   // minX, minZ, 1/est, attivo
   uProfondita: { value: null },                  // depth della scena senza acqua
   uProfInfo: { value: new THREE.Vector4(0.1, 700, 1, 1) },   // near, far, 1/w, 1/h
+  uOmbraCottaForza: { value: 1 },                // ombre cotte nella mesh (0 = spente)
+  uSchiumaRiva: { value: 0.66 },                 // soglia banda di riva: più bassa = più larga
   // in AR il mondo vive dentro un pivot ruoto-scalato: questa è la sua INVERSA,
   // così vPosMondo resta in coordinate MONDO e luci/ombre/schiuma funzionano
   // anche sul diorama in AR (identità quando l'AR è spenta)
@@ -180,9 +182,18 @@ export function impostaOmbreNuvole(box, forza) {
 const GLSL_VERTEX = /* glsl */`
   varying vec3 vPosMondo;
   uniform mat4 uMondoInv;
+  // Ombra cotta dal mesher: 0 = piena luce, 1 = massimo buio. Il verso conta:
+  // le geometrie che NON passano dal mesher (gatto, mano, mobili) condividono
+  // questo shader e non hanno l'attributo — WebGL glielo legge 0, cioè
+  // "nessuna ombra", ed è esattamente quello che serve.
+  attribute float aOmbra;
+  varying float vOmbra;
 `;
 const GLSL_FRAGMENT = /* glsl */`
   varying vec3 vPosMondo;
+  varying float vOmbra;
+  uniform float uOmbraCottaForza;   // 0 = spenta (opzione grafica)
+  uniform float uSchiumaRiva;       // soglia della banda di schiuma sulla riva
   uniform vec4 uLuciPosRaggio[${LUCI_MAX}];
   uniform vec4 uLuciColore[${LUCI_MAX}];
   uniform int uLuciNum;
@@ -202,8 +213,14 @@ const GLSL_FRAGMENT = /* glsl */`
     if (uvC.x <= 0.0 || uvC.x >= 1.0 || uvC.y <= 0.0 || uvC.y >= 1.0) return 1.0;
     float quota = texture2D(uCielo, uvC).r;
     if (vPosMondo.y < quota - 0.35) return 1.0;      // al coperto: niente ombra
-    // bordo NETTO (stile toon, come la luce dei lampioni): niente sfumatura
-    float dentro = step(0.5, texture2D(uOmbraMask, uvC).r);
+    // Bordo netto ma NON binario. Con step() il filtro bilineare della maschera
+    // veniva buttato via: il bordo poteva cadere solo su un confine di texel e
+    // avanzava a salti di mezza unità di mondo — è da lì che veniva il
+    // movimento "a pezzi". La maschera è 512² su 256 unità, cioè 2 texel per
+    // unità: smoothstep su una fascia stretta tiene il taglio netto in stile
+    // toon ma lascia passare la rampa fra i due texel, e il bordo scorre.
+    float m = texture2D(uOmbraMask, uvC).r;
+    float dentro = smoothstep(0.35, 0.65, m);
     return 1.0 - uOmbraForza * dentro;
   }
 
@@ -215,6 +232,21 @@ const GLSL_FRAGMENT = /* glsl */`
   // dei blocchi invece di saltare al piano sotto, e si stringe con la profondità.
   float ombraPg() {
     float f = 1.0;
+    if (uPgNum == 0) return f;
+
+    // CANCELLO SULLA SUPERFICIE. Il test qui sotto è puramente geometrico: un
+    // tronco di cono verticale, con la distanza misurata SOLO in orizzontale.
+    // Senza questo cancello ogni frammento dentro il cono veniva scurito —
+    // il piano del tavolo, il pavimento sotto il tavolo e il soffitto della
+    // grotta più in basso tutti insieme: è l'ombra che "trapassa gli oggetti".
+    // La stessa altimetria che ferma le ombre delle nuvole risolve anche
+    // questa: l'ombra si posa solo sulla cima della colonna, una volta sola.
+    vec2 uvC = (vPosMondo.xz - uCieloInfo.xy) * uCieloInfo.z;
+    if (uvC.x > 0.0 && uvC.x < 1.0 && uvC.y > 0.0 && uvC.y < 1.0) {
+      float quota = texture2D(uCielo, uvC).r;
+      if (vPosMondo.y < quota - 0.35) return 1.0;
+    }
+
     for (int i = 0; i < 6; i++) {
       if (i >= uPgNum) break;
       vec4 o = uPgPos[i];
@@ -256,11 +288,11 @@ function iniettaLanterna(shader) {
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\n' + GLSL_VERTEX)
     .replace('#include <begin_vertex>',
-      '#include <begin_vertex>\nvPosMondo = (uMondoInv * modelMatrix * vec4(transformed, 1.0)).xyz;');
+      '#include <begin_vertex>\nvPosMondo = (uMondoInv * modelMatrix * vec4(transformed, 1.0)).xyz;\nvOmbra = aOmbra;');
   shader.fragmentShader = shader.fragmentShader
     .replace('#include <common>', '#include <common>\n' + GLSL_FRAGMENT)
     .replace('#include <opaque_fragment>',
-      'outgoingLight = outgoingLight * (uAmbiente + lanternaAccumulo()) * lanternaOmbra() * ombraPg();\n#include <opaque_fragment>');
+      'outgoingLight = outgoingLight * (uAmbiente + lanternaAccumulo()) * lanternaOmbra() * ombraPg() * (1.0 - vOmbra * uOmbraCottaForza);\n#include <opaque_fragment>');
 }
 
 export function patchLuci(materiale) {
@@ -356,7 +388,15 @@ const GLSL_ACQUA_COLORE = /* glsl */`
     //    silhouette dall'alto della sola geometria che BUCA il pelo — la
     //    schiuma segue la forma vera, niente footprint quadrati.
     // Banda BIANCA piena e NETTA (step), appena spezzata dal noise.
-    float frasta = lanternaRumore(vPosMondo.xz * 3.4 + uTempo * vec2(0.4, 0.3));
+    // IL RUMORE VARIA ANCHE IN VERTICALE. Prima era campionato solo in XZ: su
+    // una faccia in pendenza — una rampa scende fino a ~2 unità in Y su 1 di
+    // XZ — lo stesso valore si ripeteva lungo tutta la linea di massima
+    // pendenza, il bianco non si spezzava mai e la faccia superiore diventava
+    // una striscia piena. È IL bug dell'acqua che scorre tutta bianca. Il ramo
+    // delle cascate era già stato curato così, ma le facce in pendenza non ci
+    // passano: hanno tipo 1, non 2, e finiscono in questo ramo, mai corretto.
+    float frasta = lanternaRumore(
+      vPosMondo.xz * 3.4 + vec2(vPosMondo.y * 2.6, -vPosMondo.y * 1.9) + uTempo * vec2(0.4, 0.3));
     float bordoRiva = 1.0 - vRiva;
     // silhouette VIVA: il punto di campionamento ONDEGGIA col tempo (il
     // contorno non sta mai fermo) e l'anello di dilatazione "respira"
@@ -381,7 +421,15 @@ const GLSL_ACQUA_COLORE = /* glsl */`
     // riva: SEMPRE chiazze spezzate dal noise, MAI una lastra piena — nei
     // canali stretti aRiva è ~0 ovunque (sponde su entrambi i lati) e i fiumi
     // diventavano fogli TUTTI BIANCHI; così al massimo è schiuma viva ~50%
-    float schiumaRiva = step(0.72, bordoRiva * (0.45 + 0.55 * frasta));
+    // La soglia decide la LARGHEZZA della banda di riva: più è bassa, più la
+    // schiuma entra verso il largo. Ora è una uniform regolabile invece di un
+    // numero murato, perché il punto giusto dipende dal diorama.
+    // ATTENZIONE al limite strutturale: aRiva è per-angolo e vale 0 o 1, quindi
+    // la banda è larga UNA cella e basta. Nei canali stretti aRiva è ~0 su
+    // tutti e quattro gli angoli, e abbassando troppo la soglia il fiume torna
+    // un foglio bianco — è per quello che era stata alzata a 0.72. Allargarla
+    // davvero vuol dire far calcolare al mesher una distanza vera dalla riva.
+    float schiumaRiva = step(uSchiumaRiva, bordoRiva * (0.45 + 0.55 * frasta));
     // silhouette e SCIA (il RT sfuma la storia): chiazze che vivono col tempo
     float schiumaSag = step(0.62, sagoma * (0.55 + 0.55 * vivo));
     float schiuma = max(max(schiumaRiva, maschera), schiumaSag);

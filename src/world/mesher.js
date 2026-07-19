@@ -17,6 +17,11 @@ import { materialeMondo, materialeAcqua, aggiornaCielo } from '../fx/materials.j
 import { CHUNK } from './world.js';
 
 const U = 1 / 16;                 // 1 pixel in unità mondo
+// quanto può scurire al massimo l'ombra cotta nella mesh: oltre, gli anfratti
+// diventano macchie nere e si perde la lettura delle forme
+const OMBRA_COTTA_MAX = 0.42;
+// fin dove si guarda in su cercando un tetto che faccia ombra
+const OMBRA_PORTATA = 7;
 const COPPIE_SMUSSO = [[0, 1], [0, 2], [1, 2]];
 const LATI = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const _colore = new THREE.Color();
@@ -28,7 +33,16 @@ class Costruttore {
     // riscrive solo questi float nel color buffer, senza ricostruire nulla
     this.erbe = [];
     this._erbaHex = null; this._erbaY = 0;
+    // ombra cotta nella mesh, per-vertice. 0 = piena luce, 1 = massimo buio.
+    // Il verso è QUESTO e non l'opposto per un motivo preciso: in WebGL un
+    // attributo che la geometria non ha legge 0, e le mesh che condividono lo
+    // shader ma non passano dal mesher (gatto, mano, mobili) devono restare
+    // intatte. Con "0 = nessuna ombra" ci restano da sole.
+    this.omb = []; this._omb = 0;
   }
+
+  /** Imposta l'ombra cotta dei triangoli emessi da qui in avanti. */
+  ombra(v) { this._omb = v; }
 
   /** Attiva/spegne la marcatura dei triangoli color pal.cima come "erba". */
   erba(hexCima, quotaCella) { this._erbaHex = hexCima; this._erbaY = quotaCella; }
@@ -59,6 +73,7 @@ class Costruttore {
     this.pos.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
     _colore.setHex(colore);
     for (let i = 0; i < 3; i++) this.col.push(_colore.r, _colore.g, _colore.b);
+    for (let i = 0; i < 3; i++) this.omb.push(this._omb);
     if (this.acq) {
       const e = this._ex || [0, 0, 5];
       for (let i = 0; i < 3; i++) this.acq.push(e[0], e[1], e[2]);
@@ -75,6 +90,7 @@ class Costruttore {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
+    g.setAttribute('aOmbra', new THREE.Float32BufferAttribute(this.omb, 1));
     if (this.acq) {
       g.setAttribute('aAcqua', new THREE.Float32BufferAttribute(this.acq, 3));
       g.setAttribute('aRiva', new THREE.Float32BufferAttribute(this.riv, 1));
@@ -353,6 +369,34 @@ function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo) {
     // si aprirebbero buchi nel mondo
     return !d.acqua && !FORME_VUOTE.has(d.forma);
   };
+  // OMBRA COTTA: quanto cielo vede questo blocco. Si guarda la lastra 3×3
+  // sopra la testa — se è occupata, il blocco sta sotto qualcosa e va scurito.
+  // È da qui che nasce "i cubi fanno ombra su quelli sotto", e costa 9 letture
+  // per blocco al momento della costruzione, zero a schermo.
+  // Il valore è a GRADINI perché l'ombra deve stamparsi a fasce nette come il
+  // resto della grafica, non sfumare.
+  let coperto = 0;
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      if (!vicinoSolido(dx, 1, dz)) continue;
+      // il blocco esattamente sopra pesa molto più di uno di sbieco
+      coperto += (dx === 0 && dz === 0) ? 4 : 1;
+    }
+  }
+  let grezzo = Math.min(1, coperto / 8);
+  // Se la cella sopra è libera si guarda comunque IN SU lungo la colonna: una
+  // tettoia a qualche blocco di distanza deve fare ombra sul pavimento, non
+  // solo il blocco appoggiato addosso. L'ombra si dirada con la distanza dal
+  // tetto. Costa al massimo OMBRA_PORTATA letture e solo quando serve.
+  if (grezzo === 0) {
+    for (let h = 2; h <= OMBRA_PORTATA; h++) {
+      if (!vicinoSolido(0, h, 0)) continue;
+      grezzo = 1 - (h - 2) / (OMBRA_PORTATA - 1);
+      break;
+    }
+  }
+  bSolidi.ombra(Math.round(grezzo * 3) / 3 * OMBRA_COTTA_MAX);
+
   // forme non-cubiche dell'Officina: non cullano (non riempiono la cella)
   const extra = def.forma && FORME_EXTRA[def.forma];
   if (extra) { extra(bSolidi, cx, cy, cz, pal, () => false); return; }

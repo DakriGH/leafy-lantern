@@ -47,6 +47,20 @@
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   button { -webkit-appearance: none; appearance: none; outline: none; }
+  /* NIENTE selezione del testo in tutta l'interfaccia. In un browser il
+     trascinamento seleziona: bastava sfiorare la GUI muovendo il gatto per
+     evidenziare mezza schermata, e la selezione poi si mangia i tocchi dopo.
+     Era attivo solo su .hud e #comandiTouch, quindi pannelli, ruota,
+     inventario e officina restavano scoperti. Sotto c'è l'elenco (corto) dei
+     punti dove scrivere e copiare serve davvero. */
+  body, button, .pannello, .ruota, .zaino, .officina {
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  }
+  input, textarea, [contenteditable], code, #rcCodice, .selezionabile {
+    user-select: text; -webkit-user-select: text; -webkit-touch-callout: default;
+  }
+  /* trascinare un'immagine della GUI la "stacca": è un altro modo di romperla */
+  img, svg, canvas { -webkit-user-drag: none; user-drag: none; }
   html, body { height: 100%; overflow: hidden; background: var(--notte); touch-action: none; }
   body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--testo); }
   button { font-family: inherit; }
@@ -151,7 +165,27 @@
 
   #titolo { padding: 8px 14px; pointer-events: none; flex: 0 1 auto; min-width: 0; }
   #titolo h1 { font-size: 15px; font-weight: 800; letter-spacing: .4px; white-space: nowrap; }
-  #titolo small { color: var(--muto); font-size: 11px; }
+
+  /* Contatore fps: elemento SUO, non più un <small> dentro il pannello titolo.
+     Lì era 11px in colore smorzato e — peggio — sotto i 400px di larghezza una
+     media query lo spegneva del tutto: sul telefono gli fps non c'erano mai.
+     Ora sta in un angolo con pillola scura e testo bianco, così si legge sopra
+     il cielo chiaro come sopra l'erba scura. */
+  #fps {
+    /* sotto la barra alta e sopra il joystick: la fascia di sinistra è libera
+       a ogni risoluzione (sopra c'è il titolo, sotto i comandi) */
+    left: max(10px, env(safe-area-inset-left));
+    top: calc(max(10px, env(safe-area-inset-top)) + 52px);
+    padding: 4px 9px; border-radius: 999px;
+    background: rgba(10, 16, 28, .55); backdrop-filter: blur(6px);
+    color: #fff; font-size: 12px; font-weight: 700;
+    font-variant-numeric: tabular-nums; letter-spacing: .3px;
+    pointer-events: none; opacity: .85;
+  }
+  #fps[hidden] { display: none; }
+  /* colore a semaforo: si capisce a colpo d'occhio se il gioco sta soffrendo */
+  #fps.fps-medi { color: #ffd479; }
+  #fps.fps-bassi { color: #ff9a8a; }
 
   #meteo { padding: 8px 12px; display: flex; align-items: center; gap: 10px; flex: 0 1 auto; min-width: 0; }
   #orologio { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 15px; min-width: 46px; text-align: center; }
@@ -1032,11 +1066,12 @@
 <body>
   <div id="scena"></div>
   <div id="velo"></div>
+  <div id="fps" class="hud">— fps</div>
 
   <!-- BARRA ALTA: una riga flex (titolo a sx · orologio+tasti a dx). Essendo un
        contenitore unico, i pezzi si stringono invece di sovrapporsi. -->
   <div id="hudAlto" class="hud">
-    <div id="titolo" class="pannello"><h1>🏮 Leafy‑Lantern</h1><small id="fps">— fps</small></div>
+    <div id="titolo" class="pannello"><h1>🏮 Leafy‑Lantern</h1></div>
     <div id="hudAltoDx">
       <div id="meteo" class="pannello">
         <span id="fase">☀️</span>

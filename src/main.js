@@ -5,6 +5,7 @@ import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js';
 import { Rig } from './engine/renderer.js';
 import { Input } from './engine/input.js';
 import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js';
+import { Cadenza } from './engine/cadenza.js';
 import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js';
 import { Mondo } from './world/world.js';
 import { SimAcqua } from './world/acqua.js';
@@ -1719,7 +1720,7 @@ async function avvia() {
   applicaOpzioni(false);     // fog/distanza/effetti salvati dall'utente (⚙️)
 
   // debug in console
-  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, generaArcipelago, generaOpenWorld, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi };
+  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, generaArcipelago, generaOpenWorld, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, hud, cadenza, opzioni };
 
   // accelerazione hardware: avvisa se il WebView disegna in SOFTWARE (fps bassi)
   if (rig.software) {
@@ -2153,18 +2154,20 @@ function adattaQualita(fps) {
   }
 }
 
-let _ultimoFrame = 0;
+let _ultimoTick = 0;             // istante dell'ultimo tick dello schermo
+const cadenza = new Cadenza(0);  // decide quali tick diventano frame (vedi cadenza.js)
 function loop(adesso) {
   requestAnimationFrame(loop);
   // in XR i frame arrivano SOLO dalla sessione (setAnimationLoop): il rAF
   // di pagina si mette da parte per non fare passi doppi
   if (modalitaXR.attiva) return;
-  // LIMITE FPS: salta il frame se non è passato abbastanza tempo (fluidità
-  // costante). 0 = illimitato. Tolleranza 2ms per non "mancare" il target.
-  if (opzioni.fpsMax > 0) {
-    if (adesso - _ultimoFrame < 1000 / opzioni.fpsMax - 2) return;
-    _ultimoFrame = adesso;
-  }
+  // LIMITE FPS — la logica sta in engine/cadenza.js (con i suoi test): rAF è
+  // riarmato in cima, quindi questo tick arriva a OGNI refresh dello schermo
+  // anche nei frame che saltiamo, ed è la misura giusta da passargli.
+  cadenza.fpsMax = opzioni.fpsMax;
+  const dTick = adesso - _ultimoTick;
+  _ultimoTick = adesso;
+  if (!cadenza.tick(dTick)) return;
   passo(adesso, null);
 }
 
