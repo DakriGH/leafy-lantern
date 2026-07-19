@@ -1,55 +1,55 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrs9orgs';
-import { Rig } from './engine/renderer.js?v=mrs9orgs';
-import { Input } from './engine/input.js?v=mrs9orgs';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrs9orgs';
-import { Cadenza } from './engine/cadenza.js?v=mrs9orgs';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrs9orgs';
-import { Mondo } from './world/world.js?v=mrs9orgs';
-import { SimAcqua } from './world/acqua.js?v=mrs9orgs';
-import { Lobby } from './net/lobby.js?v=mrs9orgs';
-import { Segnalatore } from './net/segnalatore.js?v=mrs9orgs';
-import { Ruota } from './ui/ruota.js?v=mrs9orgs';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrs9orgs';
-import { Zaino } from './ui/zaino.js?v=mrs9orgs';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mrs9orgs';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrs9orgs';
-import { generaMostra } from './world/mostra.js?v=mrs9orgs';
-import { generaCollaudo } from './world/collaudo.js?v=mrs9orgs';
-import { generaTestLuci } from './world/testLuci.js?v=mrs9orgs';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mrs9orgs';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrs9orgs';
-import { Meteo } from './fx/meteo.js?v=mrs9orgs';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrs9orgs';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrs9orgs';
-import { CicloGiorno } from './fx/daynight.js?v=mrs9orgs';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrs9orgs';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrs9orgs';
-import { ModalitaAR } from './ar/ar.js?v=mrs9orgs';
-import { Nuvole } from './fx/nuvole.js?v=mrs9orgs';
-import { SegnaPercorso } from './fx/percorso.js?v=mrs9orgs';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mrs9orgs';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mrs9orgs';
-import { Pioggia } from './fx/pioggia.js?v=mrs9orgs';
-import { Particelle } from './fx/particelle.js?v=mrs9orgs';
-import { Audio } from './fx/audio.js?v=mrs9orgs';
-import { Creature } from './gioco/creature.js?v=mrs9orgs';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrs9orgs';
-import { Palla } from './gioco/palla.js?v=mrs9orgs';
-import { Gatto } from './player/player.js?v=mrs9orgs';
-import { ManoStrumento } from './player/mano.js?v=mrs9orgs';
-import { dropDi } from './gioco/drop.js?v=mrs9orgs';
-import { Controller } from './player/controller.js?v=mrs9orgs';
-import { FURNI, centroide } from './furniture/registry.js?v=mrs9orgs';
-import { caricaModelli } from './furniture/loader.js?v=mrs9orgs';
-import { Arredo } from './furniture/furniture.js?v=mrs9orgs';
-import { HUD } from './ui/hud.js?v=mrs9orgs';
-import { MenuDebug } from './ui/debug.js?v=mrs9orgs';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrs9orgs';
-import { ModalitaXR } from './ar/ar-xr.js?v=mrs9orgs';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrs9orgs';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrsac3y8';
+import { Rig } from './engine/renderer.js?v=mrsac3y8';
+import { Input } from './engine/input.js?v=mrsac3y8';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrsac3y8';
+import { Cadenza } from './engine/cadenza.js?v=mrsac3y8';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrsac3y8';
+import { Mondo } from './world/world.js?v=mrsac3y8';
+import { SimAcqua } from './world/acqua.js?v=mrsac3y8';
+import { Lobby } from './net/lobby.js?v=mrsac3y8';
+import { Segnalatore } from './net/segnalatore.js?v=mrsac3y8';
+import { Ruota } from './ui/ruota.js?v=mrsac3y8';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrsac3y8';
+import { Zaino } from './ui/zaino.js?v=mrsac3y8';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mrsac3y8';
+import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrsac3y8';
+import { generaMostra } from './world/mostra.js?v=mrsac3y8';
+import { generaCollaudo } from './world/collaudo.js?v=mrsac3y8';
+import { generaTestLuci } from './world/testLuci.js?v=mrsac3y8';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mrsac3y8';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrsac3y8';
+import { Meteo } from './fx/meteo.js?v=mrsac3y8';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrsac3y8';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrsac3y8';
+import { CicloGiorno } from './fx/daynight.js?v=mrsac3y8';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrsac3y8';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrsac3y8';
+import { ModalitaAR } from './ar/ar.js?v=mrsac3y8';
+import { Nuvole } from './fx/nuvole.js?v=mrsac3y8';
+import { SegnaPercorso } from './fx/percorso.js?v=mrsac3y8';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mrsac3y8';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mrsac3y8';
+import { Pioggia } from './fx/pioggia.js?v=mrsac3y8';
+import { Particelle } from './fx/particelle.js?v=mrsac3y8';
+import { Audio } from './fx/audio.js?v=mrsac3y8';
+import { Creature } from './gioco/creature.js?v=mrsac3y8';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrsac3y8';
+import { Palla } from './gioco/palla.js?v=mrsac3y8';
+import { Gatto } from './player/player.js?v=mrsac3y8';
+import { ManoStrumento } from './player/mano.js?v=mrsac3y8';
+import { dropDi } from './gioco/drop.js?v=mrsac3y8';
+import { Controller } from './player/controller.js?v=mrsac3y8';
+import { FURNI, centroide } from './furniture/registry.js?v=mrsac3y8';
+import { caricaModelli } from './furniture/loader.js?v=mrsac3y8';
+import { Arredo } from './furniture/furniture.js?v=mrsac3y8';
+import { HUD } from './ui/hud.js?v=mrsac3y8';
+import { MenuDebug } from './ui/debug.js?v=mrsac3y8';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrsac3y8';
+import { ModalitaXR } from './ar/ar-xr.js?v=mrsac3y8';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrsac3y8';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -1952,15 +1952,22 @@ const _posaRemotaV = new THREE.Vector3();
 // ---- qualità adattiva: se gli fps crollano, si scala giù da soli --------------
 // Livello 0 = massimo. Salendo: prima via i RIFLESSI (il costo più alto), poi
 // il tilt-shift, poi la risoluzione. Su mobile si parte già senza entrambi.
+// Scala della qualità AUTOMATICA. `ombre` = ombre voxel DDA delle luci pesanti:
+// il marching (fino a PASSI_MAX letture di texture 3D per pixel dentro una pozza
+// di lampada) e' l'aggiunta per-pixel piu' costosa del gioco, e prima girava a
+// costo pieno a OGNI livello — ecco perche' su macchine deboli i frame calavano
+// anche con la qualita' gia' abbassata. Al PRIMO scalino cadono INSIEME le due
+// cose piu' care: il riflesso (secondo render della scena) e le ombre voxel.
+// Spente, le luci-sfera restano identiche, solo senza occlusione dei muri.
 const LIVELLI_Q = rig.mobile ? [
-  { tilt: 0, rifl: false, scala: 1 },
-  { tilt: 0, rifl: false, scala: 0.82 },
-  { tilt: 0, rifl: false, scala: 0.66 },
+  { tilt: 0, rifl: false, ombre: true, scala: 1 },
+  { tilt: 0, rifl: false, ombre: false, scala: 0.82 },
+  { tilt: 0, rifl: false, ombre: false, scala: 0.66 },
 ] : [
-  { tilt: 2.2, rifl: true, scala: 1 },
-  { tilt: 2.2, rifl: false, scala: 1 },
-  { tilt: 0, rifl: false, scala: 0.82 },
-  { tilt: 0, rifl: false, scala: 0.66 },
+  { tilt: 2.2, rifl: true, ombre: true, scala: 1 },
+  { tilt: 2.2, rifl: false, ombre: false, scala: 1 },
+  { tilt: 0, rifl: false, ombre: false, scala: 0.82 },
+  { tilt: 0, rifl: false, ombre: false, scala: 0.66 },
 ];
 let qLivello = 0;
 let qManuale = false;        // qualità auto spenta: comandano le Impostazioni
@@ -1972,11 +1979,15 @@ const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, tilt: !rig.mo
 const opzioni = Object.assign({}, OPZ_DEFAULT, JSON.parse(localStorage.getItem(OPZ_CHIAVE) || '{}'));
 
 // preset grafici: un tocco e la macchina va — comodi per testare
+// `luceCotta` = ombre voxel delle luci pesanti (nome storico della chiave
+// salvata, vedi applicaOpzioni). "bassa" le spegne SUBITO come fa col riflesso,
+// invece di aspettare che la qualità auto scenda: una macchina che tiene 30fps
+// con cali non scende mai sotto la soglia e resterebbe col marching acceso.
 const PRESET_GRAFICA = {
-  bassa: { scala: 0.66, riflessi: false, tilt: false, tiltQ: 0.8, riflForza: 0.6, dist: 250, fog: 0.9, autoQ: true },
-  media: { scala: 0.85, riflessi: false, tilt: true, tiltQ: 1.6, riflForza: 0.8, dist: 450, fog: 0.7, autoQ: true },
-  alta: { scala: 1, riflessi: true, tilt: true, tiltQ: 2.2, riflForza: 1, dist: 700, fog: 0.55, autoQ: true },
-  ultra: { scala: 1, riflessi: true, tilt: true, tiltQ: 2.6, riflForza: 1.2, dist: 900, fog: 0.4, autoQ: false },
+  bassa: { scala: 0.66, riflessi: false, luceCotta: false, tilt: false, tiltQ: 0.8, riflForza: 0.6, dist: 250, fog: 0.9, autoQ: true },
+  media: { scala: 0.85, riflessi: false, luceCotta: true, tilt: true, tiltQ: 1.6, riflForza: 0.8, dist: 450, fog: 0.7, autoQ: true },
+  alta: { scala: 1, riflessi: true, luceCotta: true, tilt: true, tiltQ: 2.2, riflForza: 1, dist: 700, fog: 0.55, autoQ: true },
+  ultra: { scala: 1, riflessi: true, luceCotta: true, tilt: true, tiltQ: 2.6, riflForza: 1.2, dist: 900, fog: 0.4, autoQ: false },
 };
 
 let _riflDim = '';
@@ -1987,6 +1998,11 @@ function applicaQualita() {
   // su mobile i riflessi partono spenti (default opzioni) ma se l'utente li
   // ACCENDE valgono anche lì: niente più divieto assoluto
   riflesso.attivo = (qManuale ? true : q.rifl) && riflessiUtente;
+  // OMBRE VOXEL: l'uniform effettiva è "le vuole l'utente" E "il livello di
+  // qualità se le può permettere". Qui si tocca SOLO l'interruttore dello shader
+  // (uOcclusione): la texture 3D dei muri la gestisce l'interruttore utente in
+  // applicaOpzioni, così una scalata automatica non fa ricostruire la mesh.
+  impostaOcclusione((qManuale ? true : q.ombre) && opzioni.luceCotta !== false);
   // ridimensionare rifà i buffer del riflesso = un frame nero: farlo SOLO se
   // le misure sono davvero cambiate, non a ogni passaggio di qui
   const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight), pr = rig.renderer.getPixelRatio();
@@ -2030,8 +2046,10 @@ function applicaOpzioni(salva = true) {
   // dire riportare l'interruttore al valore di fabbrica a tutti quelli che
   // l'avevano spento. Il nome è vecchio (veniva dai due canali di luce cotti nei
   // vertici, che non esistono più), il dato no.
+  // interruttore UTENTE delle ombre: decide se tenere in piedi la texture 3D dei
+  // muri (e quindi se ricostruire la mesh al cambio). L'uniform dello shader la
+  // imposta poi applicaQualita, combinando questo volere col livello di qualità.
   const occlusioneOra = opzioni.luceCotta !== false;
-  impostaOcclusione(occlusioneOra);
   if (mesher.occlusioneAttiva !== occlusioneOra) {
     mesher.occlusioneAttiva = occlusioneOra;
     mesher.ricostruisciTutto(mondo);

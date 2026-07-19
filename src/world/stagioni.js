@@ -9,8 +9,8 @@
 // il punto unico di risoluzione: basterà passargli l'override della cella.
 
 import * as THREE from 'three';
-import { BLOCCHI, defDi } from './blocks.js?v=mrs9orgs';
-import { materialiConMappa } from '../fx/materials.js?v=mrs9orgs';
+import { BLOCCHI, defDi } from './blocks.js?v=mrsac3y8';
+import { materialiConMappa } from '../fx/materials.js?v=mrsac3y8';
 
 export const STAGIONI = {
   primavera: {

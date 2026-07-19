@@ -2,8 +2,8 @@
 // animazioni procedurali (passo, respiro, salto). Fluttua di 1 px come tutto.
 
 import * as THREE from 'three';
-import { PX } from '../config.js?v=mrs9orgs';
-import { patchLuci } from '../fx/materials.js?v=mrs9orgs';
+import { PX } from '../config.js?v=mrsac3y8';
+import { patchLuci } from '../fx/materials.js?v=mrsac3y8';
 
 const mat = (colore) => patchLuci(new THREE.MeshBasicMaterial({ color: colore }));
 
