@@ -68,3 +68,11 @@ export const FORME_EXTRA = { lastra, pilastro, croce };
 
 /** Una forma che NON riempie la cella non culla i vicini e non fa da tappo. */
 export const FORME_VUOTE = new Set(['lastra', 'pilastro', 'croce']);
+
+/** Forme ESENTI dall'ombreggiatura per faccia del mesher. La croce è fatta di
+ *  quattro pannelli diagonali ([±1,0,±1]): l'ombra li pesa TUTTI allo stesso
+ *  identico valore, quindi ogni pianta perdeva luminosità in blocco senza
+ *  guadagnare un briciolo di stacco direzionale — perdita secca. Lastra e
+ *  pilastro NON stanno qui: passano da scatola(), hanno facce assiali vere e
+ *  dallo stacco ci guadagnano come i cubi. */
+export const FORME_SENZA_OMBRA = new Set(['croce']);

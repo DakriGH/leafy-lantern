@@ -5,8 +5,16 @@
 
 import * as THREE from 'three';
 import { CHUNK } from '../world/world.js';
-import { elencoLuci, statLuci } from '../fx/materials.js';
+import { elencoLuci, statLuci, statImpatti } from '../fx/materials.js';
 import { FISICA } from '../config.js';
+
+/** Le tre condizioni della luce cotta, distinte: spenta dall'utente, mondo
+ *  vuoto, oppure troppo grande per il paracadute. Prima erano una riga sola. */
+function luceTesto(st) {
+  if (st.luceTroppoGrande) return `⚠ mondo troppo grande (${(st.luceTroppoGrande / 1e6).toFixed(2)}M celle): non calcolata`;
+  if (!st.luceCelle) return 'spenta (interruttore o mondo vuoto)';
+  return `${(st.luceCelle / 1000).toFixed(0)}k celle · ultimo agg. ${st.luceMs.toFixed(1)} ms${st.luceLocali ? ` (${st.luceLocali} celle)` : ''}`;
+}
 
 const HTML = /* html */`
   <div class="dbg-testa"><span>🐞 Debug</span><button data-az="chiudi" title="Chiudi (F3)">×</button></div>
@@ -49,12 +57,14 @@ const HTML = /* html */`
       <button data-az="arcipelago">🌌 Arcipelago</button>
       <button data-az="open">⛰ Open world</button>
       <button data-az="mostra" title="Mondo piatto con TUTTI i blocchi separati, per provarli">🧪 Sala prove</button>
+      <button data-az="collaudo" title="Sei zone per guardare luci e acqua: terrazze, grotta, tettoia, muro, cascata, piano nudo">🔦 Collaudo luci</button>
       <label>seme <input data-el="seme" type="number" value="42" min="0" max="99999"></label>
       <label>raggio <select data-el="est">
         <option value="32">32</option><option value="48" selected>48</option>
         <option value="64">64</option><option value="96">96</option>
       </select></label>
     </div>
+    <div class="dbg-riga" data-el="zone" style="display:none"></div>
   </div>
 
   <div class="dbg-sez">
@@ -150,6 +160,7 @@ export class MenuDebug {
     this.elNetA = this.el.querySelector('[data-el="netA"]');
     this.elNetB = this.el.querySelector('[data-el="netB"]');
     this.elNetStato = this.el.querySelector('[data-el="netStato"]');
+    this.elZone = this.el.querySelector('[data-el="zone"]');
 
     // overlay three
     this.gruppi = {
@@ -186,6 +197,28 @@ export class MenuDebug {
     this.btnPausa.textContent = this.ciclo.auto ? '⏸' : '▶';
   }
 
+  /** Bottoni di teletrasporto per le zone della scena di collaudo. Compaiono
+   *  appena la scena esiste e restano finché non se ne genera un'altra: senza,
+   *  l'unico modo di raggiungere la cascata o il fondo della grotta era scrivere
+   *  le coordinate a mano in console. `piedi`/`cima`/`dentro`/`retro` diventano
+   *  ognuno un bottone, perché il punto interessante spesso NON è l'ingresso. */
+  mostraZone(zone, vai) {
+    const z = this.elZone;
+    z.textContent = '';
+    if (!zone) { z.style.display = 'none'; return; }
+    for (const v of Object.values(zone)) {
+      for (const [chiave, cella] of Object.entries(v)) {
+        if (chiave === 'nome' || !Array.isArray(cella)) continue;
+        const b = document.createElement('button');
+        b.textContent = chiave === 'piedi' ? v.nome : `${v.nome} · ${chiave}`;
+        b.title = `Teletrasporto a ${cella.join(', ')}`;
+        b.addEventListener('click', () => { vai(cella); this.hud.toast(`🔦 ${b.textContent}`); });
+        z.appendChild(b);
+      }
+    }
+    z.style.display = '';
+  }
+
   _click(e) {
     const b = e.target.closest('button');
     if (!b) return;
@@ -201,6 +234,7 @@ export class MenuDebug {
     else if (az === 'arcipelago') this.azioni.arcipelago(Number(this.elSeme.value) || 0, Number(this.elEst.value));
     else if (az === 'open') this.azioni.openWorld(Number(this.elSeme.value) || 0, Number(this.elEst.value));
     else if (az === 'mostra') this.azioni.salaProve();
+    else if (az === 'collaudo') this.azioni.collaudo();
     else if (az === 'fog') this.azioni.fog(Number(b.getAttribute('data-f')));
     else if (az === 'ts') this.azioni.tiltShift(Number(b.getAttribute('data-q')));
     else if (az === 'arProva') this.azioni.arProva();
@@ -309,10 +343,19 @@ export class MenuDebug {
     const info = this.rig.renderer.info.render;
     const luci = statLuci();
     const st = this.mesher.statistiche;
+    const imp = statImpatti();
     this.elStat.textContent =
       `${this._fps} fps · ${(info.triangles / 1000).toFixed(1)}k tri · ${info.calls} draw\n` +
       `${this.mondo.contaBlocchi} blocchi · ${st.chunkAttivi} chunk · rimesh ${st.ultimaMs.toFixed(1)} ms\n` +
+      // luceMs è il costo dell'ULTIMO aggiornamento: quasi sempre quello LOCALE
+      // (poche celle, frazioni di ms), non la griglia intera. Il conteggio delle
+      // celle è invece la taglia della griglia, che cambia solo coi ricalcoli pieni.
+      // TRE STATI, TRE ETICHETTE: "spenta" era la stessa riga anche quando il
+      // paracadute LUCE_LIMITE_CELLE scattava, cioè un guasto travestito da
+      // preferenza dell'utente.
+      `luce cotta ${luceTesto(st)}\n` +
       `luci ${luci.attive}/${luci.totali} (inviate ${luci.inviate}) · furni ${this.arredo.istanze.length}\n` +
+      `anelli d'impatto ${imp.mostrati}/${imp.totali}${imp.totali > imp.mostrati ? ' ⚠ oltre il tetto' : ''}\n` +
       `gatto ${this.controller.pos.x.toFixed(1)}, ${this.controller.pos.y.toFixed(1)}, ${this.controller.pos.z.toFixed(1)}${this.controller.vola ? ' · ✈️' : ''}`;
   }
 }

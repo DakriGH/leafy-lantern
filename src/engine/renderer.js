@@ -114,11 +114,6 @@ export class Rig {
     this.tiltShift = false;
     this._fuoco = 0.45;
 
-    // profondità della scena SENZA acqua (per la schiuma di bordo nello shader)
-    this.profRT = new THREE.WebGLRenderTarget(2, 2);
-    this._matProf = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
-    this._nascosti = [];
-
     // collisione della camera coi muri (spenta col settaggio "camera fantasma")
     this.solido = null;          // (x,y,z) => bool, iniettato da main
     this.fantasma = false;
@@ -137,8 +132,6 @@ export class Rig {
   /** Dimensiona TUTTO (renderer, composer se esiste, uniform del blur, camera). */
   dimensiona(w, h) {
     this.renderer.setSize(w, h, w === innerWidth && h === innerHeight);
-    const dprP = this.renderer.getPixelRatio();
-    this.profRT.setSize(Math.max(2, Math.floor(w * dprP * 0.5)), Math.max(2, Math.floor(h * dprP * 0.5)));
     if (this.composer) {
       this.composer.setSize(w, h);
       const dpr = this.renderer.getPixelRatio();
@@ -235,25 +228,13 @@ export class Rig {
     this.camera.lookAt(this.bersaglio);
   }
 
-  /** Renderizza la profondità della scena SENZA i trasparenti (acqua inclusa):
-   *  la schiuma di bordo dell'acqua nasce dal confronto con questa mappa. */
-  passProfondita() {
-    const n = this._nascosti;
-    n.length = 0;
-    this.scena.traverse((o) => {
-      if (o.visible && (o.isMesh || o.isPoints) && o.material && o.material.transparent) {
-        o.visible = false;
-        n.push(o);
-      }
-    });
-    const rtPrima = this.renderer.getRenderTarget();
-    this.scena.overrideMaterial = this._matProf;
-    this.renderer.setRenderTarget(this.profRT);
-    this.renderer.render(this.scena, this.camera);
-    this.scena.overrideMaterial = null;
-    this.renderer.setRenderTarget(rtPrima);
-    for (const o of n) o.visible = true;
-  }
+  // (qui viveva passProfondita(): rendeva la profondità della scena senza
+  // trasparenti per una schiuma di bordo calcolata per confronto. Il consumatore
+  // — impostaProfondita/uProfondita nello shader dell'acqua — è stato sostituito
+  // dal gradiente aRiva del mesher, che conosce la geometria vera invece di
+  // indovinarla dai pixel. Restava solo il PRODUTTORE: un metodo senza chiamanti
+  // in tutto src/, più un render target ridimensionato a metà canvas a ogni
+  // resize. Via anche quello.)
 
   render() {
     if (this.tiltShift && this.composer) this.composer.render();

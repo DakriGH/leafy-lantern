@@ -17,12 +17,13 @@ import { Zaino } from './ui/zaino.js';
 import { Mesher, geometriaSingola } from './world/mesher.js';
 import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js';
 import { generaMostra } from './world/mostra.js';
+import { generaCollaudo } from './world/collaudo.js';
 import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js';
 import { Meteo } from './fx/meteo.js';
 import { Inventario, ATTREZZI } from './gioco/inventario.js';
 import { Scavo, DUREZZE } from './gioco/scavo.js';
 import { CicloGiorno } from './fx/daynight.js';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, rimuoviLuce } from './fx/materials.js';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, rimuoviLuce, impostaLuceCotta, uniformiCondivise, scriviLuceEnte } from './fx/materials.js';
 import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js';
 import { ModalitaAR } from './ar/ar.js';
 import { Nuvole } from './fx/nuvole.js';
@@ -106,6 +107,23 @@ const mesher = new Mesher(rig.scena);
 const ciclo = new CicloGiorno(rig.scena);
 const hud = new HUD();
 const arredo = new Arredo(rig.scena, mondo);
+// Le sorgenti della luce cotta che NON sono blocchi: i lampioni dei furni.
+// È una funzione, non un elenco copiato, così è sempre quella di adesso — e il
+// mesher non deve sapere niente dell'arredo. Si cuociono sempre accese: il
+// canale serve da maschera d'occlusione, e la sfera è già spenta di giorno.
+// UN LAMPIONE SPENTO NON DEVE ILLUMINARE. L'handle `i.luce` esiste appena il
+// furni ha uno stato con luce, quindi filtrando solo su quello si cuoceva anche
+// lo stato "Spento": l'alone spariva ma la stanza restava accesa (+39% sulla
+// parete) e virava all'arancione — un interruttore che non spegne. Cuocere lo
+// stato vero costa una rilluminazione quando si preme l'interruttore e due al
+// giorno per i lampioni automatici: con l'aggiornamento incrementale è lavoro
+// locale alla lampada, non più una scansione dell'intero mondo.
+mesher.sorgentiExtra = () => arredo.istanze
+  .filter((i) => i.luce && i.luce.attiva && i.luce.intensita > 0)
+  .map((i) => ({
+    x: Math.floor(i.luce.pos.x), y: Math.floor(i.luce.pos.y), z: Math.floor(i.luce.pos.z),
+    livello: Math.round(i.luce.raggio),
+  }));
 const gatto = new Gatto();
 rig.scena.add(gatto.gruppo);
 const mano = new ManoStrumento(gatto.gruppo);
@@ -204,6 +222,20 @@ function impostaPosa(id) {
 }
 
 ciclo.onFase = (eNotte) => arredo.aggiornaNotte(eNotte);
+// Un lampione che si accende o si spegne cambia la luce COTTA, non solo la sua
+// sfera: l'arredo lo dice qui e il mesher rifà la zona. Il giro passa da un
+// unico punto (Arredo._applicaStato) invece che dai cinque posti da cui si può
+// premere un interruttore — l'interruttore del menu debug incluso.
+// UNA BANDIERINA, NON UNA CHIAMATA. verificaLuciFurni rilancia sorgentiExtra()
+// — filter + map su TUTTI i furni — e costruisce due Set a ogni invocazione,
+// mentre onLuce scatta una volta PER LAMPIONE: all'alba e al tramonto, quando
+// aggiornaNotte cicla su tutte le istanze, il costo diventa quadratico.
+// MISURATO con 77 lampioni: accensione 3,5 ms col ponte diretto contro 0,1 ms
+// senza, cioè 35 volte tanto; a 300 lampioni sarebbero ~50 ms per ogni
+// transizione. Qui si alza solo una bandierina e il lavoro si fa UNA VOLTA nel
+// loop, appena prima che il mesher ricostruisca.
+let _luciFurniDaVerificare = false;
+arredo.onLuce = () => { _luciFurniDaVerificare = true; };
 
 // ---- hotbar e selezione ------------------------------------------------------
 
@@ -1009,15 +1041,21 @@ function gestisciLuceBlocco(e) {
   const k = e.cella.join(',');
   const prec = luciBlocchi.get(k);
   if (prec) { rimuoviLuce(prec); luciBlocchi.delete(k); }
+  let raggio = prec ? prec.raggio : 0;   // c'era una luce e adesso non c'è più
   if (e.tipo === 'metti' && e.blocco) {
     const def = defDi(e.blocco);
     if (def && def.luce) {
+      raggio = Math.max(raggio, def.luce.raggio);
       luciBlocchi.set(k, creaLuce({
         pos: new THREE.Vector3(e.cella[0] + 0.5, e.cella[1] + 0.5, e.cella[2] + 0.5),
         raggio: def.luce.raggio, colore: def.luce.colore, intensita: def.luce.intensita,
       }));
     }
   }
+  // una lampada comparsa o sparita cambia la luce cotta anche nei chunk vicini,
+  // fin dove arriva il suo raggio: vanno rifatti, o la sfera resterebbe
+  // mascherata a zero e la lampada sembrerebbe rotta
+  if (raggio > 0) mesher.sporcaLuce(mondo, e.cella, raggio);
 }
 
 // ---- blocchi che EMETTONO PARTICELLE (def.particelle) ----------------------
@@ -1082,6 +1120,11 @@ function eventoLocale(e) {
   menuDebug.suEvento();
   gestisciLuceBlocco(e);
   gestisciParticelleBlocco(e);
+  // un furni piazzato o tolto può portarsi dietro un lampione: il mesher se ne
+  // accorge confrontando l'elenco delle sorgenti, così un tavolo qualsiasi non
+  // costa niente. Stessa bandierina di arredo.onLuce: piazzando in fretta si
+  // rifarebbe il confronto una volta per furni invece che una per frame.
+  if (e.tipo === 'furniPiazza' || e.tipo === 'furniRimuovi') _luciFurniDaVerificare = true;
   // suono dell'azione
   if (e.tipo === 'metti' || e.tipo === 'furniPiazza') audio.sfx('piazza');
   else if (e.tipo === 'togli' || e.tipo === 'furniRimuovi') audio.sfx('rompi');
@@ -1503,6 +1546,7 @@ const menuDebug = new MenuDebug({
     ripristina: () => ripristinaSnapshot(),
     salaProve: () => conCaricamento('🧪 Preparo la sala prove…', () => {
       salvaSnapshot(false);
+      menuDebug.mostraZone(null);
       arredo.svuota();
       const r = generaMostra(mondo);
       mesher.ricostruisciTutto(mondo);
@@ -1514,8 +1558,32 @@ const menuDebug = new MenuDebug({
       segnaSalvataggio();
       hud.toast(`🧪 Sala prove: ${r.campioni} campioni in ${r.file} file — il mondo di prima è nello snapshot`, 4200);
     }),
+    // Scena di collaudo: le sei zone dei fenomeni di luce/acqua, tutte a
+    // distanza di camminata. Come la sala prove, salva prima uno snapshot.
+    collaudo: () => conCaricamento('🔦 Preparo la scena di collaudo…', () => {
+      salvaSnapshot(false);
+      arredo.svuota();
+      const r = generaCollaudo(mondo);
+      mesher.ricostruisciTutto(mondo);
+      ricostruisciLuciBlocchi();
+      ricostruisciParticelleBlocchi();
+      for (const c of r.acqua) sim.pianificaAttorno(c);   // sveglia la cascata
+      controller.spawn(r.spawn);
+      rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
+      segnaSalvataggio();
+      // le zone diventano BOTTONI: la tabella dei teletrasporti era documentata
+      // nell'intestazione di collaudo.js, restituita in r.zone… e ignorata, cioè
+      // raggiungibile solo digitando controller.spawn([…]) in console
+      menuDebug.mostraZone(r.zone, (piedi) => {
+        controller.spawn(piedi);
+        rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
+      });
+      hud.toast(`🔦 Scena di collaudo: ${r.totale.toLocaleString('it')} blocchi in 6 zone — i bottoni delle zone sono nel menu debug`, 4200);
+      return r;
+    }),
     isolaDemo: () => conCaricamento('🏝 Nuova isola…', () => {
       salvaSnapshot(false);
+      menuDebug.mostraZone(null);
       nuovaIsola();
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
@@ -1525,6 +1593,7 @@ const menuDebug = new MenuDebug({
     }),
     arcipelago: (seme, est) => conCaricamento('🌌 Genero l’arcipelago…', () => {
       salvaSnapshot(false);
+      menuDebug.mostraZone(null);
       arredo.svuota();
       generaArcipelago(mondo, seme, est);
       mesher.ricostruisciTutto(mondo);
@@ -1536,6 +1605,7 @@ const menuDebug = new MenuDebug({
     }),
     openWorld: (seme, est) => conCaricamento('⛰ Genero l’open world…', () => {
       salvaSnapshot(false);
+      menuDebug.mostraZone(null);
       arredo.svuota();
       const { alberi, lampioni, fiume } = generaOpenWorld(mondo, seme, est);
       mesher.ricostruisciTutto(mondo);
@@ -1720,7 +1790,7 @@ async function avvia() {
   applicaOpzioni(false);     // fog/distanza/effetti salvati dall'utente (⚙️)
 
   // debug in console
-  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, generaArcipelago, generaOpenWorld, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, hud, cadenza, opzioni };
+  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, generaArcipelago, generaOpenWorld, generaCollaudo, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, hud, cadenza, opzioni, uniformi: uniformiCondivise() };
 
   // accelerazione hardware: avvisa se il WebView disegna in SOFTWARE (fps bassi)
   if (rig.software) {
@@ -1778,14 +1848,27 @@ function aggiornaSchiumaAcqua() {
   for (const g of gattiRemoti.values()) g.gatto.gruppo.traverse((o) => o.layers.enable(LAYER_SCHIUMA));
   for (const p of palle.values()) p.mesh.layers.enable(LAYER_SCHIUMA);
 
-  _schiumaCerchi.length = 0;
+  // UN SOLO ANELLO PER COLONNA. Il mesher segna un impatto per ogni cella che
+  // ha fermato la caduta, e sopra una pozza sono sempre due (l'ultima cella che
+  // cade e la sorgente che la riceve): due corone quasi concentriche si
+  // fondevano in una banda spessa. Vince la più BASSA — il fondo del salto è lì.
+  // Le bollicine no, quelle continuano a nascere da tutti gli impatti.
+  const perColonna = new Map();
   for (const e of mesher.chunks.values()) {
     if (!e.impatti) continue;
     for (const im of e.impatti) {
-      _schiumaCerchi.push({ x: im.x, z: im.z, r: 0.65 + Math.min(0.55, im.h * 0.08) });
+      const k = im.x + ',' + im.z;
+      const gia = perColonna.get(k);
+      if (!gia || im.ys < gia.ys) perColonna.set(k, im);
     }
   }
-  impostaSchiumaAcqua([], _schiumaCerchi);
+  _schiumaCerchi.length = 0;
+  for (const im of perColonna.values()) {
+    // `ys` (dove sbatte), non `im.y` (la cima della colonna): l'anello va sul
+    // pelo che riceve il colpo
+    _schiumaCerchi.push({ x: im.x, y: im.ys, z: im.z, r: 0.65 + Math.min(0.55, im.h * 0.08) });
+  }
+  impostaSchiumaAcqua(_schiumaCerchi, rig.bersaglio);
 }
 
 /** Le palle seguono i furni Generatore: nate col furni, via col furni. */
@@ -1847,7 +1930,7 @@ let riflessiUtente = true;
 
 // ---- Impostazioni utente (⚙️): persistenti, applicate subito -------------------
 const OPZ_CHIAVE = 'lantern.opzioni.v1';
-const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, tilt: !rig.mobile, autoQ: true, cameraFantasma: false, scala: 1, riflForza: 1, tiltQ: 2.2, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.mobile, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale' };
+const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, tilt: !rig.mobile, autoQ: true, luceCotta: true, cameraFantasma: false, scala: 1, riflForza: 1, tiltQ: 2.2, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.mobile, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale' };
 const opzioni = Object.assign({}, OPZ_DEFAULT, JSON.parse(localStorage.getItem(OPZ_CHIAVE) || '{}'));
 
 // preset grafici: un tocco e la macchina va — comodi per testare
@@ -1900,6 +1983,15 @@ function applicaOpzioni(salva = true) {
   modalitaAR.impostaAssetto(opzioni.arRot, opzioni.arScala);
   modalitaXR.impostaAssetto(opzioni.arRot, opzioni.arScala);
   impostaForzaRiflesso(opzioni.riflForza);
+  // LUCE COTTA: lo shader la spegne all'istante (una uniform), ma spento il
+  // mesher può anche smettere di calcolare la griglia — e quello richiede di
+  // rifare la mesh, una volta sola, solo quando l'interruttore cambia davvero.
+  const luceOra = opzioni.luceCotta !== false;
+  impostaLuceCotta(luceOra);
+  if (mesher.luceAttiva !== luceOra) {
+    mesher.luceAttiva = luceOra;
+    mesher.ricostruisciTutto(mondo);
+  }
   riflessiUtente = opzioni.riflessi;
   qManuale = !opzioni.autoQ;
   if (!qManuale) qLivello = 0;
@@ -1928,6 +2020,7 @@ function aggiornaUIOpzioni() {
   document.getElementById('opzArFuoco').value = opzioni.arFuoco === null ? 50 : Math.round(opzioni.arFuoco * 100);
   document.getElementById('valArFuoco').textContent = opzioni.arFuoco === null ? 'auto (2 tocchi)' : opzioni.arFuoco.toFixed(2);
   document.getElementById('opzRiflessi').classList.toggle('attivo', opzioni.riflessi);
+  document.getElementById('opzLuce').classList.toggle('attivo', opzioni.luceCotta !== false);
   document.getElementById('opzTilt').classList.toggle('attivo', opzioni.tilt);
   document.getElementById('opzPioggia').classList.toggle('attivo', pioggia.attiva);
   document.getElementById('opzAutoQ').classList.toggle('attivo', opzioni.autoQ);
@@ -2079,6 +2172,7 @@ document.getElementById('opzArFuoco').addEventListener('dblclick', async () => {
   if (modalitaAR.attiva) hud.toast('🔍 ' + await modalitaAR.regolaFuoco(null));
 });
 document.getElementById('opzRiflessi').addEventListener('click', () => { opzioni.riflessi = !opzioni.riflessi; applicaOpzioni(); });
+document.getElementById('opzLuce').addEventListener('click', () => { opzioni.luceCotta = opzioni.luceCotta === false; applicaOpzioni(); });
 document.getElementById('opzTilt').addEventListener('click', () => { opzioni.tilt = !opzioni.tilt; opzioni.autoQ = false; applicaOpzioni(); });
 document.getElementById('opzAutoQ').addEventListener('click', () => { opzioni.autoQ = !opzioni.autoQ; applicaOpzioni(); });
 document.getElementById('opzPioggia').addEventListener('click', () => { meteo.manuale(); pioggia.imposta(!pioggia.attiva); aggiornaUIOpzioni(); });
@@ -2151,6 +2245,55 @@ function adattaQualita(fps) {
     qLivello++; _giu = _su = 0; _ultimoCambio = adesso; applicaQualita();
   } else if (_su >= CAMPIONI_SU && qLivello > 0) {
     qLivello--; _giu = _su = 0; _ultimoCambio = adesso; applicaQualita();
+  }
+}
+
+// ---- luce cotta di chi NON passa dal mesher ---------------------------------
+// Gatto, mano, palle e mobili non hanno facce da interrogare: leggevano
+// l'attributo mancante, cioè "cielo pieno" OVUNQUE. Nella grotta di collaudo il
+// gatto appoggiato alla parete rendeva 1.000 contro lo 0.690 della parete che
+// toccava, e la maschera che tiene le luci-sfera dietro i muri per lui valeva 1
+// — il lampione lo illuminava ATTRAVERSO il muro, cioè proprio il difetto che
+// questa feature esiste per risolvere, sull'oggetto più guardato dello schermo.
+// Qui la luce gliela si SONDA nella cella dove stanno, una volta per frame.
+// Le creature restano fuori apposta: farfalle e lucciole condividono geometrie
+// fra istanze e la sonda si pesterebbe i piedi da sola. Non avendo dati, per
+// loro tutto resta com'era prima (nessun effetto), che è la polarità giusta.
+const _sondaLuce = [0, 0];
+let _sondaFurni = 0;
+/** `alzata` = quanto sopra i piedi si legge la luce: 0.5 (mezzo blocco) è
+ *  l'altezza del corpo di un gatto, i furni la calcolano sul loro modello. */
+function luceSuEnte(oggetto, x, y, z, alzata = 0.5) {
+  if (mesher.sonda(x, y + alzata, z, _sondaLuce)) scriviLuceEnte(oggetto, _sondaLuce[0], _sondaLuce[1]);
+}
+/** Quanto sopra la sua cella di base va sondato un furni: METÀ ALTEZZA del
+ *  modello. Si leggeva a +0.5, cioè la luce del PAVIMENTO: un lampione è alto
+ *  2,4 unità e la sua testa prendeva la luce dei suoi piedi. Il baricentro è il
+ *  compromesso onesto — un oggetto qui ha una luce sola, e deve essere quella
+ *  del punto in cui sta davvero. */
+function alzataSonda(ist) {
+  const dim = ist.def.modello3d && ist.def.modello3d.userData.dimensioni;
+  return Math.max(0.5, (dim ? dim.y : 1) * 0.5);
+}
+
+function aggiornaLuceEnti(dt) {
+  luceSuEnte(gatto.gruppo, controller.pos.x, controller.pos.y, controller.pos.z);
+  for (const g of gattiRemoti.values()) luceSuEnte(g.gatto.gruppo, g.pos.x, g.pos.y, g.pos.z);
+  for (const p of palle.values()) luceSuEnte(p.mesh, p.pos.x, p.pos.y, p.pos.z);
+  // i mobili stanno fermi: 2,5 volte al secondo basta, e scriviLuceEnte non
+  // tocca niente quando il valore non è cambiato
+  _sondaFurni -= dt;
+  const tutti = _sondaFurni <= 0;
+  if (tutti) _sondaFurni = 0.4;
+  for (const ist of arredo.istanze) {
+    // I NUOVI SI SONDANO SUBITO. Il materiale di un def è condiviso fra le
+    // istanze, quindi appena UNA viene sondata quel materiale dichiara "ho i
+    // dati cotti" per tutte: un furni appena piazzato che aspettasse il turno
+    // leggerebbe l'attributo mancante e per mezzo secondo resterebbe senza la
+    // sua luce-sfera.
+    if (!tutti && ist.sondata) continue;
+    ist.sondata = true;
+    luceSuEnte(ist.gruppo, ist.cella[0] + 0.5, ist.cella[1], ist.cella[2] + 0.5, alzataSonda(ist));
   }
 }
 
@@ -2321,7 +2464,10 @@ function passo(adesso, frameXR) {
     g.inAcqua = dentroR;
   }
 
+  // i lampioni accesi/spenti in questo frame, tutti in un confronto solo
+  if (_luciFurniDaVerificare) { _luciFurniDaVerificare = false; mesher.verificaLuciFurni(mondo); }
   mesher.aggiorna(mondo);              // solo i chunk sporchi
+  aggiornaLuceEnti(dt);                // …e poi la luce di chi non ha facce
   menuDebug.aggiorna(dt);
   // coi comandi touch la mira è il mirino centrale (l'anteprima segue lì)
   if (opzioni.comandiTouch) { mira.x = innerWidth / 2; mira.y = innerHeight / 2; }

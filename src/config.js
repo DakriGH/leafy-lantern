@@ -31,7 +31,9 @@ export const TEMPO = {
 };
 
 export const LUCI_MAX = 24;      // cap luci-sfera per frame
-export const BANDE_LUCE = 3;     // anelli di posterizzazione
+// (le bande delle luci-sfera stavano qui, a 3 e con un arrotondamento tutto
+//  suo: due quantizzazioni diverse sulla STESSA lampada non potevano dare
+//  anelli coincidenti. Adesso c'è una regola sola, GRADINI in world/luce.js)
 
 export const RAGGIO_CLICK = 90;  // portata del raycast di mira
 export const CHIAVE_SALVATAGGIO = 'lantern.diorama.v1';
