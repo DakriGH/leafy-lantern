@@ -20,14 +20,88 @@ export const BLOCCHI = {
   lanaBlu:    { nome: 'Lana blu',    cima: 0x4a7fd4, lato: 0x3f6ec0, fondo: 0x3760ab, solido: true, nav: 10, fam: 'scavo' },
   lanaGialla: { nome: 'Lana gialla', cima: 0xf2c94c, lato: 0xe0b83e, fondo: 0xcda634, solido: true, nav: 10, fam: 'scavo' },
   lanaVerde:  { nome: 'Lana verde',  cima: 0x58b368, lato: 0x4aa05a, fondo: 0x3f8f4e, solido: true, nav: 10, fam: 'scavo' },
-  // LUCE DINAMICA per-blocco: def.luce = {colore, raggio, intensita} accende
-  // una sfera fake-pointlight al centro della cella (gestita da main) —
-  // il banco di prova delle performance del sistema luci
+  // LUCE DINAMICA per-blocco: def.luce = {colore, raggio, intensita, ombra}
+  // accende una sfera fake-pointlight al centro della cella (gestita da main).
+  //
+  // `ombra` SCEGLIE LA CLASSE, e va DICHIARATA: non si deduce da niente.
+  //  · true  = luce PESANTE: non passa i muri. L'ombra la cammina lo shader
+  //            sulla griglia dei solidi (fx/materials.js, ombraVoxel), quindi
+  //            costa a schermo e non in CPU. Un blocco-lampada e' fermo e
+  //            occlude: qui e' la scelta giusta.
+  //  · false = luce LEGGERA: trapassa tutto, si muove gratis, costo zero in CPU.
+  //            E' quella dei fuochi fatui e degli effetti (vedi creaLuceLeggera).
+  // Il default di creaLuce e' `false`: chi si dimentica finisce nella classe che
+  // non costa niente, e una luce che pesa resta una scelta scritta.
   lucciola: {
     nome: 'Lucciola verde', cima: 0xa8ffb0, lato: 0x5fd66e, fondo: 0x46b957,
     solido: true, nav: 10, fam: 'mina', salute: 100,
-    luce: { colore: 0x7dffa0, raggio: 5, intensita: 1.1 },
+    luce: { colore: 0x7dffa0, raggio: 5, intensita: 1.1, ombra: true },
   },
+
+  // ---- LA COPPIA DEL CONFRONTO -------------------------------------------
+  // Due blocchi con la STESSA IDENTICA luce (colore, raggio, intensita') e
+  // anche le stesse facce: l'UNICA differenza e' `ombra`. Sono fatti per stare
+  // affiancati dietro due muri uguali (world/testLuci.js, zona 1): a quel punto
+  // tutto cio' che si vede di diverso a schermo e' la classe di luce, non la
+  // lampada. Se un giorno viene la tentazione di dare a uno dei due un colore
+  // diverso per distinguerli nell'inventario: NON FARLO, si perde la prova.
+  // Nel mondo di test si distinguono dal marcatore di lana ai loro piedi
+  // (bianca = pesante, rossa = leggera); nel menu li distingue il nome.
+  lampadaPesante: {
+    nome: 'Lampada pesante (con ombra)', cima: 0xffeab4, lato: 0xf0c063, fondo: 0xd9a744,
+    solido: true, nav: 10, fam: 'mina', salute: 100,
+    luce: { colore: 0xffd889, raggio: 8, intensita: 1.1, ombra: true },
+  },
+  lampadaLeggera: {
+    nome: 'Lampada leggera (trapassa i muri)', cima: 0xffeab4, lato: 0xf0c063, fondo: 0xd9a744,
+    solido: true, nav: 10, fam: 'mina', salute: 100,
+    luce: { colore: 0xffd889, raggio: 8, intensita: 1.1, ombra: false },
+  },
+
+  // ---- LE TRE COLORATE ----------------------------------------------------
+  // Primarie additive quasi pure (un canale a 1, gli altri bassi): servono a
+  // LEGGERE la mescolanza, e un rosso "caldo" con dentro un po' di verde
+  // renderebbe illeggibile la somma. Raggio 8 perche' nel mondo di test stanno
+  // appese a mezz'aria sopra un pavimento chiaro: da 5 celle e mezzo di quota
+  // una sfera da 8 lascia a terra una pozza di raggio ~5.8, larga abbastanza da
+  // sovrapporsi alla vicina senza che le due lampade si tocchino.
+  // PESANTI: cosi' le stesse lampade valgono anche per la prova "colorate +
+  // ombra", dove il caso limite e' proprio due colori ai lati di un muro.
+  lampadaRossa: {
+    nome: 'Lampada rossa', cima: 0xffb9ad, lato: 0xe8503c, fondo: 0xc93a28,
+    solido: true, nav: 10, fam: 'mina', salute: 100,
+    luce: { colore: 0xff2a1a, raggio: 8, intensita: 1.1, ombra: true },
+  },
+  lampadaVerde: {
+    nome: 'Lampada verde', cima: 0xb6ffc4, lato: 0x3fd45f, fondo: 0x2fae49,
+    solido: true, nav: 10, fam: 'mina', salute: 100,
+    luce: { colore: 0x1aff3a, raggio: 8, intensita: 1.1, ombra: true },
+  },
+  lampadaBlu: {
+    nome: 'Lampada blu', cima: 0xb0c4ff, lato: 0x4064e0, fondo: 0x2f4cbd,
+    solido: true, nav: 10, fam: 'mina', salute: 100,
+    luce: { colore: 0x2a4aff, raggio: 8, intensita: 1.1, ombra: true },
+  },
+
+  // ---- IL NIDO DEI FUOCHI FATUI -------------------------------------------
+  // Il blocco NON fa i fuochi fatui da solo: DICHIARA `fuochiFatui` e chi tiene
+  // il registro (main.js) li accende con fx/fuochiFatui.js. E' la stessa regola
+  // delle luci e delle particelle per-blocco — la tabella dice COSA, il modulo fa.
+  //
+  // La sua luce propria e' LEGGERA apposta, e non e' una svista sulla regola
+  // "un blocco fermo e' pesante": qui il blocco e' l'alone comune dei fatui, e
+  // un mondo di stress test pieno di nidi non deve mangiarsi l'atlante delle
+  // ombre (48 piastrelle) prima ancora di aver acceso un solo fuoco fatuo.
+  fuochiFatui: {
+    nome: 'Nido di fuochi fatui', cima: 0xcdf6ff, lato: 0x4d8fa8, fondo: 0x35697d,
+    solido: true, nav: 10, fam: 'mina', salute: 100,
+    luce: { colore: 0x8fe4ff, raggio: 3, intensita: 0.7, ombra: false },
+    fuochiFatui: {
+      numero: 7, raggio: 3.2, quota: 1.9,
+      luce: { colore: 0x9fe0ff, raggio: 4.2, intensita: 1.0 },
+    },
+  },
+
   acqua:   { nome: 'Acqua',   cima: 0x4fc2ec, lato: 0x3dade0, fondo: 0x3096cc, solido: false, nav: null, acqua: true },
 };
 
@@ -36,6 +110,10 @@ export const CATEGORIE_BLOCCHI = [
   { id: 'naturali', nome: 'Naturali', emoji: '🌿', blocchi: ['erba', 'terra', 'sabbia', 'ghiaia', 'neve', 'roccia', 'lucciola', 'acqua'] },
   { id: 'costruzione', nome: 'Costruzione', emoji: '🧱', blocchi: ['legno', 'tronco', 'asse', 'pietra', 'mattoni'] },
   { id: 'lane', nome: 'Lane', emoji: '🎨', blocchi: ['lanaBianca', 'lanaRossa', 'lanaBlu', 'lanaGialla', 'lanaVerde'] },
+  // Categoria a parte perche' qui la scelta NON e' estetica: prendendo una
+  // "lampada pesante" invece di una "leggera" si sceglie se pagare una mappa
+  // d'ombra. Tenerle in mezzo ai blocchi naturali nascondeva la decisione.
+  { id: 'luci', nome: 'Luci', emoji: '💡', blocchi: ['lucciola', 'lampadaPesante', 'lampadaLeggera', 'lampadaRossa', 'lampadaVerde', 'lampadaBlu', 'fuochiFatui'] },
 ];
 
 // ---- blocchi dell'OFFICINA (definiti in-game, registrati a runtime) --------

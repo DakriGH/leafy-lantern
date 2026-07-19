@@ -31,7 +31,6 @@ export class Arredo {
     this.mondo = mondo;
     this.istanze = [];
     this.onEvento = null;
-    this.onLuce = null;        // un lampione si è acceso/spento: rifare la maschera
   }
 
   /** Controlla se un furni può stare lì. Ritorna {ok, motivo}. */
@@ -94,6 +93,7 @@ export class Arredo {
         raggio: statoConLuce.luce.raggio,
         colore: statoConLuce.luce.colore,
         intensita: statoConLuce.luce.intensita,
+        ombra: !!statoConLuce.luce.ombra,
         attiva: false,
       });
       const aloni = new THREE.Group();
@@ -125,13 +125,12 @@ export class Arredo {
       istanza.visualiStato.forEach((v, i) => { v.visible = i === istanza.stato; });
     }
     const accesa = !!(stato && stato.luce);
-    if (istanza.luce && istanza.luce.attiva !== accesa) {
-      istanza.luce.attiva = accesa;
-      // la MASCHERA d'occlusione deve seguire l'interruttore, non solo la sfera: avvisa chi
-      // di dovere (main.js → mesher.verificaLuciFurni). Un solo punto per tutti
-      // i modi di accendere un lampione: click, menu debug, ciclo giorno/notte.
-      if (this.onLuce) this.onLuce(istanza);
-    }
+    // BASTA LA SFERA. Qui si avvisava anche il mesher (onLuce → main.js →
+    // verificaLuciFurni), perché la maschera d'occlusione doveva seguire
+    // l'interruttore: una lampada spenta che lasciava la sua maschera aperta si
+    // vedeva. Con le ombre camminate per-frammento la maschera non esiste —
+    // c'è la griglia dei MURI, e un interruttore i muri non li sposta.
+    if (istanza.luce) istanza.luce.attiva = accesa;
     if (istanza.aloni) istanza.aloni.visible = accesa;
   }
 

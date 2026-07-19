@@ -13,8 +13,8 @@ import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js';
 import { paletteBlocco, coloreFaccia } from './stagioni.js';
 import { FORME_EXTRA, FORME_VUOTE } from './forme.js';
 import { tintaPalette } from './motivi.js';
-import { GrigliaLuce, scatolaPerMondo, RAGGIO_MAX, MARGINE_MASCHERA } from './luce.js';
-import { materialeMondo, materialeAcqua, aggiornaCielo } from '../fx/materials.js';
+import { GrigliaLuce, scatolaPerMondo } from './luce.js';
+import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel } from '../fx/materials.js';
 import { CHUNK } from './world.js';
 
 const U = 1 / 16;                 // 1 pixel in unità mondo
@@ -47,30 +47,17 @@ class Costruttore {
     // riscrive solo questi float nel color buffer, senza ricostruire nulla
     this.erbe = [];
     this._erbaHex = null; this._erbaY = 0;
-    // MASCHERA D'OCCLUSIONE cotta per-vertice: aOcc = TRE byte, cioè 24 bit, uno
-    // per SLOT di lampada (vedi world/luce.js). Bit acceso = quella lampada qui
-    // non arriva, c'è un muro in mezzo.
-    // LA POLARITÀ è scelta per il default WebGL di un attributo che la geometria
-    // non ha, (0,0,0,1): chi non lo porta legge x=y=z=0, cioè "nessuna lampada
-    // bloccata", e resta illuminato esattamente com'era. Memorizzare il
-    // contrario avrebbe spento gatto, mano e mobili. Ed è anche il motivo per cui
-    // i byte sono TRE e non quattro: la w di quel default vale 1, quindi un
-    // quarto byte accenderebbe da solo il bit dello slot 24.
-    this.luc = [];
-    this.conLuce = false;                 // qualche blocco ha avuto una griglia?
-    // la cintura di taglia in geometria() ha dovuto buttare aOcc? Il guasto lo
-    // CONTA il Mesher, per chunk: qui si alza solo la bandierina (vedi _chunk)
-    this.mascheraScartata = false;
-    this.luceG = null; this._lx = 0; this._ly = 0; this._lz = 0;
-    this._lFuori = null; this._lMask = 0;
   }
 
-  /** Griglia d'occlusione + cella in corso. null = spenta (ghost, Officina). */
-  luceCella(griglia, x, y, z) {
-    if (griglia) this.conLuce = true;
-    this.luceG = griglia; this._lx = x; this._ly = y; this._lz = z; this._lFuori = null;
-  }
-  fineLuce() { this.luceG = null; this._lFuori = null; }
+  // QUI IL MESHER CUOCEVA L'OCCLUSIONE, un attributo aOcc di tre byte per
+  // vertice: 24 bit, uno per lampada, letti nella cella d'aria davanti a ogni
+  // faccia. Non c'è più, e non è una semplificazione gratuita — era la CAUSA
+  // delle «ombre quadrate e tagliate»: un dato per faccia e per cella può
+  // cambiare valore solo sui confini dei voxel, quindi il bordo dell'ombra
+  // scendeva a scalini da una cella. Adesso l'ombra si legge per FRAMMENTO da
+  // una mappa d'ombra per lampada (world/ombre.js), in coordinate mondo: la
+  // geometria non ne porta più traccia, e ci guadagnano anche gatto, mano,
+  // mobili e creature, che prima andavano sondati a mano uno per uno.
 
   /** Attiva/spegne la marcatura dei triangoli color pal.cima come "erba". */
   erba(hexCima, quotaCella) { this._erbaHex = hexCima; this._erbaY = quotaCella; }
@@ -100,24 +87,6 @@ class Costruttore {
     if (this._erbaHex !== null && colore === this._erbaHex) {
       this.erbe.push(this.pos.length / 3, this._erbaY);
     }
-    // OCCLUSIONE PER FACCIA, NON PER BLOCCO. Si legge nella cella d'ARIA che
-    // questa faccia affaccia — `fuori` è già la sua normale uscente. Leggendo un
-    // valore solo per blocco, un muro illuminato da un lato risulterebbe chiaro
-    // anche dall'altro: è il punto che rende credibile tutta l'occlusione.
-    // Il valore è COSTANTE sui tre vertici: sono bit, non un gradiente.
-    if (this.luceG) {
-      // quad() passa lo STESSO array `fuori` ai suoi due triangoli, e
-      // conCappello lo riusa per più pezzi dello stesso fianco: l'identità
-      // basta a dimezzare le letture senza rischiare un valore stantio (la
-      // cella corrente azzera il memo in luceCella).
-      if (fuori !== this._lFuori) {
-        this._lFuori = fuori;
-        this._lMask = this.luceG.occlusaFaccia(this._lx, this._ly, this._lz, fuori);
-      }
-      const m = this._lMask;
-      const b0 = m & 255, b1 = (m >> 8) & 255, b2 = (m >> 16) & 255;
-      for (let i = 0; i < 3; i++) this.luc.push(b0, b1, b2);
-    }
     this.pos.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
     // IL COLORE DELLA PALETTE, TALE E QUALE, su tutti e tre i vertici: nessun
     // moltiplicatore per direzione di faccia né per occlusione (vedi in alto)
@@ -145,22 +114,6 @@ class Costruttore {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
-    // ATTRIBUTO OMESSO quando l'occlusione è spenta (o non c'è: ghost,
-    // Officina). In WebGL un attributo che la geometria NON ha legge (0,0,0,1),
-    // cioè esattamente la polarità "nessuna occlusione" assunta dallo shader —
-    // quindi omettere è GRATIS, e l'interruttore per le macchine deboli non
-    // alloca né carica in GPU un buffer di soli zeri.
-    // Il controllo di taglia è una cintura: se una geometria mescolasse blocchi
-    // con e senza griglia, meglio nessun dato che dati disallineati.
-    // NON MUTA: se scatta, il pannello debug lo dice invece di continuare a
-    // dichiarare l'occlusione attiva su chunk che non ce l'hanno (era un guasto
-    // che degradava in silenzio verso il comportamento di prima della maschera).
-    // Non normalizzato: i tre byte sono BIT, e vanno letti 0..255, non 0..1.
-    if (this.conLuce) {
-      if (this.luc.length === this.pos.length) {
-        g.setAttribute('aOcc', new THREE.Uint8BufferAttribute(this.luc, 3));
-      } else this.mascheraScartata = true;
-    }
     if (this.acq) {
       g.setAttribute('aAcqua', new THREE.Float32BufferAttribute(this.acq, 3));
       g.setAttribute('aRiva', new THREE.Float32BufferAttribute(this.riv, 2));
@@ -480,7 +433,7 @@ function acquaBox(b, cx, cy, cz, pal, info) {
 
 // ---- smistamento per blocco ---------------------------------------------------
 
-function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo, luce = null) {
+function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo) {
   const def = defDi(tipo);
   let pal = paletteBlocco(tipoBase(tipo), y);   // stagione + rampa d'altezza
   // MOTIVO: variazione deterministica cella per cella (la "texture" qui)
@@ -537,7 +490,6 @@ function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo, luce = null) {
         bAcqua.impatti.push({ x: cx, y: y + h + (15 - 2 * Lc2) / 16 + 0.02, z: cz, ys: cy, h });
       }
     }
-    bAcqua.luceCella(luce, x, y, z);
     acquaBox(bAcqua, cx, cy, cz, pal, {
       livello: Lc, mioSopra, cascata: mioSopra, flusso, vicinoAcqua,
       vicinoPieno: (dx, dy, dz) => mondo.pieno(x + dx, y + dy, z + dz),
@@ -558,7 +510,6 @@ function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo, luce = null) {
         return L;
       },
     });
-    bAcqua.fineLuce();
     return;
   }
   // INTORNO 3×3×3 IN UNA VOLTA SOLA. Prima ogni vicinoSolido() rifaceva una
@@ -582,12 +533,9 @@ function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo, luce = null) {
   // forme non-cubiche dell'Officina: non cullano (non riempiono la cella)
   const extra = def.forma && FORME_EXTRA[def.forma];
   if (extra) {
-    bSolidi.luceCella(luce, x, y, z);
     extra(bSolidi, cx, cy, cz, pal, () => false);
-    bSolidi.fineLuce();
     return;
   }
-  bSolidi.luceCella(luce, x, y, z);
   if (def.cappello && !vicinoSolido(0, 1, 0)) {
     bSolidi.erba(pal.cima, y);          // marca le cime: ritinta stagionale in-place
     conCappello(bSolidi, cx, cy, cz, pal, vicinoSolido);
@@ -604,7 +552,6 @@ function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo, luce = null) {
     };
     supercubo(bSolidi, cx, cy, cz, pal, vicinoTuttaAltezza);
   }
-  bSolidi.fineLuce();
 }
 
 // ---- mesher a chunk ------------------------------------------------------------
@@ -649,22 +596,25 @@ export class Mesher {
     // spento l'interruttore" e di "mondo vuoto". Tre stati diversi sotto
     // un'etichetta sola: se il paracadute si aprisse davvero, nessuno saprebbe
     // distinguerlo da una preferenza.
-    this.statistiche = { ultimaMs: 0, chunkAttivi: 0, occMs: 0, occCelle: 0, occLocali: 0, occTroppoGrande: 0 };
-    this.luce = null;              // GrigliaLuce, rifatta prima dei chunk
-    this.occlusioneAttiva = true;        // interruttore delle Impostazioni
-    // sorgenti che NON sono blocchi (lampioni dei furni): una funzione, non un
-    // elenco copiato, così è sempre quella di adesso e non serve tenerla in pari
-    this.sorgentiExtra = null;     // () => [{x, y, z, raggio}]
-    this._celleLuce = new Set();   // celle-sorgente cambiate fuori dal mondo (furni)
-    this._sorgFurni = [];
+    this.statistiche = { ultimaMs: 0, chunkAttivi: 0, occMs: 0, occCelle: 0, occLocali: 0, occTroppoGrande: 0, voxTroppoLarga: 0 };
+    this.luce = null;              // GrigliaLuce (i muri), rifatta prima dei chunk
+    this.occlusioneAttiva = true;  // interruttore delle Impostazioni
+    // QUI STAVA MEZZO SISTEMA, e vale la pena dire cosa se n'è andato con le
+    // mappe d'ombra cotte: l'atlante delle piastrelle, la mappa cella→piastrella,
+    // il contatore delle lampade rimaste senza, l'elenco delle sorgenti che NON
+    // sono blocchi (i lampioni dei furni) e le celle-luce sporche da ricuocere.
+    // Servivano tutti a una cosa sola — sapere QUALE lampada aveva una mappa da
+    // rifare — e col cammino per-frammento non c'è più niente di cotto: l'ombra
+    // esce dalla griglia dei muri, che è una sola per tutte le lampade del mondo.
+    // Accendere un lampione adesso non tocca proprio nulla di qui dentro.
   }
 
   /**
-   * Ricalcola la MASCHERA D'OCCLUSIONE sull'estensione occupata dal mondo. Si fa
-   * QUI, una volta per ricostruzione: il risultato finisce nei vertici come bit
-   * per-lampada e NON dipende dall'ora. Il giorno e la notte li fa uAmbiente, un
-   * colore che lo shader moltiplica per tutto: cambiare ora non tocca la
-   * maschera, e infatti il ciclo non rimesha mai niente.
+   * Ricalcola la GRIGLIA DEI MURI sull'estensione occupata dal mondo, e la
+   * carica in GPU. Si fa QUI, una volta per ricostruzione: dice solo DOVE stanno
+   * i solidi e NON dipende dall'ora — il giorno e la notte li fa uAmbiente, un
+   * colore che lo shader moltiplica per tutto, quindi cambiare ora non tocca
+   * niente e infatti il ciclo non rimesha mai.
    */
   _ricalcolaLuce(mondo) {
     const t0 = performance.now();
@@ -674,9 +624,9 @@ export class Mesher {
     this.statistiche.occMs = 0;
     this.statistiche.occLocali = 0;
     this.statistiche.occTroppoGrande = 0;
+    this.statistiche.voxTroppoLarga = 0;
     mondo.scordaCambi();
-    this._celleLuce.clear();      // il ricalcolo pieno assorbe tutto
-    if (!this.occlusioneAttiva) return;
+    if (!this.occlusioneAttiva) { this._spegniOmbre(); return; }
 
     // UNA SOLA PASSATA SUL MONDO. La scatola serve prima di poter allocare la
     // griglia, quindi le celle solide si mettono da parte qui appiattite: la
@@ -685,7 +635,7 @@ export class Mesher {
     // split+map e alloca un oggetto: altri 34 ms buttati (misurato in gioco).
     let minX = Infinity, minY = Infinity, minZ = Infinity;
     let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
-    const sorgenti = [], solidi = [];
+    const solidi = [];
     mondo.perOgni((x, y, z, tipo) => {
       if (x < minX) minX = x; if (x > maxX) maxX = x;
       if (y < minY) minY = y; if (y > maxY) maxY = y;
@@ -695,164 +645,107 @@ export class Mesher {
       // (una pianta o una lastra non fanno ombra). I furni nemmeno: non sono
       // blocchi, e un tavolo che proietta un quadrato nero sarebbe peggio.
       if (!d.acqua && !FORME_VUOTE.has(d.forma)) solidi.push(x, y, z);
-      // LO STESSO RAGGIO DELLA SFERA, non arrotondato: la maschera deve coprire
-      // esattamente la zona che la luce-sfera illumina, o l'ultimo anello
-      // sparirebbe. (Il margine per i centri sfalsati lo mette la griglia.)
-      if (d.luce) sorgenti.push(x, y, z, d.luce.raggio);
+      // LE LAMPADE NON SI RACCOLGONO PIÙ, ed è la semplificazione più grossa di
+      // tutta la riscrittura: la griglia serve a dire dove sono i MURI, e i muri
+      // non sanno niente di chi li illumina. Prima qui si metteva da parte ogni
+      // sorgente pesante per poterle cuocere una mappa a testa.
     });
-    if (!isFinite(minX)) return;                    // mondo vuoto
+    if (!isFinite(minX)) { this._spegniOmbre(); return; }   // mondo vuoto
 
     const scatola = scatolaPerMondo(minX, minY, minZ, maxX, maxY, maxZ);
     const celle = scatola.larghezza * scatola.altezza * scatola.profondita;
     // il pannello deve poter dire "troppo grande", non "spenta": vedi statistiche
-    if (celle > LUCE_LIMITE_CELLE) { this.statistiche.occTroppoGrande = celle; return; }
-    // RIUSO: se la scatola non è cambiata (il caso normale, perché il ricalcolo
-    // pieno capita quasi solo al caricamento e all'import) si riciclano i due
-    // array della griglia — `visto` (Uint32, quattro byte a cella: è il prezzo
-    // del bit per lampada) e `solidi` (Uint8) — invece di riallocarli e darli in
-    // pasto al GC
+    if (celle > LUCE_LIMITE_CELLE) {
+      this.statistiche.occTroppoGrande = celle;
+      this._spegniOmbre();
+      return;
+    }
+    // RIUSO: se la scatola non e' cambiata (il caso normale, perche' il ricalcolo
+    // pieno capita quasi solo al caricamento e all'import) si ricicla l'array
+    // dei solidi invece di riallocarlo e darlo in pasto al GC
     const g = (vecchia && vecchia.stessaScatola(scatola))
       ? (vecchia.azzera(), vecchia) : new GrigliaLuce(scatola);
 
-    // SOLIDITÀ PRECALCOLATA, la lezione costata cara: passare `mondo.pieno` come
-    // test costava 423 ms su 195k celle contro 56, perché compone una stringa
-    // "x,y,z" e cerca in una Map — e la maschera lo chiede a OGNI PASSO di OGNI
-    // traversata, cioè il ciclo più caldo del gioco. Qui è un Uint8Array riempito
+    // SOLIDITA' PRECALCOLATA, la lezione costata cara: passare `mondo.pieno` come
+    // test costava 423 ms su 195k celle contro 56, perche' compone una stringa
+    // "x,y,z" e cerca in una Map, e la cottura lo chiede a OGNI PASSO di OGNI
+    // raggiata, cioe' il ciclo piu' caldo del gioco. Qui e' un Uint8Array riempito
     // una volta, e la traversata legge un indice che si porta dietro (vedi
-    // _bloccato in luce.js).
+    // distanzaSolido in luce.js).
     for (let i = 0; i < solidi.length; i += 3) g.marcaSolido(solidi[i], solidi[i + 1], solidi[i + 2]);
-    for (let i = 0; i < sorgenti.length; i += 4) {
-      g.aggiungiSorgente(sorgenti[i], sorgenti[i + 1], sorgenti[i + 2], sorgenti[i + 3]);
-    }
-    if (this.sorgentiExtra) {
-      // i lampioni dei furni si cuociono per lo STATO IN CUI SONO: sorgentiExtra
-      // filtra già gli spenti. Prima si cuocevano sempre accesi — costava meno,
-      // ma a schermo dava un interruttore che non spegne (l'alone spariva e la
-      // stanza restava illuminata, per giunta virata all'arancione).
-      this._sorgFurni = this.sorgentiExtra();
-      for (const s of this._sorgFurni) g.aggiungiSorgente(s.x, s.y, s.z, s.raggio);
-    }
-    g.calcola();
+    // LA GPU HA UN TETTO SUL LATO di una texture 3D (il minimo garantito da
+    // WebGL2 e' 256; le schede vere danno 2048). E' l'unico limite rimasto di
+    // tutto il sistema, e a differenza del tetto di 48 lampade non lo si
+    // incontra costruendo: ci vorrebbe un mondo lungo piu' di 2000 celle su un
+    // asse. Se succede, niente ombre e il pannello lo DICE.
+    if (!this._collegaVoxel(g, scatola)) { this._spegniOmbre(); return; }
     this.luce = g;
     this.statistiche.occCelle = celle;
     this.statistiche.occMs = performance.now() - t0;
   }
 
+  /** Carica la griglia in GPU. False se la scheda non regge un lato cosi' lungo. */
+  _collegaVoxel(g, scatola) {
+    const lato = latoMassimoVoxel();
+    const piu = Math.max(scatola.larghezza, scatola.altezza, scatola.profondita);
+    if (piu > lato) { this.statistiche.voxTroppoLarga = piu; return false; }
+    impostaVoxel(g.solidi, scatola);
+    return true;
+  }
+
+  /** Niente griglia = niente ombre: le sfere attraversano i muri esattamente
+   *  come prima che l'occlusione esistesse. E' il ripiego ONESTO, non un caso da
+   *  nascondere: succede col mondo vuoto, con l'interruttore delle Impostazioni
+   *  spento, quando si apre il paracadute delle celle e nell'Officina. */
+  _spegniOmbre() {
+    spegniVoxel();
+  }
+
   /**
-   * Ricalcolo pieno CHIAMATO DAL VIVO, cioè mentre si gioca. Oltre a rifare la
-   * griglia deve dire QUALI CHUNK sono cambiati, e quello è il punto: i ripieghi
-   * di _rillumina rifacevano la griglia e uscivano senza sporcare niente, quindi
-   * restavano sporchi solo i chunk marcati da world._sporca, che ha raggio ~1
-   * cella — mentre l'ombra di una lampada arriva fino al suo raggio.
-   * PROVATO: un muro nuovo davanti a una lampada aggiornava benissimo la
-   * maschera, ma i chunk oltre il muro restavano STANTII (illuminati) finché il
-   * giocatore non toccava qualcosa lì vicino. Ed è proprio il ramo che scatta
-   * quando il cambiamento è GRANDE, cioè quando il rischio è massimo.
+   * Ricalcolo pieno CHIAMATO DAL VIVO, cioe' mentre si gioca.
    *
-   * Non si sporca tutto a scatola chiusa: su un open world sarebbero 900 ms di
-   * rimesh. Si tiene una COPIA della maschera e si confronta colonna per colonna
-   * — un memcpy e un giro di confronti, contro un rebuild che non serve. Solo
-   * quando la scatola cambia (allora gli indici si spostano tutti) si sporca
-   * l'intero mondo.
+   * QUI PRIMA C'ERA MOLTO DI PIU', e vale la pena dire cosa se n'e' andato: la
+   * maschera d'occlusione era cotta nei VERTICI, quindi rifarla voleva dire
+   * anche capire QUALI CHUNK rimeshare (si teneva una copia dell'array `visto` e
+   * la si confrontava colonna per colonna, per non sporcare l'intero open world
+   * a ogni blocco posato). Con le mappe d'ombra la geometria non porta piu'
+   * niente di luminoso: cambiare le ombre non tocca un solo vertice, e questa
+   * funzione e' tornata a essere quello che dice il nome.
    */
   _ricalcolaLuceDalVivo(mondo) {
-    const vecchia = this.luce;
-    const prima = vecchia ? vecchia.visto.slice() : null;
     this._ricalcolaLuce(mondo);
-    const g = this.luce;
-    // _ricalcolaLuce riusa l'oggetto SOLO se la scatola combacia: l'identità è
-    // già la risposta a "gli indici sono ancora gli stessi?"
-    if (!g || g !== vecchia) {
-      for (const kc of mondo.chunks.keys()) mondo.sporchi.add(kc);
-      return;
-    }
-    const { lx, ly, lz, minX, minZ, visto } = g;
-    for (let i = 0; i < lx; i++) {
-      const kx = Math.floor((i + minX) / CHUNK);
-      for (let k = 0; k < lz; k++) {
-        const kc = kx + ',' + Math.floor((k + minZ) / CHUNK);
-        if (mondo.sporchi.has(kc) || !mondo.chunks.has(kc)) continue;
-        const base = i * ly * lz + k;
-        for (let j = 0; j < ly; j++) {
-          const id = base + j * lz;
-          if (visto[id] !== prima[id]) { mondo.sporchi.add(kc); break; }
-        }
-      }
-    }
-  }
-
-  /** Occlusione in un PUNTO, per le mesh che non passano dal mesher (gatto,
-   *  mano, palle, mobili): maschera delle lampade bloccate, 0 = luce libera.
-   *  -1 = non c'è griglia, chi chiama lasci le cose com'erano. */
-  sonda(x, y, z) {
-    if (!this.luce) return -1;
-    return this.luce.occlusaPunto(Math.floor(x), Math.floor(y), Math.floor(z));
-  }
-
-  /** Lo SLOT della lampada che sta in questo punto (−1 = nessuna). È il ponte
-   *  fra la sfera che lo shader disegna e il bit cotto nei vertici: senza, la
-   *  maschera per-lampada non saprebbe quale bit interrogare. */
-  slotLuce(pos) {
-    if (!this.luce) return -1;
-    return this.luce.slotDi(Math.floor(pos.x), Math.floor(pos.y), Math.floor(pos.z));
   }
 
   /** I guasti che degraderebbero in silenzio: il pannello debug li stampa.
-   *  · occScartate  chunk a cui la cintura di taglia ha tolto aOcc
-   *  · slotEsauriti lampade senza bit (tornano ad attraversare i muri)
-   *  · raggiTroncati raggi tagliati da RAGGIO_MAX (sfera più lunga della maschera)
+   *  - occTroppoGrande   il paracadute delle celle si e' aperto: niente ombre
+   *  - voxTroppoLarga    un lato del mondo supera il massimo della GPU per una
+   *                      texture 3D: niente ombre (serve un mondo lungo migliaia
+   *                      di celle su un asse, quindi non lo si incontra giocando)
    *
-   *  TUTTI E TRE DICONO COM'È ADESSO, non quante volte è successo dall'avvio.
-   *  occScartate era un contatore di modulo che sapeva solo crescere: una volta
-   *  scattato, il pannello continuava a stampare «⚠ N chunk senza maschera» per
-   *  sempre, anche dopo che una ricostruzione aveva rimesso a posto quei chunk —
-   *  e il numero saliva a ogni remesh. Qui si contano i chunk che il guasto ce
-   *  l'hanno ORA, quindi rimeshare lo cancella e togliere il chunk pure.
-   *  (slotEsauriti e raggiTroncati stanno sulla griglia e si azzerano in
-   *  GrigliaLuce.azzera(): stessa proprietà, strada diversa.) */
+   *  DICONO COM'E' ADESSO, non quante volte e' successo dall'avvio: un contatore
+   *  che sa solo crescere fa stampare al pannello un guasto gia' riparato per
+   *  tutta la sessione, ed e' esattamente com'era prima.
+   *
+   *  QUI C'ERA ANCHE tasselliEsauriti — le lampade pesanti rimaste senza
+   *  piastrella quando l'atlante da 48 finiva. Non c'e' piu' perche' non c'e'
+   *  piu' niente da esaurire: la griglia dei muri e' una sola e risponde a
+   *  qualunque numero di lampade.
+   */
   guasti() {
-    let occScartate = 0;
-    for (const e of this.chunks.values()) if (e.senzaMaschera || e.senzaMascheraAcqua) occScartate++;
     return {
-      occScartate,
-      slotEsauriti: this.luce ? this.luce.slotEsauriti : 0,
-      raggiTroncati: this.luce ? this.luce.raggiTroncati : 0,
+      occTroppoGrande: this.statistiche.occTroppoGrande,
+      voxTroppoLarga: this.statistiche.voxTroppoLarga,
     };
   }
 
-  /** Una LUCE è cambiata in `cella`: la maschera va rifatta e vanno rimeshati i
-   *  chunk che quella luce raggiunge. `portata` è il raggio in celle — usarlo
-   *  invece del massimo (15) conta: con l'anello fisso di 3×3 chunk, posare una
-   *  lucciola su un open world costava 216 ms perché ne rifaceva nove.
-   *  Il margine è lo stesso della griglia: la maschera arriva una cella più in
-   *  là della sfera, e quei chunk vanno rifatti anche loro. */
-  sporcaLuce(mondo, cella, portata = RAGGIO_MAX) {
-    if (!this.occlusioneAttiva) return;
-    this._celleLuce.add(cella[0] + ',' + cella[1] + ',' + cella[2]);
-    const r = Math.max(1, Math.min(RAGGIO_MAX, Math.ceil(portata) + MARGINE_MASCHERA));
-    const x0 = Math.floor((cella[0] - r) / CHUNK), x1 = Math.floor((cella[0] + r) / CHUNK);
-    const z0 = Math.floor((cella[2] - r) / CHUNK), z1 = Math.floor((cella[2] + r) / CHUNK);
-    for (let i = x0; i <= x1; i++) {
-      for (let k = z0; k <= z1; k++) {
-        const kc = i + ',' + k;
-        if (mondo.chunks.has(kc)) mondo.sporchi.add(kc);
-      }
-    }
-  }
-
-  /** Le luci dei FURNI sono cambiate? Confrontare l'elenco è più solido che
-   *  farsi raccontare dagli eventi cosa è successo: togliendo un furni l'evento
-   *  non porta con sé la luce che aveva, e senza il raggio non si saprebbe
-   *  nemmeno quali chunk rifare. */
-  verificaLuciFurni(mondo) {
-    if (!this.occlusioneAttiva || !this.sorgentiExtra) return;
-    const chiave = (v) => `${v.x},${v.y},${v.z}:${v.raggio}`;
-    const ora = this.sorgentiExtra(), prima = this._sorgFurni || [];
-    const oraK = new Set(ora.map(chiave)), primaK = new Set(prima.map(chiave));
-    for (const v of prima) if (!oraK.has(chiave(v))) this.sporcaLuce(mondo, [v.x, v.y, v.z], v.raggio);
-    for (const v of ora) if (!primaK.has(chiave(v))) this.sporcaLuce(mondo, [v.x, v.y, v.z], v.raggio);
-    this._sorgFurni = ora;
-  }
+  // (qui vivevano sporcaLuce() e verificaLuciFurni(). Servivano a dire al mesher
+  // che una LAMPADA era cambiata — accesa, spenta, posata, tolta — perche' la sua
+  // mappa d'ombra andava ricotta, e verificaLuciFurni ricostruiva l'elenco dei
+  // lampioni d'arredo a ogni giro solo per scoprire CHI era cambiato.
+  // Col cammino per-frammento l'ombra non dipende da nessun dato per-lampada:
+  // accendere un lampione cambia la sua sfera e nient'altro, e la sfera la scrive
+  // gia' aggiornaLuci una volta per frame. Sono spariti con loro la bandierina
+  // _luciFurniDaVerificare in main.js e il ponte mesher.sorgentiExtra.)
 
   _entry(kc) {
     let e = this.chunks.get(kc);
@@ -913,12 +806,11 @@ export class Mesher {
       const scarto = new Costruttore();
       for (const { x, y, z, tipo } of mondo.blocchiDelChunk(kc)) {
         if (!defDi(tipo).acqua) continue;
-        costruisciBlocco(scarto, acqua, mondo, x, y, z, tipo, this.luce);
+        costruisciBlocco(scarto, acqua, mondo, x, y, z, tipo);
       }
       e0.acqua.geometry.dispose();
       e0.acqua.geometry = acqua.geometria();
       e0.acqua.geometry.computeBoundingBox();
-      e0.senzaMascheraAcqua = acqua.mascheraScartata;
       e0.flussi = acqua.flussi;
       e0.impatti = acqua.impatti;
       return;
@@ -927,7 +819,7 @@ export class Mesher {
     const solidi = new Costruttore();
     const acqua = costruttoreAcqua();
     for (const { x, y, z, tipo } of mondo.blocchiDelChunk(kc)) {
-      costruisciBlocco(solidi, acqua, mondo, x, y, z, tipo, this.luce);
+      costruisciBlocco(solidi, acqua, mondo, x, y, z, tipo);
     }
     this._cieloChunk(kc, mondo);
     if (solidi.vuoto && acqua.vuoto) { this._rimuovi(kc); return; }
@@ -938,11 +830,6 @@ export class Mesher {
     e.acqua.geometry.dispose();
     e.acqua.geometry = acqua.geometria();
     e.acqua.geometry.computeBoundingBox();   // il riflesso cerca il pelo più vicino
-    // GUASTO DI QUESTO CHUNK, NON DEL MONDO: si riscrive ogni volta che il chunk
-    // si ricostruisce, così una ricostruzione che risolve il problema lo TOGLIE
-    // dal conto (vedi guasti()).
-    e.senzaMaschera = solidi.mascheraScartata;
-    e.senzaMascheraAcqua = acqua.mascheraScartata;
     e.flussi = acqua.flussi;
     e.impatti = acqua.impatti;
   }
@@ -989,79 +876,51 @@ export class Mesher {
   }
 
   /**
-   * Porta la griglia in pari con ciò che è cambiato: LOCALE quando può, da capo
-   * quando il cambiamento è troppo grosso (generazione, import) o esce dalla
-   * scatola. Non c'è più nessuna soglia sulla taglia del mondo: la maschera si
-   * aggiorna mentre si costruisce SEMPRE, anche su un open world r48.
+   * Porta la griglia dei muri in pari con cio' che e' cambiato: LOCALE quando
+   * puo', da capo quando il cambiamento e' troppo grosso (generazione, import) o
+   * esce dalla scatola. Non c'e' nessuna soglia sulla taglia del mondo: la
+   * griglia si aggiorna mentre si costruisce SEMPRE, anche su un open world r48.
    *
    * L'acqua non entra mai qui: non ferma la luce e non ne emette, e la sua
    * simulazione tocca celle di continuo (world.js non la registra apposta).
+   *
+   * QUANTO SI E' SEMPLIFICATO. Prima questa funzione doveva anche ricostruire
+   * l'elenco dei lampioni d'arredo e confrontarlo col precedente, capire quale
+   * cella-lampada era cambiata e passare a _cuociOmbre l'elenco delle mappe da
+   * rifare — perche' una lampada accesa cambiava un'ombra cotta. Adesso l'ombra
+   * la calcola lo shader sui muri, e i muri non cambiano quando si preme un
+   * interruttore: resta il solo giro sulle celle che hanno cambiato SOLIDITA'.
    */
   _rillumina(mondo) {
-    if (!this.occlusioneAttiva) { mondo.scordaCambi(); this._celleLuce.clear(); return; }
+    if (!this.occlusioneAttiva) { mondo.scordaCambi(); return; }
     if (!this.luce) { this._ricalcolaLuceDalVivo(mondo); return; }
-    // niente da fare: si esce PRIMA di interrogare l'arredo, o la simulazione
-    // dell'acqua (che sporca chunk di continuo) pagherebbe quel giro a ogni tick
-    if (mondo.cambiate.length === 0 && this._celleLuce.size === 0) return;
-
-    // le lampade d'arredo di ADESSO, per cella: possono cadere sulla stessa
-    // cella di un blocco luminoso, e allora vince la più forte
-    const furni = new Map();
-    if (this.sorgentiExtra) {
-      const ora = this.sorgentiExtra();
-      // DIFF DI SICUREZZA: chi accende un lampione dovrebbe passare da
-      // verificaLuciFurni, ma legarsi a quella promessa vuol dire che un giorno
-      // qualcuno aggiunge un modo di accendere e la maschera resta indietro
-      // in silenzio. Qui si guarda com'è ADESSO e si recupera comunque.
-      const chiave = (v) => `${v.x},${v.y},${v.z}:${v.raggio}`;
-      const oraK = new Set(ora.map(chiave)), primaK = new Set(this._sorgFurni.map(chiave));
-      for (const v of this._sorgFurni) if (!oraK.has(chiave(v))) this._celleLuce.add(`${v.x},${v.y},${v.z}`);
-      for (const v of ora) if (!primaK.has(chiave(v))) this._celleLuce.add(`${v.x},${v.y},${v.z}`);
-      this._sorgFurni = ora;
-      for (const s of ora) {
-        const k = s.x + ',' + s.y + ',' + s.z;
-        furni.set(k, Math.max(furni.get(k) || 0, s.raggio));
-      }
+    // niente da fare: la simulazione dell'acqua sporca chunk di continuo e non
+    // deve pagare nemmeno questo giro
+    if (mondo.cambiate.length === 0) return;
+    if (mondo.troppiCambi || mondo.cambiate.length / 3 > CAMBI_MAX_LOCALI) {
+      this._ricalcolaLuceDalVivo(mondo); return;
     }
-
-    // (nessun controllo a zero: ci si arriva solo passando dall'uscita in alto,
-    // che scatta proprio quando entrambi i contatori sono vuoti)
-    const quanti = mondo.cambiate.length / 3 + this._celleLuce.size;
-    if (mondo.troppiCambi || quanti > CAMBI_MAX_LOCALI) { this._ricalcolaLuceDalVivo(mondo); return; }
 
     const t0 = performance.now();
     const visto = new Set(), cambi = [];
-    const aggiungi = (x, y, z) => {
+    const c = mondo.cambiate;
+    for (let i = 0; i < c.length; i += 3) {
+      const x = c[i], y = c[i + 1], z = c[i + 2];
       const k = x + ',' + y + ',' + z;
-      if (visto.has(k)) return;
+      if (visto.has(k)) continue;
       visto.add(k);
       const t = mondo.tipo(x, y, z);
       const d = t ? defDi(t) : null;
-      let raggio = d && d.luce ? d.luce.raggio : 0;
-      const f = furni.get(k);
-      if (f > raggio) raggio = f;
-      cambi.push({ x, y, z, raggio, solido: !!(d && !d.acqua && !FORME_VUOTE.has(d.forma)) });
-    };
-    const c = mondo.cambiate;
-    for (let i = 0; i < c.length; i += 3) aggiungi(c[i], c[i + 1], c[i + 2]);
-    for (const k of this._celleLuce) {
-      const i1 = k.indexOf(','), i2 = k.indexOf(',', i1 + 1);
-      aggiungi(+k.slice(0, i1), +k.slice(i1 + 1, i2), +k.slice(i2 + 1));
+      cambi.push({ x, y, z, solido: !!(d && !d.acqua && !FORME_VUOTE.has(d.forma)) });
     }
     mondo.scordaCambi();
-    this._celleLuce.clear();
 
-    const zona = this.luce.applicaCambi(cambi);
-    if (!zona) { this._ricalcolaLuceDalVivo(mondo); return; }   // fuori scatola: griglia nuova
-    // I CHUNK CHE LA LUCE HA DAVVERO TOCCATO. Serve: l'ombra di un tetto sconfina
-    // oltre il chunk dove hai posato il blocco, e senza questo il vicino
-    // resterebbe illuminato fino a chissà quando.
-    for (let cx = Math.floor(zona.minX / CHUNK); cx <= Math.floor(zona.maxX / CHUNK); cx++) {
-      for (let cz = Math.floor(zona.minZ / CHUNK); cz <= Math.floor(zona.maxZ / CHUNK); cz++) {
-        const kc = cx + ',' + cz;
-        if (mondo.chunks.has(kc)) mondo.sporchi.add(kc);
-      }
-    }
+    if (!this.luce.applicaCambi(cambi)) { this._ricalcolaLuceDalVivo(mondo); return; }
+    // UN BYTE CAMBIATO, UN VOLUME RICARICATO: la texture 3D si ricarica intera
+    // perche' e' l'unico modo che three offre di aggiornare una Data3DTexture, e
+    // costa quanto la griglia (52 KB sul diorama, 291 KB sul mondo di test).
+    // Si paga a blocco POSATO, non per frame — camminare non passa di qui.
+    impostaVoxel(this.luce.solidi, this.luce.scatola());
     this.statistiche.occMs = performance.now() - t0;
     this.statistiche.occLocali = cambi.length;
   }
@@ -1069,7 +928,7 @@ export class Mesher {
   /** Ricostruzione incrementale: solo i chunk sporchi. Da chiamare nel loop. */
   aggiorna(mondo) {
     if (mondo.sporchi.size === 0 && mondo.sporchiAcqua.size === 0
-        && mondo.cambiate.length === 0 && this._celleLuce.size === 0) return;
+        && mondo.cambiate.length === 0) return;
     const t0 = performance.now();
     this._rillumina(mondo);
     for (const kc of mondo.sporchi) {

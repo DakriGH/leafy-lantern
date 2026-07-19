@@ -106,13 +106,15 @@ export function generaCollaudo(mondo) {
   // nell'angolo"). Quel canale non esiste più — il giorno e la notte li fa
   // uAmbiente, che è un colore globale — quindi il criterio non è nemmeno
   // misurabile, e lasciarlo scritto voleva dire mandare chi legge a cercare un
-  // numero che nessuno produce più. Il modello di oggi è una MASCHERA
-  // D'OCCLUSIONE per lampada: per ogni faccia, quali sfere ci arrivano davvero.
+  // numero che nessuno produce più. Il modello di oggi è il CAMMINO PER
+  // FRAMMENTO: il raggio dalla lampada al pixel attraversa la griglia dei voxel
+  // (fx/materials.js, ombraVoxel) e si ferma al primo solido.
   // LE DUE PROVE VERE, ed è ancora una prova severa:
-  //  · dentro la stanza la lucciola ARRIVA — occlusaFaccia(-15,1,-7,[0,1,0]) = 0,
-  //    cioè nessuna lampada bloccata sul pavimento sotto di lei;
-  //  · fuori NO: la stessa faccia sul prato aperto (0,1,9) vale 1, e così la
-  //    passeggiata. La stanza è l'unico posto illuminato, e le pareti reggono.
+  //  · dentro la stanza la lucciola ARRIVA fino al pavimento e alle pareti;
+  //  · fuori NO: il prato aperto e la passeggiata restano al solo ambiente.
+  //    La stanza è l'unico posto illuminato, e le pareti reggono.
+  // Si guarda a schermo, non con una funzione: l'ombra non sta più in nessun
+  // dato per-cella da interrogare, la calcola lo shader per frammento.
   // La porta 1×2 resta aperta perché ci si deve poter entrare, e non toglie
   // niente alla prova: l'ambiente entra ovunque per costruzione (è un colore, non
   // una propagazione) e quello che si guarda qui è la sfera.
@@ -143,10 +145,9 @@ export function generaCollaudo(mondo) {
   // riempirebbero di rettangoli scuri), e la maschera d'occlusione riguarda le
   // sole LAMPADE — qui la più vicina è a 11 celle con raggio 5, cioè fuori
   // portata.
-  // VERIFICATO a runtime, ed è il punto: occlusaFaccia(-4,1,-7,[0,1,0]) sotto il
-  // tetto e occlusaFaccia(0,1,9,[0,1,0]) sul piano nudo danno lo stesso identico
-  // valore (1, "nessuna lampada arriva"). Lo shader produce quindi lo STESSO
-  // pixel nei due punti: per la luce, questa zona non distingue più niente.
+  // È IL PUNTO: sotto la tettoia (-4,2,-7) e sul piano nudo (0,2,9) nessuna
+  // lampada arriva, quindi lo shader produce lo STESSO pixel nei due punti —
+  // per la luce artificiale questa zona non distingue più niente.
   // COSA PROVA ANCORA, e non è poco: il RIPARO DALLE OMBRE DELLE NUVOLE.
   // lanternaOmbra() legge la heightmap del cielo e si spegne sotto un tetto, per
   // cui passando una nuvola la passeggiata si scurisce e sotto la tettoia no.

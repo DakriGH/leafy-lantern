@@ -5,6 +5,7 @@
 // Un solo THREE.Points, buffer riciclato: costo CPU e GPU irrisorio.
 
 import * as THREE from 'three';
+import { ambienteAttuale } from './materials.js';
 
 const MAX = 180;
 
@@ -26,9 +27,17 @@ export class Particelle {
     g.setAttribute('aColore', new THREE.BufferAttribute(this.col, 3));
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6);
 
+    // uAmbiente: lo STESSO colore d'ambiente che tinge tutta la scena unlit
+    // (fx/materials.js). I batuffoli erano bianco pieno e NON illuminati, quindi
+    // di notte BRILLAVANO come lampadine mentre la schiuma dello shader si
+    // abbassava col buio: due acque diverse nello stesso fotogramma. Moltiplicando
+    // il colore per l'ambiente le goccioline seguono il giorno/notte come la
+    // schiuma di riva — di notte diventano grigio-blu, non fari. Vale per TUTTI
+    // gli usi del sistema (rottura blocchi, tuffi, pioggia, palle): sono tutti
+    // spruzzi unlit che allo stesso modo non devono accendersi al buio.
     this.materiale = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
-      uniforms: {},
+      uniforms: { uAmbiente: { value: new THREE.Color(1, 1, 1) } },
       vertexShader: /* glsl */`
         attribute float aAlfa;
         attribute float aScala;
@@ -45,10 +54,11 @@ export class Particelle {
       fragmentShader: /* glsl */`
         varying float vAlfa;
         varying vec3 vCol;
+        uniform vec3 uAmbiente;
         void main() {
           vec2 d = gl_PointCoord - 0.5;
           float m = smoothstep(0.5, 0.32, length(d));
-          gl_FragColor = vec4(vCol, vAlfa * m);
+          gl_FragColor = vec4(vCol * uAmbiente, vAlfa * m);
         }`,
     });
     this.punti = new THREE.Points(g, this.materiale);
@@ -72,6 +82,8 @@ export class Particelle {
   }
 
   aggiorna(dt) {
+    // segue l'ora del giorno come il resto della scena unlit (vedi il costruttore)
+    this.materiale.uniforms.uAmbiente.value.copy(ambienteAttuale());
     let vivi = 0;
     for (let i = 0; i < MAX; i++) {
       if (this.vita[i] <= 0) { this.alfa[i] = 0; continue; }

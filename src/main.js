@@ -18,12 +18,14 @@ import { Mesher, geometriaSingola } from './world/mesher.js';
 import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js';
 import { generaMostra } from './world/mostra.js';
 import { generaCollaudo } from './world/collaudo.js';
+import { generaTestLuci } from './world/testLuci.js';
+import { FuochiFatui } from './fx/fuochiFatui.js';
 import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js';
 import { Meteo } from './fx/meteo.js';
 import { Inventario, ATTREZZI } from './gioco/inventario.js';
 import { Scavo, DUREZZE } from './gioco/scavo.js';
 import { CicloGiorno } from './fx/daynight.js';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, scriviLuceEnte, impostaRisolutoreSlot } from './fx/materials.js';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js';
 import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js';
 import { ModalitaAR } from './ar/ar.js';
 import { Nuvole } from './fx/nuvole.js';
@@ -107,28 +109,24 @@ const mesher = new Mesher(rig.scena);
 const ciclo = new CicloGiorno(rig.scena);
 const hud = new HUD();
 const arredo = new Arredo(rig.scena, mondo);
-// Le sorgenti della maschera d'occlusione che NON sono blocchi: i lampioni dei
-// furni. È una funzione, non un elenco copiato, così è sempre quella di adesso —
-// e il mesher non deve sapere niente dell'arredo.
-// UN LAMPIONE SPENTO NON HA MASCHERA. L'handle `i.luce` esiste appena il furni
-// ha uno stato con luce, quindi filtrando solo su quello entrava anche lo stato
-// "Spento": la maschera restava aperta dove la lampada non illumina più. Costa
-// un aggiornamento locale quando si preme l'interruttore e due al giorno per i
-// lampioni automatici.
-// Il raggio NON si arrotonda: è quello vero della sfera (4.6 per il lampione),
-// e la maschera deve coprire esattamente ciò che la sfera illumina.
-mesher.sorgentiExtra = () => arredo.istanze
-  .filter((i) => i.luce && i.luce.attiva && i.luce.intensita > 0)
-  .map((i) => ({
-    x: Math.floor(i.luce.pos.x), y: Math.floor(i.luce.pos.y), z: Math.floor(i.luce.pos.z),
-    raggio: i.luce.raggio,
-  }));
-// IL PONTE FRA LA SFERA E IL BIT COTTO. Lo shader disegna le lampade in ordine
-// di vicinanza al giocatore (l'ordine cambia a ogni frame), mentre i bit nei
-// vertici sono fissi: lo slot dice a quale bit guardare. La chiave è la CELLA,
-// ed è la stessa da cui sorgentiExtra costruisce le sorgenti — un Math.floor
-// della posizione della sfera, per i blocchi come per i lampioni d'arredo.
-impostaRisolutoreSlot((l) => mesher.slotLuce(l.pos));
+// QUANTO PUÒ ESSERE LARGA LA GRIGLIA DEI MURI IN GPU. Le ombre camminano una
+// texture 3D di occupazione (fx/materials.js) e le schede hanno un tetto sul
+// lato — il minimo garantito da WebGL2 è 256, le schede vere danno 2048: lo si
+// CHIEDE invece di indovinarlo, e il mesher spegne le ombre dicendolo nel
+// pannello se un giorno un mondo lo superasse.
+//
+// QUI VIVEVANO DUE PONTI, e sono spariti insieme alle mappe d'ombra cotte:
+//  · mesher.sorgentiExtra — l'elenco dei lampioni d'arredo, che il mesher
+//    doveva conoscere per cuocere a ognuno la sua mappa (e per accorgersi di
+//    quelli spenti: una lampada spenta non doveva lasciare la maschera aperta);
+//  · impostaRisolutoreTassello — quale piastrella dell'atlante guardare per ogni
+//    sfera, visto che le sfere si riordinano a ogni frame e le piastrelle no.
+// Nessuno dei due serve più: l'ombra la calcola lo shader camminando i MURI, e i
+// muri non sanno né vogliono sapere chi li illumina.
+try {
+  const gl = rig.renderer.getContext();
+  impostaLatoMassimoVoxel(gl.getParameter(gl.MAX_3D_TEXTURE_SIZE));
+} catch { /* nessun contesto: resta il minimo garantito da WebGL2 */ }
 const gatto = new Gatto();
 rig.scena.add(gatto.gruppo);
 const mano = new ManoStrumento(gatto.gruppo);
@@ -151,6 +149,7 @@ const meteo = new Meteo(pioggia);
 const particelle = new Particelle(rig.scena);
 const audio = new Audio();
 const creature = new Creature(rig.scena, mondo, rig.mobile);
+const fuochiFatui = new FuochiFatui(rig.scena);
 // l'audio si sblocca al PRIMO gesto (i browser lo esigono), poi applica il
 // volume/musica salvati
 for (const ev of ['pointerdown', 'keydown', 'touchstart']) {
@@ -227,20 +226,15 @@ function impostaPosa(id) {
 }
 
 ciclo.onFase = (eNotte) => arredo.aggiornaNotte(eNotte);
-// Un lampione che si accende o si spegne cambia la MASCHERA d'occlusione, non solo la sua
-// sfera: l'arredo lo dice qui e il mesher rifà la zona. Il giro passa da un
-// unico punto (Arredo._applicaStato) invece che dai cinque posti da cui si può
-// premere un interruttore — l'interruttore del menu debug incluso.
-// UNA BANDIERINA, NON UNA CHIAMATA. verificaLuciFurni rilancia sorgentiExtra()
-// — filter + map su TUTTI i furni — e costruisce due Set a ogni invocazione,
-// mentre onLuce scatta una volta PER LAMPIONE: all'alba e al tramonto, quando
-// aggiornaNotte cicla su tutte le istanze, il costo diventa quadratico.
-// MISURATO con 77 lampioni: accensione 3,5 ms col ponte diretto contro 0,1 ms
-// senza, cioè 35 volte tanto; a 300 lampioni sarebbero ~50 ms per ogni
-// transizione. Qui si alza solo una bandierina e il lavoro si fa UNA VOLTA nel
-// loop, appena prima che il mesher ricostruisca.
-let _luciFurniDaVerificare = false;
-arredo.onLuce = () => { _luciFurniDaVerificare = true; };
+// NON C'È PIÙ NIENTE DA AVVISARE, ed è il guadagno più concreto di tutta la
+// riscrittura delle ombre. Un lampione che si accende cambiava la MASCHERA
+// d'occlusione, non solo la sua sfera: l'arredo alzava una bandierina qui
+// (arredo.onLuce) e il loop faceva ricuocere le mappe della zona. Misurato
+// allora: 3,5 ms per accensione con 77 lampioni, e il costo cresceva col
+// quadrato — da cui la bandierina invece della chiamata diretta.
+// Adesso l'ombra la calcola lo shader camminando i MURI, e premere un
+// interruttore i muri non li sposta: accendere un lampione costa la scrittura di
+// una uniform, esattamente come per una luce leggera qualsiasi.
 
 // ---- hotbar e selezione ------------------------------------------------------
 
@@ -1046,21 +1040,21 @@ function gestisciLuceBlocco(e) {
   const k = e.cella.join(',');
   const prec = luciBlocchi.get(k);
   if (prec) { rimuoviLuce(prec); luciBlocchi.delete(k); }
-  let raggio = prec ? prec.raggio : 0;   // c'era una luce e adesso non c'è più
   if (e.tipo === 'metti' && e.blocco) {
     const def = defDi(e.blocco);
     if (def && def.luce) {
-      raggio = Math.max(raggio, def.luce.raggio);
       luciBlocchi.set(k, creaLuce({
         pos: new THREE.Vector3(e.cella[0] + 0.5, e.cella[1] + 0.5, e.cella[2] + 0.5),
         raggio: def.luce.raggio, colore: def.luce.colore, intensita: def.luce.intensita,
+        ombra: !!def.luce.ombra,
       }));
     }
   }
-  // una lampada comparsa o sparita cambia la maschera anche nei chunk vicini,
-  // fin dove arriva il suo raggio: vanno rifatti, o la sfera resterebbe
-  // mascherata a zero e la lampada sembrerebbe rotta
-  if (raggio > 0) mesher.sporcaLuce(mondo, e.cella, raggio);
+  // (qui si teneva il raggio della lampada PESANTE comparsa o sparita e lo si
+  // dava al mesher, perché la sua mappa d'ombra andava ricotta. Il blocco però
+  // cambia anche la SOLIDITÀ della cella, e di quella il mesher si accorge da
+  // solo dagli eventi di world.js: era l'unica cosa che serviva davvero alle
+  // ombre, ed è l'unica rimasta.)
 }
 
 // ---- blocchi che EMETTONO PARTICELLE (def.particelle) ----------------------
@@ -1068,21 +1062,35 @@ function gestisciLuceBlocco(e) {
 // Nel loop si emette solo dalle celle VICINE al gatto e a ritmo ridotto: un
 // mondo pieno di blocchi fumanti non deve costare nulla se sono lontani.
 const particelleBlocchi = new Map();          // "x,y,z" → def.particelle
+// I NIDI DEI FUOCHI FATUI seguono lo STESSO schema, e stanno qui accanto
+// apposta: sono la terza cosa che un blocco puo' "emettere" (luce, particelle,
+// fatui) e tenerle in tre registri con tre riscansioni separate voleva dire tre
+// passate su mondo.tutti(), che e' la funzione lenta (split + map + un oggetto
+// nuovo per blocco). Una passata sola, due registri.
+const nidiFatui = new Map();                  // "x,y,z" → def.fuochiFatui
 function gestisciParticelleBlocco(e) {
   if (!e || !e.cella) return;
   const k = e.cella.join(',');
+  const primaNido = nidiFatui.has(k);
   particelleBlocchi.delete(k);
+  nidiFatui.delete(k);
   if (e.tipo === 'metti' && e.blocco) {
     const def = defDi(e.blocco);
     if (def && def.particelle) particelleBlocchi.set(k, def.particelle);
+    if (def && def.fuochiFatui) nidiFatui.set(k, def.fuochiFatui);
   }
+  if (primaNido !== nidiFatui.has(k)) fuochiFatui.imposta(nidiFatui);
 }
-function ricostruisciParticelleBlocchi() {
+function ricostruisciBlocchiSpeciali() {
   particelleBlocchi.clear();
+  nidiFatui.clear();
   for (const b of mondo.tutti()) {
     const def = defDi(b.tipo);
-    if (def && def.particelle) particelleBlocchi.set(`${b.x},${b.y},${b.z}`, def.particelle);
+    if (!def) continue;
+    if (def.particelle) particelleBlocchi.set(`${b.x},${b.y},${b.z}`, def.particelle);
+    if (def.fuochiFatui) nidiFatui.set(`${b.x},${b.y},${b.z}`, def.fuochiFatui);
   }
+  fuochiFatui.imposta(nidiFatui);
 }
 let _tPart = 0;
 function emettiParticelleBlocchi(dt) {
@@ -1115,6 +1123,7 @@ function ricostruisciLuciBlocchi() {
       luciBlocchi.set(`${b.x},${b.y},${b.z}`, creaLuce({
         pos: new THREE.Vector3(b.x + 0.5, b.y + 0.5, b.z + 0.5),
         raggio: def.luce.raggio, colore: def.luce.colore, intensita: def.luce.intensita,
+        ombra: !!def.luce.ombra,
       }));
     }
   }
@@ -1125,11 +1134,9 @@ function eventoLocale(e) {
   menuDebug.suEvento();
   gestisciLuceBlocco(e);
   gestisciParticelleBlocco(e);
-  // un furni piazzato o tolto può portarsi dietro un lampione: il mesher se ne
-  // accorge confrontando l'elenco delle sorgenti, così un tavolo qualsiasi non
-  // costa niente. Stessa bandierina di arredo.onLuce: piazzando in fretta si
-  // rifarebbe il confronto una volta per furni invece che una per frame.
-  if (e.tipo === 'furniPiazza' || e.tipo === 'furniRimuovi') _luciFurniDaVerificare = true;
+  // (un furni piazzato o tolto poteva portarsi dietro un lampione, e il mesher
+  // doveva accorgersene per ricuocerne la mappa. Un furni non è un blocco e non
+  // ferma la luce, quindi adesso non ha proprio niente da dire alle ombre.)
   // suono dell'azione
   if (e.tipo === 'metti' || e.tipo === 'furniPiazza') audio.sfx('piazza');
   else if (e.tipo === 'togli' || e.tipo === 'furniRimuovi') audio.sfx('rompi');
@@ -1267,7 +1274,7 @@ function arrivoBenvenuto(m) {
     applica(m.dati, mondo, arredo, ciclo);          // il mondo dell'host (inventario resta tuo)
     mesher.ricostruisciTutto(mondo);
     ricostruisciLuciBlocchi();
-    ricostruisciParticelleBlocchi();
+    ricostruisciBlocchiSpeciali();
     modalitaOspite = true;                          // da ospite NIENTE autosave: il mondo non è tuo
     if (!(Array.isArray(m.posa) && teletrasportaVicino(m.posa[0], m.posa[1], m.posa[2]))) respawn();
     hud.toast('🏠 Sei OSPITE nel diorama dell’amico, proprio accanto a lui — il tuo è al sicuro');
@@ -1387,7 +1394,7 @@ fileImporta.addEventListener('change', async () => {
     if (Array.isArray(dati.hotbar)) { hotbarIds = dati.hotbar; ricostruisciHotbar(); }
     mesher.ricostruisciTutto(mondo);
     ricostruisciLuciBlocchi();
-    ricostruisciParticelleBlocchi();
+    ricostruisciBlocchiSpeciali();
     respawn();
     hud.toast('Diorama importato 📂');
     segnaSalvataggio();
@@ -1402,7 +1409,7 @@ document.getElementById('btnReset').addEventListener('click', () => {
   nuovaIsola();
   mesher.ricostruisciTutto(mondo);
   ricostruisciLuciBlocchi();
-  ricostruisciParticelleBlocchi();
+  ricostruisciBlocchiSpeciali();
   hud.toast('Nuova isola 🌱');
   hud.mostraAiuto(false);
 });
@@ -1455,7 +1462,7 @@ function caricaPartita(id, nome) {
     if (Array.isArray(dati.hotbar)) { hotbarIds = dati.hotbar; ricostruisciHotbar(); }
     mesher.ricostruisciTutto(mondo);
     ricostruisciLuciBlocchi();
-    ricostruisciParticelleBlocchi();
+    ricostruisciBlocchiSpeciali();
     respawn();
     segnaSalvataggio();
     hud.toast(`▶ «${nome}» caricata`);
@@ -1517,7 +1524,7 @@ function ripristinaSnapshot() {
   }
   mesher.ricostruisciTutto(mondo);
     ricostruisciLuciBlocchi();
-    ricostruisciParticelleBlocchi();
+    ricostruisciBlocchiSpeciali();
   respawn();
   segnaSalvataggio();
   hud.toast('↩️ Snapshot ripristinato');
@@ -1543,7 +1550,7 @@ function cambiaStagione(chiave) {
 }
 
 const menuDebug = new MenuDebug({
-  mondo, arredo, controller, ciclo, rig, mesher, hud,
+  mondo, arredo, controller, ciclo, rig, mesher, hud, fuochiFatui,
   azioni: {
     respawn: () => { respawn(); hud.toast('🏠 A casa'); },
     stagione: (chiave) => cambiaStagione(chiave),
@@ -1556,7 +1563,7 @@ const menuDebug = new MenuDebug({
       const r = generaMostra(mondo);
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
-      ricostruisciParticelleBlocchi();
+      ricostruisciBlocchiSpeciali();
       // spawn vuole una CELLA [x,y,z], non un Vector3 (passarne uno dava NaN)
       controller.spawn([r.spawn.x, r.spawn.y, r.spawn.z]);
       rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
@@ -1571,7 +1578,7 @@ const menuDebug = new MenuDebug({
       const r = generaCollaudo(mondo);
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
-      ricostruisciParticelleBlocchi();
+      ricostruisciBlocchiSpeciali();
       for (const c of r.acqua) sim.pianificaAttorno(c);   // sveglia la cascata
       controller.spawn(r.spawn);
       rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
@@ -1586,13 +1593,39 @@ const menuDebug = new MenuDebug({
       hud.toast(`🔦 Scena di collaudo: ${r.totale.toLocaleString('it')} blocchi in 6 zone — i bottoni delle zone sono nel menu debug`, 4200);
       return r;
     }),
+    // Mondo «test delle luci»: sei zone dedicate SOLO all'illuminazione (le due
+    // classi di luce, l'occlusione nei casi difficili, la mescolanza dei colori,
+    // i fuochi fatui e il tetto delle 48 piastrelle). Vedi world/testLuci.js.
+    testLuci: () => conCaricamento('💡 Preparo il test delle luci…', () => {
+      salvaSnapshot(false);
+      arredo.svuota();
+      const r = generaTestLuci(mondo);
+      mesher.ricostruisciTutto(mondo);
+      ricostruisciLuciBlocchi();
+      ricostruisciBlocchiSpeciali();
+      controller.spawn(r.spawn);
+      rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
+      segnaSalvataggio();
+      menuDebug.mostraZone(r.zone, (piedi) => {
+        controller.spawn(piedi);
+        rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
+      });
+      // IL NUMERO DELLE PESANTI VA DETTO SUBITO — e adesso dice una cosa diversa.
+      // Fino alla riscrittura questa riga avvisava che 8 lampade restavano senza
+      // piastrella nell'atlante (era voluto: la zona 5 serviva a vedere il tetto
+      // finire). Il tetto non c'è più: le pesanti fanno ombra TUTTE, e il numero
+      // qui serve solo a dire quanto pesa la scena che si sta guardando.
+      const kb = (memoriaVoxel() / 1024).toFixed(0);
+      hud.toast(`💡 Test luci: ${r.totale.toLocaleString('it')} blocchi · ${r.lampade.pesanti} lampade pesanti (tutte con ombra, nessun tetto) · ${r.lampade.leggere} leggere · griglia dei muri ${kb} KB`, 7000);
+      return r;
+    }),
     isolaDemo: () => conCaricamento('🏝 Nuova isola…', () => {
       salvaSnapshot(false);
       menuDebug.mostraZone(null);
       nuovaIsola();
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
-      ricostruisciParticelleBlocchi();
+      ricostruisciBlocchiSpeciali();
       segnaSalvataggio();
       hud.toast('🏝 Isola demo — il mondo di prima è nello snapshot');
     }),
@@ -1603,7 +1636,7 @@ const menuDebug = new MenuDebug({
       generaArcipelago(mondo, seme, est);
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
-      ricostruisciParticelleBlocchi();
+      ricostruisciBlocchiSpeciali();
       respawn();
       segnaSalvataggio();
       hud.toast(`🌌 Seme ${seme}: ${mondo.contaBlocchi} blocchi — snapshot salvato`);
@@ -1615,7 +1648,7 @@ const menuDebug = new MenuDebug({
       const { alberi, lampioni, fiume } = generaOpenWorld(mondo, seme, est);
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
-      ricostruisciParticelleBlocchi();
+      ricostruisciBlocchiSpeciali();
       for (const c of alberi) if (arredo.puoiPiazzare('albero', c, 0).ok) arredo.piazza('albero', c, 0, true);
       for (const c of lampioni) if (arredo.puoiPiazzare('lampione', c, 0).ok) arredo.piazza('lampione', c, 0, true);
       for (const c of fiume) sim.pianificaAttorno(c);   // sveglia le cascate
@@ -1761,7 +1794,7 @@ async function avvia() {
         conCaricamento('🛠 Applico le modifiche…', () => {
           mesher.ricostruisciTutto(mondo);
           ricostruisciLuciBlocchi();
-          ricostruisciParticelleBlocchi();
+          ricostruisciBlocchiSpeciali();
         });
       }
     },
@@ -1795,7 +1828,7 @@ async function avvia() {
   applicaOpzioni(false);     // fog/distanza/effetti salvati dall'utente (⚙️)
 
   // debug in console
-  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, generaArcipelago, generaOpenWorld, generaCollaudo, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, hud, cadenza, opzioni, uniformi: uniformiCondivise() };
+  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise() };
 
   // accelerazione hardware: avvisa se il WebView disegna in SOFTWARE (fps bassi)
   if (rig.software) {
@@ -1807,7 +1840,7 @@ async function avvia() {
   ciclo.aggiorna(0);
   mesher.ricostruisciTutto(mondo);
     ricostruisciLuciBlocchi();
-    ricostruisciParticelleBlocchi();
+    ricostruisciBlocchiSpeciali();
   gatto.aggiorna(0, controller.pos, 0, 0, true);
   nuvole.aggiorna(0);
   aggiornaLuci(controller.pos);
@@ -2130,6 +2163,7 @@ document.getElementById('opzXR').addEventListener('click', async () => {
   }
   if (modalitaAR.attiva) modalitaAR.ferma();     // una modalità AR alla volta
   creature.svuota();
+  fuochiFatui.svuota();   // in AR il mondo trasloca in un pivot scalato: le luci in volo vanno spente
   const ok = await modalitaXR.avvia(controller.pos);
   if (ok) rig.renderer.setAnimationLoop((t, frame) => passo(t, frame));
   btn.classList.toggle('attivo', ok);
@@ -2147,6 +2181,7 @@ document.getElementById('opzAR').addEventListener('click', async () => {
   }
   document.getElementById('opzioni').classList.remove('aperto');
   creature.svuota();
+  fuochiFatui.svuota();   // in AR il mondo trasloca in un pivot scalato: le luci in volo vanno spente
   const ok = await conCaricamento('📷 Avvio l’AR… (camera + tracking)', () => modalitaAR.avvia(controller.pos));
   btn.classList.toggle('attivo', ok);
   if (ok && opzioni.arEspo !== 0.5) modalitaAR.regolaEsposizione(opzioni.arEspo);
@@ -2259,51 +2294,17 @@ function adattaQualita(fps) {
   }
 }
 
-// ---- occlusione di chi NON passa dal mesher ---------------------------------
-// Gatto, mano, palle e mobili non hanno facce da interrogare: leggerebbero
-// l'attributo mancante, cioè "luce libera" OVUNQUE, e dietro un muro il
-// lampione li illuminerebbe ATTRAVERSO la parete — proprio il difetto che la
-// maschera esiste per togliere, sull'oggetto più guardato dello schermo.
-// Qui l'occlusione gliela si SONDA nella cella dove stanno, una volta per frame.
-// Le creature restano fuori apposta: farfalle e lucciole condividono geometrie
-// fra istanze e la sonda si pesterebbe i piedi da sola. Non avendo l'attributo,
-// per loro tutto resta com'era prima (nessuna occlusione), che è la polarità
-// giusta — e sono minuscole e in volo, dove un muro non le nasconde comunque.
-let _sondaFurni = 0;
-/** `alzata` = quanto sopra i piedi si legge: 0.5 (mezzo blocco) è l'altezza del
- *  corpo di un gatto, i furni la calcolano sul loro modello. */
-function luceSuEnte(oggetto, x, y, z, alzata = 0.5) {
-  const occ = mesher.sonda(x, y + alzata, z);
-  if (occ >= 0) scriviLuceEnte(oggetto, occ);
-}
-/** Quanto sopra la sua cella di base va sondato un furni: METÀ ALTEZZA del
- *  modello. Si leggeva a +0.5, cioè la luce del PAVIMENTO: un lampione è alto
- *  2,4 unità e la sua testa prendeva la luce dei suoi piedi. Il baricentro è il
- *  compromesso onesto — un oggetto qui ha una luce sola, e deve essere quella
- *  del punto in cui sta davvero. */
-function alzataSonda(ist) {
-  const dim = ist.def.modello3d && ist.def.modello3d.userData.dimensioni;
-  return Math.max(0.5, (dim ? dim.y : 1) * 0.5);
-}
-
-function aggiornaLuceEnti(dt) {
-  luceSuEnte(gatto.gruppo, controller.pos.x, controller.pos.y, controller.pos.z);
-  for (const g of gattiRemoti.values()) luceSuEnte(g.gatto.gruppo, g.pos.x, g.pos.y, g.pos.z);
-  for (const p of palle.values()) luceSuEnte(p.mesh, p.pos.x, p.pos.y, p.pos.z);
-  // i mobili stanno fermi: 2,5 volte al secondo basta, e scriviLuceEnte non
-  // tocca niente quando il valore non è cambiato
-  _sondaFurni -= dt;
-  const tutti = _sondaFurni <= 0;
-  if (tutti) _sondaFurni = 0.4;
-  for (const ist of arredo.istanze) {
-    // I NUOVI SI SONDANO SUBITO, senza aspettare il turno: un mobile appena
-    // posato dietro un muro leggerebbe l'attributo mancante (= luce libera) e
-    // per mezzo secondo si vedrebbe illuminato da una lampada che non lo vede.
-    if (!tutti && ist.sondata) continue;
-    ist.sondata = true;
-    luceSuEnte(ist.gruppo, ist.cella[0] + 0.5, ist.cella[1], ist.cella[2] + 0.5, alzataSonda(ist));
-  }
-}
+// ---- (QUI C'ERA LA SONDA PER CHI NON PASSA DAL MESHER) ----------------------
+// Gatto, mano, palle e mobili non hanno facce da interrogare, e quando
+// l'occlusione era una maschera di bit cotta nei VERTICI leggevano l'attributo
+// mancante - cioe' "luce libera" ovunque - e dietro un muro il lampione li
+// illuminava ATTRAVERSO la parete. Serviva quindi sondarli a mano una volta per
+// frame e riscrivergli l'attributo, con tutto il corredo di geometrie condivise
+// da sganciare (fx/materials.js: scriviLuceEnte).
+// Con le mappe d'ombra l'ombra si legge per FRAMMENTO in coordinate mondo: vale
+// da sola per i chunk, per il gatto, per la mano, per i mobili e - novita' - per
+// le creature, che dalla sonda erano escluse apposta perche' condividono le
+// geometrie fra istanze. Non c'e' piu' niente da tenere in pari.
 
 let _ultimoTick = 0;             // istante dell'ultimo tick dello schermo
 const cadenza = new Cadenza(0);  // decide quali tick diventano frame (vedi cadenza.js)
@@ -2333,7 +2334,14 @@ function passo(adesso, frameXR) {
   controller.aggiorna(dt);
   audio.aggiorna(dt, ciclo.eNotte ? 1 : 0);
   emettiParticelleBlocchi(dt);
-  if (!modalitaAR.attiva && !modalitaXR.attiva) creature.aggiorna(dt, controller.pos, ciclo.eNotte);
+  if (!modalitaAR.attiva && !modalitaXR.attiva) {
+    creature.aggiorna(dt, controller.pos, ciclo.eNotte);
+    // I FUOCHI FATUI SI MUOVONO QUI, ogni frame, e non chiedono niente a
+    // nessuno: sono luci LEGGERE, quindi spostarle e' scrivere tre float. Se un
+    // giorno questa riga cominciasse a costare, il colpevole non e' il moto —
+    // e' qualcuno che ha collegato i fatui alla griglia della luce.
+    fuochiFatui.aggiorna(dt, controller.pos);
+  }
   // suoni del movimento: salto (stacco), atterraggio (ricaduta), passi o bracciate
   if (_terraPrima && !controller.aTerra && controller.vel.y > 0.5) audio.sfx('salto');
   if (!_terraPrima && controller.aTerra && _vyPrima < -2.5) audio.sfx('atterra');
@@ -2382,7 +2390,7 @@ function passo(adesso, frameXR) {
       if (tr.fine) {
         if (tr.remesh) mesher.ricostruisciTutto(mondo);
     ricostruisciLuciBlocchi();
-    ricostruisciParticelleBlocchi();   // solo per la sabbia invernale
+    ricostruisciBlocchiSpeciali();   // sabbia invernale + nidi di fuochi fatui
         svuotaGhostBlocchi();
         hud.toast(`${STAGIONI[stagioneCorrente()].emoji} ${STAGIONI[stagioneCorrente()].nome}`);
       }
@@ -2472,10 +2480,7 @@ function passo(adesso, frameXR) {
     g.inAcqua = dentroR;
   }
 
-  // i lampioni accesi/spenti in questo frame, tutti in un confronto solo
-  if (_luciFurniDaVerificare) { _luciFurniDaVerificare = false; mesher.verificaLuciFurni(mondo); }
   mesher.aggiorna(mondo);              // solo i chunk sporchi
-  aggiornaLuceEnti(dt);                // …e poi la luce di chi non ha facce
   menuDebug.aggiorna(dt);
   // coi comandi touch la mira è il mirino centrale (l'anteprima segue lì)
   if (opzioni.comandiTouch) { mira.x = innerWidth / 2; mira.y = innerHeight / 2; }

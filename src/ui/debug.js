@@ -5,24 +5,23 @@
 
 import * as THREE from 'three';
 import { CHUNK } from '../world/world.js';
-import { elencoLuci, statLuci, statImpatti } from '../fx/materials.js';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js';
 import { FISICA } from '../config.js';
 
-/** Le tre condizioni della maschera d'occlusione, distinte: spenta dall'utente,
- *  mondo vuoto, oppure troppo grande per il paracadute. Erano una riga sola, e
- *  un guasto travestito da preferenza è il modo migliore per non accorgersene. */
+/** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
+ *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
+ *  Erano una riga sola, e un guasto travestito da preferenza è il modo migliore
+ *  per non accorgersene.
+ *
+ *  QUI C'ERA ANCHE «N lampade senza piastrella», il guasto dell'atlante pieno.
+ *  Non c'è più perché non c'è più niente da esaurire: la griglia è una sola e
+ *  risponde a qualunque numero di lampade. */
 function luceTesto(st, gu) {
-  if (st.occTroppoGrande) return `⚠ mondo troppo grande (${(st.occTroppoGrande / 1e6).toFixed(2)}M celle): non calcolata`;
+  if (st.occTroppoGrande) return `⚠ mondo troppo grande (${(st.occTroppoGrande / 1e6).toFixed(2)}M celle): niente ombre`;
+  if (gu.voxTroppoLarga) return `⚠ lato ${gu.voxTroppoLarga} oltre il massimo della GPU: niente ombre`;
   if (!st.occCelle) return 'spenta (interruttore o mondo vuoto)';
-  // I TRE GUASTI CHE DEGRADEREBBERO IN SILENZIO. Tutti e tre riportano le luci a
-  // passare i muri, ma senza dire niente: un chunk senza attributo, una lampada
-  // senza slot e un raggio più lungo della maschera si vedono solo se contati.
-  // Costano una riga e tolgono una caccia.
-  const av = [];
-  if (gu.slotEsauriti) av.push(`⚠ ${gu.slotEsauriti} lampade senza slot`);
-  if (gu.occScartate) av.push(`⚠ ${gu.occScartate} chunk senza maschera`);
-  if (gu.raggiTroncati) av.push(`⚠ ${gu.raggiTroncati} raggi troncati`);
-  return `${(st.occCelle / 1000).toFixed(0)}k celle · ultimo agg. ${st.occMs.toFixed(1)} ms${st.occLocali ? ` (${st.occLocali} celle)` : ''}${av.length ? ' · ' + av.join(' · ') : ''}`;
+  const kb = (memoriaVoxel() / 1024).toFixed(0);
+  return `${(st.occCelle / 1000).toFixed(0)}k celle · ${kb} KB in GPU · agg. ${st.occMs.toFixed(1)} ms${st.occLocali ? ` (${st.occLocali} celle)` : ''}`;
 }
 
 const HTML = /* html */`
@@ -67,6 +66,7 @@ const HTML = /* html */`
       <button data-az="open">⛰ Open world</button>
       <button data-az="mostra" title="Mondo piatto con TUTTI i blocchi separati, per provarli">🧪 Sala prove</button>
       <button data-az="collaudo" title="Sei zone per guardare luci e acqua: terrazze, grotta, tettoia, muro, cascata, piano nudo">🔦 Collaudo luci</button>
+      <button data-az="testLuci" title="Mondo di SOLA luce: pesante vs leggera, occlusione difficile, colori che si mescolano, fuochi fatui e il tetto delle 48 piastrelle">💡 Test delle luci</button>
       <label>seme <input data-el="seme" type="number" value="42" min="0" max="99999"></label>
       <label>raggio <select data-el="est">
         <option value="32">32</option><option value="48" selected>48</option>
@@ -244,6 +244,7 @@ export class MenuDebug {
     else if (az === 'open') this.azioni.openWorld(Number(this.elSeme.value) || 0, Number(this.elEst.value));
     else if (az === 'mostra') this.azioni.salaProve();
     else if (az === 'collaudo') this.azioni.collaudo();
+    else if (az === 'testLuci') this.azioni.testLuci();
     else if (az === 'fog') this.azioni.fog(Number(b.getAttribute('data-f')));
     else if (az === 'ts') this.azioni.tiltShift(Number(b.getAttribute('data-q')));
     else if (az === 'arProva') this.azioni.arProva();
@@ -353,6 +354,8 @@ export class MenuDebug {
     const luci = statLuci();
     const st = this.mesher.statistiche;
     const imp = statImpatti();
+    // i fatui sono un modulo opzionale: il pannello non deve pretenderlo
+    const fatui = this.fuochiFatui ? this.fuochiFatui.statistiche() : null;
     this.elStat.textContent =
       `${this._fps} fps · ${(info.triangles / 1000).toFixed(1)}k tri · ${info.calls} draw\n` +
       `${this.mondo.contaBlocchi} blocchi · ${st.chunkAttivi} chunk · rimesh ${st.ultimaMs.toFixed(1)} ms\n` +
@@ -363,7 +366,12 @@ export class MenuDebug {
       // paracadute LUCE_LIMITE_CELLE scattava, cioè un guasto travestito da
       // preferenza dell'utente.
       `occlusione ${luceTesto(st, this.mesher.guasti())}\n` +
-      `luci ${luci.attive}/${luci.totali} (inviate ${luci.inviate}) · furni ${this.arredo.istanze.length}\n` +
+      // IL TETTO LUCI_MAX VA VISTO: `escluse` sono le sorgenti attive che non
+      // sono entrate nel frame, `sfumate` quelle che si stanno congedando sul
+      // bordo (vedi FASCIA_TAGLIO in materials.js). Prima si vedeva solo
+      // "inviate 24" e le altre sparivano senza che nulla lo dicesse.
+      `luci ${luci.attive}/${luci.totali} (inviate ${luci.inviate}, ${luci.conOmbra} con ombra · ${luci.pesanti} pesanti${luci.escluse ? ` · ⚠ ${luci.escluse} oltre il tetto, ${luci.sfumate} in dissolvenza` : ''}) · furni ${this.arredo.istanze.length}\n` +
+      (fatui && fatui.nidi ? `fuochi fatui ${fatui.vivi}/${fatui.chiesti} vivi in ${fatui.nidi} nidi${fatui.chiesti > fatui.tetto ? ` ⚠ tetto ${fatui.tetto}` : ''}\n` : '') +
       `anelli d'impatto ${imp.mostrati}/${imp.totali}${imp.totali > imp.mostrati ? ' ⚠ oltre il tetto' : ''}\n` +
       `gatto ${this.controller.pos.x.toFixed(1)}, ${this.controller.pos.y.toFixed(1)}, ${this.controller.pos.z.toFixed(1)}${this.controller.vola ? ' · ✈️' : ''}`;
   }

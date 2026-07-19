@@ -4,6 +4,7 @@
 
 import * as THREE from 'three';
 import { LUCI_MAX, BANDE_LUCE } from '../config.js';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -13,6 +14,14 @@ import { LUCI_MAX, BANDE_LUCE } from '../config.js';
 // stringhe iniettate (quella comune e quella dell'acqua) e l'ordine con cui
 // finiscono nel sorgente non garantisce che la dichiarazione preceda l'uso.
 const GBANDE = BANDE_LUCE.toFixed(1);
+
+// LO SCARTO D'OMBRA COME LETTERALE GLSL, e passa da toFixed per la STESSA
+// ragione di GBANDE, solo con un tranello peggiore: 1e-3 scritto tale e quale da
+// JS diventa «0.001» e va bene, ma il giorno che qualcuno lo abbassa a 1e-7 JS
+// stampa «1e-7» — che in GLSL non è un numero, quindi lo shader non compila e il
+// mondo diventa INVISIBILE senza altri segnali. 6 decimali coprono qualunque
+// valore sensato (un milionesimo di cella) restando in notazione decimale.
+const GSCARTO = SCARTO_OMBRA.toFixed(6);
 
 // ---- heightmap del cielo: per colonna, la quota della superficie più alta.
 // Serve alle OMBRE DELLE NUVOLE: scuriscono solo la cima della colonna
@@ -134,13 +143,116 @@ export function impostaSchiumaAcqua(impatti, fuoco = null) {
   _statImpatti.totali = impatti.length;
 }
 
+// ---- OCCUPAZIONE DEI SOLIDI: la griglia dei muri, in GPU --------------------
+//
+// COS'È. Un byte per cella di mondo — 1 = solido, 0 = aria — in una texture 3D,
+// che è tutto ciò che serve allo shader per camminare il raggio dalla lampada al
+// frammento e fermarsi al primo muro (vedi ombraVoxel). Non c'è NIENTE di
+// per-lampada: le stesse celle rispondono a tutte le lampade del mondo, ed è per
+// questo che il tetto di 48 piastrelle dell'atlante che stava qui non esiste più.
+//
+// SI CARICA SENZA COPIARLA, e non è un caso: `GrigliaLuce.solidi` indicizza già
+// con ((x·ly)+y)·lz+z, cioè Z per primo — che è ESATTAMENTE il layout di una
+// texture 3D larga lz, alta ly e profonda lx. Il Uint8Array del mesher va in GPU
+// tale e quale, senza un rimescolamento né un array d'appoggio.
+//   texelFetch(uVox, ivec3(z−minZ, y−minY, x−minX), 0)
+//
+// QUANTO COSTA IN MEMORIA. Un byte per cella della SCATOLA DEL MONDO (world
+// bounding box più i margini di scatolaPerMondo), non di un intorno del
+// giocatore: il diorama del committente è 75×22×32 = 52 KB, il mondo «test delle
+// luci» 222×22×61 = 291 KB, un open world r64 circa 520 KB. Il paracadute che
+// già esisteva (LUCE_LIMITE_CELLE = 2 milioni di celle) è quindi anche il tetto
+// della memoria: 2 MB nel caso peggiore, ed è il motivo per cui non serve una
+// finestra scorrevole attorno al giocatore — che avrebbe voluto dire decidere
+// cosa fare delle lampade appena fuori, cioè rimettere in gioco un tetto.
+//
+// PERCHÉ UNA TEXTURE 3D E NON UN ATLANTE DI FETTE 2D. Perché si può: three r185
+// compila OGNI materiale come «#version 300 es» (WebGL1 non esiste più dalla
+// r163), quindi sampler3D e texelFetch sono disponibili anche nei materiali
+// che restano scritti in stile GLSL 1. Con texelFetch l'indirizzamento è a
+// numeri INTERI: niente mezzo texel, niente normalizzazione, niente confine di
+// fetta da rattoppare a mano — cioè nessuna delle tre classi di bug che un
+// atlante di fette si porta dietro.
+const _voxVuoto = new THREE.Data3DTexture(new Uint8Array(1), 1, 1, 1);
+_voxVuoto.format = THREE.RedFormat;
+_voxVuoto.type = THREE.UnsignedByteType;
+_voxVuoto.needsUpdate = true;
+
+let _voxTex = _voxVuoto;
+
+/**
+ * Collega la griglia dei solidi. `solidi` è il Uint8Array di GrigliaLuce e
+ * `scatola` la sua estensione: la texture si RICREA solo se le dimensioni sono
+ * cambiate (texStorage3D alloca una volta sola e non si può ridimensionare),
+ * altrimenti si ricarica sopra la stessa.
+ *
+ * SI CHIAMA QUANDO SI COSTRUISCE, non a ogni frame: posare un blocco riscrive un
+ * byte e ricarica il volume, camminare non tocca niente.
+ */
+export function impostaVoxel(solidi, scatola) {
+  const { minX, minY, minZ, larghezza, altezza, profondita } = scatola;
+  const img = _voxTex.image;
+  // larghezza texture = lz, altezza = ly, profondita = lx: vedi il commento sopra
+  if (_voxTex === _voxVuoto || img.width !== profondita || img.height !== altezza || img.depth !== larghezza) {
+    if (_voxTex !== _voxVuoto) _voxTex.dispose();
+    _voxTex = new THREE.Data3DTexture(solidi, profondita, altezza, larghezza);
+    _voxTex.format = THREE.RedFormat;
+    _voxTex.type = THREE.UnsignedByteType;
+    uniformi.uVox.value = _voxTex;
+  } else {
+    _voxTex.image.data = solidi;
+  }
+  _voxTex.needsUpdate = true;
+  uniformi.uVoxMin.value.set(minX, minY, minZ, 1);
+  uniformi.uVoxDim.value.set(larghezza, altezza, profondita);
+}
+
+/** Niente griglia: le sfere tornano ad attraversare i muri, esattamente come
+ *  prima che l'occlusione esistesse. È il ripiego ONESTO per il mondo vuoto,
+ *  per l'interruttore delle Impostazioni spento, per il paracadute delle celle
+ *  e per l'Officina, dove una griglia non c'è proprio. */
+export function spegniVoxel() {
+  uniformi.uVoxMin.value.w = 0;
+}
+
+// IL LATO MASSIMO DI UNA TEXTURE 3D, che e' l'unico limite rimasto di tutto il
+// sistema d'ombra. Il minimo GARANTITO da WebGL2 e' 256, le schede vere danno
+// 2048: si parte dal minimo — cosi' un ambiente senza GPU (i test in Node) e un
+// avvio prima che il renderer esista non promettono piu' di quanto sia sicuro —
+// e main.js lo alza al valore VERO appena il contesto c'e'.
+let _latoVoxMax = 256;
+
+/** Il lato massimo dichiarato dalla GPU (main.js, da MAX_3D_TEXTURE_SIZE). */
+export function impostaLatoMassimoVoxel(n) {
+  if (n > 0) _latoVoxMax = n;
+}
+export function latoMassimoVoxel() { return _latoVoxMax; }
+
+/** Quanto occupa in GPU la griglia collegata, in byte (lo stampa il pannello). */
+export function memoriaVoxel() {
+  if (uniformi.uVoxMin.value.w < 0.5) return 0;
+  const d = uniformi.uVoxDim.value;
+  return d.x * d.y * d.z;
+}
+
 // Uniform condivisi da OGNI materiale patchato: un solo aggiornamento per frame.
 const uniformi = {
   uLuciPosRaggio: { value: Array.from({ length: LUCI_MAX }, () => new THREE.Vector4(0, 0, 0, 1)) },
   uLuciColore: { value: Array.from({ length: LUCI_MAX }, () => new THREE.Vector4(1, 1, 1, 0)) },
-  // slot di ogni lampada inviata: −1 = nessuna maschera (vedi lanternaBloccata)
-  uLuciSlot: { value: new Float32Array(LUCI_MAX).fill(-1) },
+  // FA OMBRA, QUESTA LAMPADA? 1 = pesante (il raggio cammina la griglia dei
+  // voxel), 0 = leggera (trapassa i muri: è il suo mestiere). Le sfere si
+  // riordinano a ogni frame — le più vicine al giocatore — quindi la classe va
+  // riscritta in parallelo a loro, e non può stare nella lampada.
+  uLuciOmbra: { value: new Float32Array(LUCI_MAX) },
   uLuciNum: { value: 0 },
+  // la griglia dei solidi e la sua collocazione nel mondo
+  uVox: { value: _voxVuoto },
+  uVoxMin: { value: new THREE.Vector4(0, 0, 0, 0) },   // (minX, minY, minZ, griglia valida)
+  uVoxDim: { value: new THREE.Vector3(1, 1, 1) },      // (lx, ly, lz) in celle
+  // QUANTE LUCI PESANTI SONO STATE INVIATE, ed è l'interruttore generale del
+  // lavoro d'ombra: a 0 lo shader non tocca né la griglia né le sue uniform, ed
+  // è il caso normale di giorno e di qualunque scena di sole luci leggere.
+  uOmbreNumPesanti: { value: 0 },
   uAmbiente: { value: new THREE.Color(1, 1, 1) },
   uOmbraNum: { value: 0 },        // 0 = nessuna nuvola: lo shader esce subito
   uOmbraForza: { value: 0.28 },
@@ -260,79 +372,108 @@ export function impostaOmbreNuvole(box, forza) {
 const GLSL_VERTEX = /* glsl */`
   varying vec3 vPosMondo;
   uniform mat4 uMondoInv;
-  // MASCHERA D'OCCLUSIONE cotta per FACCIA: TRE byte = 24 bit, uno per SLOT di
-  // lampada (world/luce.js). Bit acceso = quella lampada qui non arriva, c'è un
-  // muro in mezzo. Costante sui tre vertici del triangolo — sono bit, non una
-  // sfumatura.
-  //
-  // UN BIT PER LAMPADA, NON UNO SOLO PER TUTTE: con un bit di unione bastava una
-  // lampada dalla parte giusta del muro per dichiarare libera la cella davanti, e
-  // la sfera della lampada murata ci passava dentro lo stesso (misurato: +11.6%
-  // ÷ +22% di luce trapelata sul muro di collaudo con una lucciola per lato).
-  //
-  // LA POLARITÀ È SCELTA APPOSTA, ed è metà del lavoro: un attributo che la
-  // geometria NON ha in WebGL legge (0,0,0,1), cioè x=y=z=0 = "nessuna lampada
-  // bloccata". Gatto, mano, palle e mobili non passano dal mesher e restano
-  // illuminati esattamente come prima, senza nessun flag per materiale.
-  // Ed è per la stessa ragione che i byte sono TRE e non quattro: la w di quel
-  // default vale 1, e un quarto byte accenderebbe da solo il bit dello slot 24.
-  attribute vec3 aOcc;
-  varying vec3 vOcc;
 `;
 const GLSL_FRAGMENT = /* glsl */`
   varying vec3 vPosMondo;
-  varying vec3 vOcc;
 
   uniform vec4 uLuciPosRaggio[${LUCI_MAX}];
   uniform vec4 uLuciColore[${LUCI_MAX}];
-  // Lo SLOT di ogni lampada inviata: dice QUALE bit di aOcc la riguarda. Le
-  // sfere si riordinano a ogni frame (le più vicine al giocatore), i bit cotti
-  // no — questo array è il ponte fra i due. −1 = lampada senza slot: non viene
-  // mascherata, cioè torna a comportarsi come prima (vedi slotEsauriti).
-  uniform float uLuciSlot[${LUCI_MAX}];
+  // 1 = lampada PESANTE (fa ombra), 0 = LEGGERA (trapassa i muri per mestiere).
+  // Le sfere si riordinano a ogni frame — le più vicine al giocatore — quindi la
+  // classe viaggia in parallelo a loro, nello stesso ordine.
+  uniform float uLuciOmbra[${LUCI_MAX}];
   uniform int uLuciNum;
   uniform vec3 uAmbiente;
-  uniform float uOcclusione;     // interruttore Impostazioni: 0 = niente maschera
+  uniform float uOcclusione;       // interruttore Impostazioni: 0 = niente ombre
+  uniform highp sampler3D uVox;    // 1 byte per cella: 1 = solido
+  uniform vec4 uVoxMin;            // (minX, minY, minZ, 1 = griglia collegata)
+  uniform vec3 uVoxDim;            // (lx, ly, lz) in celle
+  uniform int uOmbreNumPesanti;    // early-out: 0 = niente lavoro d'ombra
 
-  // DOVE la luce può arrivare — l'UNICA modifica alle luci-sfera.
-  // Una sfera è solo una distanza: non sa niente dei muri, e infatti i lampioni
-  // li attraversavano. La maschera cotta nei vertici (world/luce.js: la lampada
-  // vede questa cella, sì o no?) i muri li conosce, e qui spegne la sfera dove
-  // la luce non arriva.
+  // QUESTA CELLA È UN MURO? Fuori dalla griglia non c'è niente — è aria aperta,
+  // non un muro: la stessa regola di GrigliaLuce.eSolido, e sbagliarla vorrebbe
+  // dire un guscio nero attorno al mondo.
+  // texelFetch e non texture(): indirizzamento INTERO, niente mezzo texel da
+  // aggiungere, niente normalizzazione, niente filtraggio da spegnere.
+  bool voxPieno(ivec3 c) {
+    ivec3 i = c - ivec3(uVoxMin.xyz);
+    if (i.x < 0 || i.y < 0 || i.z < 0) return false;
+    if (float(i.x) >= uVoxDim.x || float(i.y) >= uVoxDim.y || float(i.z) >= uVoxDim.z) return false;
+    // l'ordine è (z, y, x): vedi il contratto di layout in world/luce.js
+    return texelFetch(uVox, ivec3(i.z, i.y, i.x), 0).r > 0.0;
+  }
+
+  // C'È UN MURO FRA QUESTO FRAMMENTO E LA LAMPADA?
   //
-  // IL TAGLIO È NETTO, non sfumato: un bit è acceso o spento, non c'è un mezzo
-  // bit. È lo stile del gioco — le bande della sfera e il disco dell'ombra del
-  // player sono netti, e un bordo morbido qui sarebbe l'unica sfocatura dello
-  // schermo.
+  // SI CAMMINA LA GRIGLIA, CELLA PER CELLA (traversata di voxel alla
+  // Amanatides-Woo): si avanza sempre verso il confine di cella più vicino,
+  // quindi si visitano ESATTAMENTE le celle attraversate dal raggio — non una di
+  // più (ombre più grasse del vero) né una di meno (luce che passa negli spigoli).
   //
-  // SI SPEGNE LA SINGOLA SFERA, NON TUTTE INSIEME, e questa è la correzione: la
-  // maschera diceva "qui arriva luce artificiale", non "qui arriva la luce della
-  // lampada numero 3", quindi due lampade ai lati opposti dello stesso muro si
-  // coprivano a vicenda e quella murata trapelava. Adesso ogni lampada ha il suo
-  // bit e il suo muro.
+  // ED È IL PUNTO DI TUTTA QUESTA RISCRITTURA: l'ombra non è più APPROSSIMATA, è
+  // ESATTA. Prima si leggeva la distanza del primo ostacolo da una mappa
+  // ottaedrale di 128×128 texel per lampada, cioè una risoluzione ANGOLARE: 128
+  // texel per giro vogliono dire che la precisione lineare peggiora andando in
+  // là, e a raggio 15 un texel copriva quasi mezza cella. Il bordo dell'ombra
+  // cadeva dove capitava dentro quel mezzo blocco e ondeggiava a una frequenza
+  // che non corrispondeva a niente di visibile in scena — il cervello la leggeva
+  // come difetto, non come stile. Qui il bordo coincide AL PIXEL con lo spigolo
+  // del cubo che la proietta: i gradini che restano sono i cubi veri, e in un
+  // gioco a blocchi quelli si leggono come voluti.
   //
-  // NIENTE OPERATORI DI BIT: GLSL ES 1.0 non li ha, e i tre byte arrivano come
-  // float esatti (0..255). Dividere per una potenza di due è esatto in binario,
-  // quindi floor+mod estraggono il bit senza rischi di arrotondamento.
-  float lanternaBloccata(float slot) {
-    if (uOcclusione < 0.5 || slot < 0.0) return 0.0;
-    float b = floor(slot / 8.0);                      // quale dei tre byte
-    float k = slot - b * 8.0;                         // quale bit dentro il byte
-    float byte = b < 0.5 ? vOcc.x : (b < 1.5 ? vOcc.y : vOcc.z);
-    return mod(floor(floor(byte + 0.5) / exp2(k)), 2.0);
+  // NIENTE BIAS DA TARARE, e non è una promessa ottimista: non c'è nessuna
+  // distanza cotta da confrontare, quindi non c'è l'acne che un bias cura.
+  // L'unico scarto è SCARTO_OMBRA, che ferma il raggio un millesimo di cella
+  // prima del frammento — perché il frammento sta sulla faccia di un blocco,
+  // cioè esattamente sul confine della sua cella, e senza quello il rumore di
+  // virgola mobile lo farebbe finire ogni tanto dentro il solido che lo porta.
+  //
+  // IL GEMELLO IN JS è GrigliaLuce.occluso (world/luce.js), e le due devono
+  // restare identiche: è l'unico modo di provare senza GPU la cosa da cui
+  // dipende tutto l'aspetto delle ombre.
+  bool ombraVoxel(vec3 lampada, vec3 dir, float dist) {
+    vec3 passo = vec3(dir.x >= 0.0 ? 1.0 : -1.0, dir.y >= 0.0 ? 1.0 : -1.0, dir.z >= 0.0 ? 1.0 : -1.0);
+    // il max evita la divisione per zero sugli assi: 1e8 si comporta da infinito
+    // (il raggio è lungo al più RAGGIO_MAX celle, quindi quel confine non arriva mai)
+    vec3 inv = 1.0 / max(abs(dir), vec3(1e-8));
+    vec3 f = lampada - floor(lampada);
+    // distanza al primo confine di cella per asse: (1−f)/|d| in avanti, f/|d| indietro
+    vec3 prossimo = ((passo * 0.5 + 0.5) - passo * f) * inv;
+    ivec3 c = ivec3(floor(lampada));
+    ivec3 ipasso = ivec3(passo);
+    float limite = dist - ${GSCARTO};
+    for (int k = 0; k < ${PASSI_MAX}; k++) {
+      float t;
+      if (prossimo.x <= prossimo.y && prossimo.x <= prossimo.z) { t = prossimo.x; c.x += ipasso.x; prossimo.x += inv.x; }
+      else if (prossimo.y <= prossimo.z)                        { t = prossimo.y; c.y += ipasso.y; prossimo.y += inv.y; }
+      else                                                      { t = prossimo.z; c.z += ipasso.z; prossimo.z += inv.z; }
+      if (t >= limite) return false;                  // arrivati al frammento senza incontrare niente
+      if (voxPieno(c)) return true;
+    }
+    return false;
   }
 
   vec3 lanternaAccumulo() {
     vec3 acc = vec3(0.0);
     if (uLuciNum == 0) return acc;                    // giorno senza lampade: costo zero
+    // EARLY-OUT DELLE OMBRE: se non c'è nemmeno una luce PESANTE in vista, il
+    // lavoro d'ombra non si fa proprio — niente fetch, niente uniform lette.
+    // È il motivo per cui le luci leggere (fuochi fatui, oggetti che brillano)
+    // costano esattamente quanto le fake pointlight di prima.
+    bool conOmbre = uOcclusione > 0.5 && uOmbreNumPesanti > 0 && uVoxMin.w > 0.5;
     for (int i = 0; i < ${LUCI_MAX}; i++) {
       if (i >= uLuciNum) break;
       vec4 pr = uLuciPosRaggio[i];
       vec3 dv = vPosMondo - pr.xyz;
       float d2 = dot(dv, dv);
       if (d2 < pr.w * pr.w) {                         // sqrt e divisione solo dentro la sfera
-        if (lanternaBloccata(uLuciSlot[i]) > 0.5) continue;   // muro in mezzo
-        float f = 1.0 - sqrt(d2) / pr.w;
+        float d = sqrt(d2);
+        // IL CAMMINO SI PAGA SOLO DENTRO LA SFERA E SOLO SE LA LAMPADA È PESANTE:
+        // è per questo che il costo segue la SOVRAPPOSIZIONE delle pozze e non il
+        // numero di lampade a schermo — un pixel che sta dentro una sola pozza
+        // cammina una volta sola, per lunga che sia la fila di lampioni.
+        if (conOmbre && uLuciOmbra[i] > 0.5 && d > 1e-4 && ombraVoxel(pr.xyz, dv / d, d)) continue;
+        float f = 1.0 - d / pr.w;
         // anelli concentrici: le sfere si sommano dove si compenetrano
         float banda = ceil(min(f, 1.0) * ${GBANDE}) / ${GBANDE};
         acc += uLuciColore[i].rgb * uLuciColore[i].a * banda;
@@ -416,100 +557,24 @@ function iniettaLanterna(shader) {
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\n' + GLSL_VERTEX)
     .replace('#include <begin_vertex>',
-      '#include <begin_vertex>\nvPosMondo = (uMondoInv * modelMatrix * vec4(transformed, 1.0)).xyz;\nvOcc = aOcc;');
+      '#include <begin_vertex>\nvPosMondo = (uMondoInv * modelMatrix * vec4(transformed, 1.0)).xyz;');
   shader.fragmentShader = shader.fragmentShader
     .replace('#include <common>', '#include <common>\n' + GLSL_FRAGMENT)
     .replace('#include <opaque_fragment>', GLSL_COMPOSIZIONE + '#include <opaque_fragment>');
 }
 
-/** Materiale unlit con luci-sfera. NON serve dichiarare se la mesh porta o no
- *  l'attributo aOcc: chi non ce l'ha legge 0, cioè "luce libera", ed è la
- *  polarità giusta (vedi GLSL_VERTEX). */
+/** Materiale unlit con luci-sfera + ombre delle luci pesanti.
+ *  NON serve dichiarare niente per-mesh: l'ombra si legge dall'atlante in
+ *  coordinate MONDO, quindi vale identica per i chunk del mesher, per il gatto,
+ *  per la mano, per i mobili e per le creature. (Prima era una maschera di bit
+ *  cotta in un attributo di vertice, e tutto ciò che non passava dal mesher
+ *  andava sondato a mano una volta per frame: vedi scriviLuceEnte, che questa
+ *  versione ha tolto insieme al suo corredo di geometrie da sganciare.) */
 export function patchLuci(materiale) {
   materiale.onBeforeCompile = iniettaLanterna;
   // marca per il cache-key: materiali con patch diversa non condividono programma
   materiale.customProgramCacheKey = () => 'lanterna-luci';
   return materiale;
-}
-
-// ---- sonda per le mesh SENZA facce ------------------------------------------
-// Gatto, mano, palle e mobili non passano dal mesher: non hanno una faccia da
-// cui leggere la maschera d'occlusione, quindi leggevano l'attributo mancante,
-// cioè "nessuna lampada bloccata" OVUNQUE — e per loro il lampione dall'altra
-// parte del muro illuminava ATTRAVERSO la parete, proprio il difetto che la
-// maschera esiste per togliere. Qui la maschera gliela si SONDA nel punto in cui
-// stanno e la si scrive nell'attributo, costante su tutti i vertici.
-
-// UNA GEOMETRIA, UN PADRONE — e questa è metà del lavoro di scriviLuceEnte.
-// `Object3D.clone()` passa da `Mesh.copy`, che assegna geometria e materiale PER
-// RIFERIMENTO: due lampioni piazzati dallo stesso def condividono lo STESSO
-// BufferGeometry, e il gatto locale e uno remoto condividono il mini-cubo che
-// tengono in mano (GEO_CUBO in mano.js). aOcc sta lì dentro, quindi scrivendoci
-// sopra tutte le istanze finivano coi valori dell'ULTIMA sondata.
-// PROVATO: due lampioni, uno dietro un muro (atteso occluso) e uno in campo
-// aperto (atteso libero), uscivano identici, e quale dei due vincesse dipendeva
-// dall'ordine di `arredo.istanze` — cioè esattamente il difetto che questa sonda
-// esiste per risolvere, sul secondo oggetto più guardato dello schermo.
-// Alla prima collisione la geometria si SGANCIA. Quella nuova RIUSA gli stessi
-// BufferAttribute — stessi buffer in GPU, non si copia un solo vertice — e si
-// tiene per sé soltanto aOcc: un byte per vertice.
-// NB: proprio perché i buffer sono condivisi, una geometria sganciata non va
-// mai dispose()-ata (three cancellerebbe gli attributi anche all'originale).
-// Nessuno lo fa: furni e mano si tolgono dalla scena, non si distruggono.
-function sganciaGeometria(g) {
-  const n = new THREE.BufferGeometry();
-  // TUTTI gli attributi per riferimento TRANNE aOcc: quello è l'unica cosa che
-  // deve diventare privata, e riportarselo dietro avrebbe rimesso in mano alla
-  // copia lo stesso identico buffer da cui si sta scappando.
-  for (const nome in g.attributes) if (nome !== 'aOcc') n.setAttribute(nome, g.attributes[nome]);
-  if (g.index) n.setIndex(g.index);
-  for (const gr of g.groups) n.addGroup(gr.start, gr.count, gr.materialIndex);
-  n.setDrawRange(g.drawRange.start, g.drawRange.count);
-  n.boundingBox = g.boundingBox;
-  n.boundingSphere = g.boundingSphere;
-  return n;
-}
-
-/**
- * Scrive l'occlusione sondata in un punto su tutte le mesh di un oggetto
- * (`maschera` = bit per SLOT di lampada, 0 = nessuna bloccata: luce libera).
- *
- * SENZA QUESTO il gatto non ha facce da interrogare: leggerebbe l'attributo
- * mancante, cioè "luce libera" OVUNQUE, e in grotta il lampione dall'altra
- * parte del muro lo illuminerebbe ATTRAVERSO la parete — proprio il difetto che
- * la maschera esiste per togliere, sull'oggetto più guardato dello schermo.
- * Costa un fill SOLO quando il valore cambia: per un gatto fermo, mai.
- */
-export function scriviLuceEnte(oggetto, maschera) {
-  const m = Math.max(0, maschera | 0);
-  const b0 = m & 255, b1 = (m >> 8) & 255, b2 = (m >> 16) & 255;
-  const firma = m + 1;                           // +1: 0 = "mai scritto"
-  const padrone = oggetto.id;                    // id three, unico per oggetto
-  oggetto.traverse((o) => {
-    if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
-    let g = o.geometry;
-    // la stessa geometria su più mesh DELLO STESSO ente va benissimo (il gatto
-    // ha 9 mesh e 6 geometrie): si sgancia solo quando il padrone è un altro
-    if (g.userData.lucePadrone === undefined) g.userData.lucePadrone = padrone;
-    else if (g.userData.lucePadrone !== padrone) {
-      g = sganciaGeometria(g);
-      g.userData.lucePadrone = padrone;
-      o.geometry = g;
-    }
-    if (g.userData.luceFirma === firma) return;
-    g.userData.luceFirma = firma;
-    const n = g.attributes.position.count;
-    let a = g.getAttribute('aOcc');
-    if (!a || a.count !== n) {
-      a = new THREE.Uint8BufferAttribute(new Uint8Array(n * 3), 3);
-      a.setUsage(THREE.DynamicDrawUsage);
-      g.setAttribute('aOcc', a);
-    }
-    for (let i = 0; i < n; i++) {
-      a.array[i * 3] = b0; a.array[i * 3 + 1] = b1; a.array[i * 3 + 2] = b2;
-    }
-    a.needsUpdate = true;
-  });
 }
 
 // ---- acqua (riflessi + cascate + pioggia) -----------------------------------
@@ -740,7 +805,26 @@ const GLSL_ACQUA_COLORE = /* glsl */`
     // Distanza: le uniche tre distinte sono 0.104 (angolo sulla sponda), 0.541
     // (angolo una cella dentro) e 1 — coerenti col calcolo geometrico, perché
     // sqrt(0.5)−0.5 = 0.2071 e sqrt(2.5)−0.5 = 1.0811, entrambe diviso 2.
-    float dRiva = vRiva.x + (frasta - 0.5) * 0.44;
+    // BANDA DI RIVA PIÙ STRETTA — è il rilievo del committente: su pozze piccole
+    // la vecchia fascia (~0.37 celle da OGNI sponda, soglia 0.30) copriva il 43%
+    // di un 3×3 e si leggeva come "vassoio bianco col centro blu". Qui è un TRIM
+    // sottile (~0.24 celle): il centro resta azzurro anche su vasche piccole.
+    //
+    // PERCHÉ NON SCALA COL LATO DELLA POZZA, e vale scriverlo perché è il primo
+    // istinto (e il brief lo suggeriva): l'unico segnale di "grandezza" che il
+    // mesher fornisce è vRiva.y (apertura), ma sulla RIVA quel numero vale ~0.6
+    // per QUALSIASI specchio ≥3 — la finestra 5×5 di rivaCella non vede più di 2
+    // celle oltre la sponda, quindi un 3×3 e un lago hanno la stessa apertura
+    // dov'è la schiuma. Distinguerli davvero vorrebbe dire allargare quella
+    // finestra (le 25 letture per cella tornerebbero 100: c'è un test apposta che
+    // le blocca) per un guadagno che un trim uniforme e netto già copre — una
+    // pozza piccola con un filo di schiuma si legge come acqua, non come vassoio.
+    // Il taglio resta UN solo step netto (nessuno zigzag del tentativo "a cresta").
+    //
+    // RUMORE 0.30 (era 0.44): con la banda stretta un rumore largo la spezzava in
+    // chiazze slegate (buchi nel filo di schiuma); a 0.30 il bordo resta sfrangiato
+    // e organico ma il filo non si interrompe.
+    float dRiva = vRiva.x + (frasta - 0.5) * 0.30;
     // L'APERTURA È IL GUARDIANO DEI CANALI STRETTI e resta, ma anche lei taglia
     // netto: è un interruttore 0/1, quindi non può rimettere in mezzo nessuna
     // sfumatura — il prodotto di due step vale 0 oppure 1, mai 0.37.
@@ -751,26 +835,18 @@ const GLSL_ACQUA_COLORE = /* glsl */`
     // 0.40, largo 3 = 0.60, e uno specchio d'acqua non scende MAI sotto 0.60.
     // La soglia a 0.50 fa passare da 3 celle in su: sotto, la cella è tutta
     // sponda e la schiuma sarebbe una lastra, non un bordo.
-    // 0.30 È LA MEZZERIA FRA I DUE VALORI CHE IL MESHER PRODUCE DAVVERO, non un
-    // numero scelto a occhio: 0.104 (angolo sulla sponda) e 0.541 (angolo una
-    // cella dentro) hanno come punto medio 0.32, e tagliando lì la banda cade
-    // esattamente fra i due — la sponda dentro, la cella successiva fuori. Col
-    // rumore di ±0.22 sopra, la fascia larga ~0.37 celle che ne esce è quella
-    // vista a schermo.
-    // SU UNA POZZA PICCOLA LA FASCIA PESA, ed è geometria pura, non un difetto.
-    // La banda entra ~0.37 celle da ogni sponda, quindi su una vasca quadrata di
-    // lato N la schiuma copre 1 − ((N − 0.74)/N)²: il 43% a N=3, il 27% a N=5, il
-    // 20% a N=7. (Le percentuali contate a schermo dipendono dall'inquadratura —
-    // con la pozza che sborda dal fotogramma scendono parecchio — quindi il
-    // numero da citare è questo, che non dipende da dove sta la camera.)
-    // VERIFICATO che non è il «foglio bianco» già visto: rigenerando la scena e
-    // costruendo le vasche una per una, il pixel centrale resta acqua azzurra
-    // (97,170,195) da N=3 in su, e a N=1 e N=2 l'apertura spegne tutto.
-    // Resta però che una pozza di tre celle si legge più come vassoio bianco col
-    // centro blu che come specchio d'acqua bordato: chi vorrà stringere la banda
-    // scenda l'ampiezza del rumore qui sopra, non questa soglia, che è agganciata
-    // alle distanze vere del mesher.
-    float schiumaRiva = step(dRiva, 0.30) * step(0.50, vRiva.y);
+    // SOGLIA 0.24 (era 0.30): la banda ora sta fra 0.104 (angolo sulla sponda,
+    // sempre schiuma) e 0.541 (angolo una cella dentro, mai) — cade più vicina
+    // alla sponda, quindi un filo e non una fascia. COSA COPRE, misurato a schermo
+    // (vista dall'alto, giorno) come frazione di schiuma sui pixel d'acqua della
+    // vasca, prima → dopo:
+    //   3×3 ..... 37.6% → 24.6%  (il "vassoio bianco" diventa un bordo azzurrato)
+    //   5×5 ..... 17.8% → 11.7%
+    //   12×12 ... 11.6% →  6.0%
+    // Il centro resta azzurro da N=3 in su; a N≤2 l'apertura (step 0.50) spegne
+    // tutto. Chi volesse ritoccare: questa soglia + il rumore 0.30 sopra per la
+    // larghezza, lo step(0.50) per la soglia minima di specchio che porta schiuma.
+    float schiumaRiva = step(dRiva, 0.24) * step(0.50, vRiva.y);
     // silhouette e SCIA (il RT sfuma la storia): chiazze che vivono col tempo
     float schiumaSag = step(0.62, sagoma * (0.55 + 0.55 * vivo));
     float schiuma = max(max(schiumaRiva, maschera), schiumaSag);
@@ -909,14 +985,60 @@ export function uniformiCondivise() { return uniformi; }
 export function ambienteAttuale() { return uniformi.uAmbiente.value; }
 
 // ---- registro delle sorgenti ----------------------------------------------
+//
+// DUE CLASSI DI LUCE, ED È UNA PROPRIETÀ DICHIARATA, non dedotta da dove sta la
+// sfera o da chi l'ha creata. Il committente l'ha chiesta così, e la ragione è
+// che le due costano in modo radicalmente diverso:
+//
+//  · PESANTE (ombra: true) — fa ombra e non passa i muri. Non paga NIENTE in
+//    CPU: paga a schermo, camminando la griglia dei voxel dalla lampada al
+//    frammento (ombraVoxel), e solo dentro la sua sfera. Sono i lampioni e i
+//    blocchi luminosi. MUOVERLA È GRATIS quanto muovere una leggera — l'ombra si
+//    ricalcola per frammento a ogni fotogramma, non c'è niente di cotto da
+//    invalidare. (Fino alla riscrittura pagava invece una mappa d'ombra cotta in
+//    CPU e una piastrella in un atlante da 48, e spostarla voleva dire ricuocere.)
+//  · LEGGERA (ombra: false) — si muove libera ogni frame, NON fa ombra,
+//    trapassa i muri. Costa esattamente quanto una fake pointlight di prima:
+//    zero lavoro in CPU quando si sposta (basta scriverle la posizione, la legge
+//    aggiornaLuci) e nessun lavoro d'ombra nello shader. Sono i fuochi fatui,
+//    gli oggetti che brillano, gli effetti.
+//
+// IL DEFAULT È LEGGERA di proposito: chi si dimentica di dichiarare finisce
+// nella classe che non costa niente. Una luce che pesa dev'essere una scelta
+// scritta, non una svista.
 
 const sorgenti = new Set();
 
-/** Registra una sfera di luce. Ritorna l'handle {pos, raggio, colore, intensita, attiva}. */
-export function creaLuce({ pos = new THREE.Vector3(), raggio = 4, colore = 0xffd889, intensita = 1, attiva = true } = {}) {
-  const luce = { pos: pos.clone(), raggio, colore: new THREE.Color(colore), intensita, attiva };
+/**
+ * Registra una sfera di luce. Ritorna l'handle
+ * {pos, raggio, colore, intensita, attiva, ombra}.
+ * Tutti i campi si possono cambiare dal vivo; per `pos` c'è spostaLuce, che è
+ * la stessa cosa ma dice in faccia quanto costa su una luce pesante.
+ */
+export function creaLuce({ pos = new THREE.Vector3(), raggio = 4, colore = 0xffd889, intensita = 1, attiva = true, ombra = false } = {}) {
+  const luce = { pos: pos.clone(), raggio, colore: new THREE.Color(colore), intensita, attiva, ombra: !!ombra };
   sorgenti.add(luce);
   return luce;
+}
+
+/** Luce PESANTE: ferma, con ombra. Chi la crea si prende anche il dovere di
+ *  farla conoscere alla griglia (i blocchi e i furni passano dal mesher). */
+export function creaLucePesante(opz = {}) { return creaLuce({ ...opz, ombra: true }); }
+
+/** Luce LEGGERA: mobile, senza ombra. È l'API per i fuochi fatui e gli effetti —
+ *  crea, sposta quanto vuoi, togli. */
+export function creaLuceLeggera(opz = {}) { return creaLuce({ ...opz, ombra: false }); }
+
+/**
+ * Sposta una sorgente. Su una LEGGERA è una scrittura di tre float e basta:
+ * nessun ricalcolo, nessun remesh, si può fare a ogni frame per cinquanta luci
+ * senza toccare la CPU. Su una PESANTE la posizione entra invece nella mappa
+ * d'ombra, che va ricotta: il mesher se ne accorge da solo, ma è lavoro vero e
+ * non va fatto per frame — se una luce deve muoversi, dichiarala leggera.
+ */
+export function spostaLuce(luce, x, y, z) {
+  if (!luce) return;
+  luce.pos.set(x, y, z);
 }
 
 export function rimuoviLuce(luce) { sorgenti.delete(luce); }
@@ -924,23 +1046,67 @@ export function rimuoviLuce(luce) { sorgenti.delete(luce); }
 /** Per il menu di debug: elenco sorgenti e contatori. */
 export function elencoLuci() { return [...sorgenti]; }
 export function statLuci() {
-  let attive = 0;
-  for (const l of sorgenti) if (l.attiva && l.intensita > 0) attive++;
-  return { totali: sorgenti.size, attive, inviate: uniformi.uLuciNum.value };
+  let attive = 0, pesanti = 0;
+  for (const l of sorgenti) {
+    if (!l.attiva || l.intensita <= 0) continue;
+    attive++;
+    if (l.ombra) pesanti++;
+  }
+  return {
+    totali: sorgenti.size, attive, pesanti,
+    inviate: uniformi.uLuciNum.value, conOmbra: uniformi.uOmbreNumPesanti.value,
+    // quante ne sono rimaste FUORI dal tetto e quante si stanno congedando: il
+    // tetto va VISTO, come per gli anelli d'impatto e per le piastrelle d'ombra
+    escluse: Math.max(0, attive - uniformi.uLuciNum.value),
+    sfumate: _sfumate,
+  };
 }
 
 const _ordinabili = [];
 
-// COME SI CHIAMA QUESTA LAMPADA NELLA MASCHERA. Le sfere si riordinano a ogni
-// frame (le LUCI_MAX più vicine al giocatore), i bit cotti nei vertici no: il
-// ponte fra i due è lo SLOT, che la griglia d'occlusione assegna per cella.
-// Finché nessuno lo collega, la risposta è −1 = "nessuna maschera": le luci
-// tornano ad attraversare i muri, che è il ripiego giusto per l'Officina e per i
-// ghost, dove una griglia non c'è proprio.
-let _slotDiLuce = () => -1;
+/**
+ * LA FASCIA DI CONGEDO, in frazione della distanza di taglio.
+ *
+ * IL DIFETTO CHE TOGLIE. Quando le sorgenti sono piu' di LUCI_MAX si mandano
+ * allo shader le piu' vicine e le altre spariscono — di colpo, a piena
+ * intensita'. Camminando fra trenta lampade la venticinquesima si ACCENDE tutta
+ * insieme appena scavalca la ventiquattresima, e con uno sciame di fuochi fatui
+ * in volo (che si scambiano di posto in classifica di continuo) diventa un
+ * tremolio costante ai bordi del campo. E' lo stesso difetto che gli anelli
+ * d'impatto avevano ed e' stato curato con IMPATTI_FASCIA — la' congelando
+ * l'insieme, qui con una dissolvenza, perche' una POZZA DI LUCE che compare e
+ * scompare si vede molto piu' di un anello di schiuma.
+ *
+ * COME. Le ultime della classifica si spengono man mano che si avvicinano al
+ * taglio: chi sta esattamente sul confine vale gia' zero, quindi il momento in
+ * cui entra e esce dall'elenco non si vede per costruzione. Non c'e' nessuna
+ * soglia da tarare e nessuno stato da tenere: e' una funzione continua delle
+ * distanze, che sono continue.
+ *
+ * FRAZIONE E NON CELLE: legata alla distanza di taglio, la dissolvenza vale
+ * uguale in un mondo largo e in uno sciame stretto, e lascia sempre l'82% della
+ * portata a piena luce. Un valore in celle, su uno sciame tutto raccolto in
+ * dieci celle, avrebbe smorzato l'intero sciame.
+ *
+ * QUANDO NON FA NIENTE, ed e' la meta' del suo valore: se le sorgenti attive
+ * sono al massimo LUCI_MAX non c'e' nessun taglio, quindi nessuna dissolvenza.
+ * L'aspetto di una lampada sola — e di qualunque scena sotto il tetto — non
+ * cambia di un pixel.
+ */
+const FASCIA_TAGLIO = 0.18;
+let _sfumate = 0;
 
-/** Collega il risolutore degli slot (main.js: lo sa il mesher). */
-export function impostaRisolutoreSlot(fn) { _slotDiLuce = fn || (() => -1); }
+/** Rampa liscia in [0,1]: agli estremi la derivata e' nulla, quindi il congedo
+ *  non ha lo scalino che una rampa lineare lascia proprio dove si nota di piu'. */
+function _liscia(t) { return t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t); }
+
+// (qui viveva _tasselloDiLuce, il ponte fra la sfera disegnata e la piastrella
+// cotta nell'atlante: serviva perché ogni lampada pesante aveva una mappa
+// d'ombra TUTTA SUA, con un tetto di 48 e un'assegnazione da tenere stabile fra
+// un frame e l'altro. Col cammino per-frammento la lampada non possiede più
+// niente — l'ombra la calcola lo shader sulla griglia dei muri, che è una sola
+// per tutti — quindi la domanda «quale piastrella è la tua?» non esiste più, e
+// con lei sono spariti il risolutore, il suo collegamento da main.js e il tetto.)
 
 /** Da chiamare una volta per frame: sceglie le LUCI_MAX più vicine al fuoco (player). */
 export function aggiornaLuci(fuoco) {
@@ -949,18 +1115,42 @@ export function aggiornaLuci(fuoco) {
     if (!l.attiva || l.intensita <= 0) continue;
     _ordinabili.push(l);
   }
+  // dTaglio = distanza della PRIMA ESCLUSA. Finche' ci stanno tutte non c'e'
+  // taglio e la dissolvenza non esiste (Infinity ⇒ fattore 1 per tutte).
+  let dTaglio = Infinity;
   if (_ordinabili.length > LUCI_MAX) {
     _ordinabili.sort((a, b) => a.pos.distanceToSquared(fuoco) - b.pos.distanceToSquared(fuoco));
+    dTaglio = Math.sqrt(_ordinabili[LUCI_MAX].pos.distanceToSquared(fuoco));
     _ordinabili.length = LUCI_MAX;
   }
-  const slot = uniformi.uLuciSlot.value;
+  // sotto questa distanza si e' a piena luce; sopra si sfuma fino a zero sul taglio
+  const dPiena = dTaglio === Infinity ? Infinity : dTaglio * (1 - FASCIA_TAGLIO);
+  const banda = dTaglio - dPiena;
+  const classe = uniformi.uLuciOmbra.value;
+  let pesanti = 0;
+  _sfumate = 0;
   for (let i = 0; i < _ordinabili.length; i++) {
     const l = _ordinabili[i];
+    let k = 1;
+    if (banda > 1e-6) {
+      const d = l.pos.distanceTo(fuoco);
+      if (d > dPiena) { k = _liscia((dTaglio - d) / banda); _sfumate++; }
+    }
     uniformi.uLuciPosRaggio.value[i].set(l.pos.x, l.pos.y, l.pos.z, l.raggio);
-    uniformi.uLuciColore.value[i].set(l.colore.r, l.colore.g, l.colore.b, l.intensita);
-    slot[i] = _slotDiLuce(l);
+    uniformi.uLuciColore.value[i].set(l.colore.r, l.colore.g, l.colore.b, l.intensita * k);
+    // LA CLASSE È DICHIARATA E BASTA, ed è metà del senso delle luci leggere:
+    // non c'è niente da chiedere a nessuno, nessun mesher da svegliare, nessuna
+    // risorsa da assegnare. Cinquanta fuochi fatui in volo costano cinquanta
+    // scritture di zero.
+    classe[i] = l.ombra ? 1 : 0;
+    if (l.ombra) pesanti++;
   }
   uniformi.uLuciNum.value = _ordinabili.length;
+  // L'EARLY-OUT DELLO SHADER: a zero il lavoro d'ombra non si fa proprio.
+  // Contarle QUI e non nello shader è ciò che rende vero "se non ci sono luci
+  // pesanti in vista, l'ombra costa zero" — un ciclo che le cercasse da solo
+  // pagherebbe comunque il giro.
+  uniformi.uOmbreNumPesanti.value = pesanti;
 }
 
 // ---- fabbriche di materiali -----------------------------------------------

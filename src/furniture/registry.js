@@ -28,8 +28,10 @@ export const FURNI = {
     autoNotte: true,              // segue il ciclo: Acceso di notte
     stati: [
       { nome: 'Spento', modello: 'Prefabs/OriginalMesh/States/LampostOFF.fbx' },
+      // ombra: true = luce PESANTE (vedi blocks.js): un lampione sta piantato
+      // per terra, quindi si merita la sua mappa d'ombra e non passa i muri.
       { nome: 'Acceso', modello: 'Prefabs/OriginalMesh/States/LampostON.fbx',
-        luce: { colore: 0xffd889, raggio: 4.6, intensita: 1.0 } },
+        luce: { colore: 0xffd889, raggio: 4.6, intensita: 1.0, ombra: true } },
     ],
   },
   generatore: {
