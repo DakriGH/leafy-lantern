@@ -15,7 +15,7 @@
 // in cache (Cache API).
 
 import * as THREE from 'three';
-import { impostaMondoInv } from '../fx/materials.js?v=mrsac3y8';
+import { impostaMondoInv } from '../fx/materials.js?v=mrsbzwyi';
 
 const URL_MIND = './AR-Marker/marker-lanterna.mind';
 const URL_MARKER = './AR-Marker/marker-lanterna.png';
@@ -36,6 +36,7 @@ export class ModalitaAR {
     this._figli = [];
     this._contenitore = null;
     this.onStato = null;                     // (testo) per i toast
+    this.onCambio = null;                    // (attiva:boolean) → main applica/toglie il profilo AR
   }
 
   get camera() { return this.mindar ? this.mindar.camera : this._cameraRiposo; }
@@ -82,7 +83,7 @@ export class ModalitaAR {
     this.inAvvio = true;
     try {
       const [{ MindARThree }, { Compiler }] = await Promise.all([
-        import('./vendor/mindar-image-three.js?v=mrsac3y8'),
+        import('./vendor/mindar-image-three.js?v=mrsbzwyi'),
         import('../../node_modules/mind-ar/dist/mindar-image.prod.js'),
       ]);
 
@@ -152,6 +153,7 @@ export class ModalitaAR {
 
       this.rig.renderer.domElement.style.display = 'none';   // disegna MindAR
       this.attiva = true;
+      if (this.onCambio) this.onCambio(true);   // profilo AR "minimo": ombre off, scala bassa
       this._stato('🔍 Pronto! Inquadra il marker', true);
       return true;
     } catch (e) {
@@ -327,6 +329,7 @@ export class ModalitaAR {
     impostaMondoInv(null);
     this.rig.renderer.domElement.style.display = '';
     this.attiva = false;
+    if (this.onCambio) this.onCambio(false);   // torna al profilo normale (ombre ripristinate)
     this._nascondiChip();
   }
 }

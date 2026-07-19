@@ -1,55 +1,56 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrsac3y8';
-import { Rig } from './engine/renderer.js?v=mrsac3y8';
-import { Input } from './engine/input.js?v=mrsac3y8';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrsac3y8';
-import { Cadenza } from './engine/cadenza.js?v=mrsac3y8';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrsac3y8';
-import { Mondo } from './world/world.js?v=mrsac3y8';
-import { SimAcqua } from './world/acqua.js?v=mrsac3y8';
-import { Lobby } from './net/lobby.js?v=mrsac3y8';
-import { Segnalatore } from './net/segnalatore.js?v=mrsac3y8';
-import { Ruota } from './ui/ruota.js?v=mrsac3y8';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrsac3y8';
-import { Zaino } from './ui/zaino.js?v=mrsac3y8';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mrsac3y8';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrsac3y8';
-import { generaMostra } from './world/mostra.js?v=mrsac3y8';
-import { generaCollaudo } from './world/collaudo.js?v=mrsac3y8';
-import { generaTestLuci } from './world/testLuci.js?v=mrsac3y8';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mrsac3y8';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrsac3y8';
-import { Meteo } from './fx/meteo.js?v=mrsac3y8';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrsac3y8';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrsac3y8';
-import { CicloGiorno } from './fx/daynight.js?v=mrsac3y8';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrsac3y8';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrsac3y8';
-import { ModalitaAR } from './ar/ar.js?v=mrsac3y8';
-import { Nuvole } from './fx/nuvole.js?v=mrsac3y8';
-import { SegnaPercorso } from './fx/percorso.js?v=mrsac3y8';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mrsac3y8';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mrsac3y8';
-import { Pioggia } from './fx/pioggia.js?v=mrsac3y8';
-import { Particelle } from './fx/particelle.js?v=mrsac3y8';
-import { Audio } from './fx/audio.js?v=mrsac3y8';
-import { Creature } from './gioco/creature.js?v=mrsac3y8';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrsac3y8';
-import { Palla } from './gioco/palla.js?v=mrsac3y8';
-import { Gatto } from './player/player.js?v=mrsac3y8';
-import { ManoStrumento } from './player/mano.js?v=mrsac3y8';
-import { dropDi } from './gioco/drop.js?v=mrsac3y8';
-import { Controller } from './player/controller.js?v=mrsac3y8';
-import { FURNI, centroide } from './furniture/registry.js?v=mrsac3y8';
-import { caricaModelli } from './furniture/loader.js?v=mrsac3y8';
-import { Arredo } from './furniture/furniture.js?v=mrsac3y8';
-import { HUD } from './ui/hud.js?v=mrsac3y8';
-import { MenuDebug } from './ui/debug.js?v=mrsac3y8';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrsac3y8';
-import { ModalitaXR } from './ar/ar-xr.js?v=mrsac3y8';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrsac3y8';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrsbzwyi';
+import { Rig } from './engine/renderer.js?v=mrsbzwyi';
+import { Input } from './engine/input.js?v=mrsbzwyi';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrsbzwyi';
+import { Cadenza } from './engine/cadenza.js?v=mrsbzwyi';
+import { GpuProfiler } from './engine/gpuTimer.js?v=mrsbzwyi';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrsbzwyi';
+import { Mondo } from './world/world.js?v=mrsbzwyi';
+import { SimAcqua } from './world/acqua.js?v=mrsbzwyi';
+import { Lobby } from './net/lobby.js?v=mrsbzwyi';
+import { Segnalatore } from './net/segnalatore.js?v=mrsbzwyi';
+import { Ruota } from './ui/ruota.js?v=mrsbzwyi';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrsbzwyi';
+import { Zaino } from './ui/zaino.js?v=mrsbzwyi';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mrsbzwyi';
+import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrsbzwyi';
+import { generaMostra } from './world/mostra.js?v=mrsbzwyi';
+import { generaCollaudo } from './world/collaudo.js?v=mrsbzwyi';
+import { generaTestLuci } from './world/testLuci.js?v=mrsbzwyi';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mrsbzwyi';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrsbzwyi';
+import { Meteo } from './fx/meteo.js?v=mrsbzwyi';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrsbzwyi';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrsbzwyi';
+import { CicloGiorno } from './fx/daynight.js?v=mrsbzwyi';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrsbzwyi';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrsbzwyi';
+import { ModalitaAR } from './ar/ar.js?v=mrsbzwyi';
+import { Nuvole } from './fx/nuvole.js?v=mrsbzwyi';
+import { SegnaPercorso } from './fx/percorso.js?v=mrsbzwyi';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mrsbzwyi';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mrsbzwyi';
+import { Pioggia } from './fx/pioggia.js?v=mrsbzwyi';
+import { Particelle } from './fx/particelle.js?v=mrsbzwyi';
+import { Audio } from './fx/audio.js?v=mrsbzwyi';
+import { Creature } from './gioco/creature.js?v=mrsbzwyi';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrsbzwyi';
+import { Palla } from './gioco/palla.js?v=mrsbzwyi';
+import { Gatto } from './player/player.js?v=mrsbzwyi';
+import { ManoStrumento } from './player/mano.js?v=mrsbzwyi';
+import { dropDi } from './gioco/drop.js?v=mrsbzwyi';
+import { Controller } from './player/controller.js?v=mrsbzwyi';
+import { FURNI, centroide } from './furniture/registry.js?v=mrsbzwyi';
+import { caricaModelli } from './furniture/loader.js?v=mrsbzwyi';
+import { Arredo } from './furniture/furniture.js?v=mrsbzwyi';
+import { HUD } from './ui/hud.js?v=mrsbzwyi';
+import { MenuDebug } from './ui/debug.js?v=mrsbzwyi';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrsbzwyi';
+import { ModalitaXR } from './ar/ar-xr.js?v=mrsbzwyi';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrsbzwyi';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -135,6 +136,63 @@ const riflesso = new RiflessoAcqua(rig.renderer);
 const schiumaTop = new SchiumaTop(rig.renderer, rig.mobile);
 const modalitaAR = new ModalitaAR(rig);
 const modalitaXR = new ModalitaXR(rig);
+
+// ---- MISURATORE PERF (COMPITO 2): tempo GPU VERO per passata, anche in AR ----
+// Timer query attorno a OGNI passata (riflesso, schiuma, render principale):
+// misurano il tempo che la GPU passa dentro ciascuna, che sotto vsync la CPU non
+// vede. Da SPENTO non crea nemmeno una query (guscio in engine/gpuTimer.js). Si
+// accende dal menu debug (👁 Overlay → ⏱ GPU) o col tasto G: mostra fps, ms CPU e
+// ms GPU totali + per passata. In AR il render passa per il contesto di MindAR:
+// perf.usaContesto() lo rilega da solo. L'obiettivo: il committente lo accende,
+// gioca (anche in AR), e manda uno screenshot coi numeri del SUO hardware.
+const perf = new GpuProfiler(rig.renderer.getContext(), { nomi: ['principale', 'riflesso', 'schiuma'] });
+let _perfAcceso = false;
+let _cpuMsMedio = 0;                  // ms CPU/frame, mediati dolcemente (sempre a costo ~0)
+const _perfEl = document.createElement('div');
+_perfEl.id = 'perf';
+_perfEl.style.cssText =
+  'position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:8px;z-index:70;' +
+  'padding:8px 10px;border-radius:10px;font:700 11px/1.5 ui-monospace,Menlo,Consolas,monospace;' +
+  'white-space:pre;background:rgba(10,14,28,.82);color:#d8f0ff;border:1px solid rgba(120,200,255,.35);' +
+  'box-shadow:0 2px 0 rgba(0,0,0,.4);pointer-events:none;display:none';
+document.body.appendChild(_perfEl);
+
+/** Accende/spegne il misuratore. `on` assente = interruttore. */
+function impostaPerf(on) {
+  _perfAcceso = on === undefined ? !_perfAcceso : !!on;
+  perf.imposta(_perfAcceso);
+  _perfEl.style.display = _perfAcceso ? 'block' : 'none';
+  if (_perfAcceso && !perf.disponibile) {
+    _perfEl.textContent = '⏱ GPU timer non disponibile\n(niente EXT_disjoint_timer_query_webgl2)\nfps e ms CPU restano validi';
+  }
+  if (typeof menuDebug !== 'undefined' && menuDebug) menuDebug.segnaPerf(_perfAcceso);
+  return _perfAcceso;
+}
+
+/** Testo dell'overlay perf, ricostruito ~2 volte al secondo (fps già mediato). */
+function aggiornaPerf(fps) {
+  if (!_perfAcceso) return;
+  const cpu = _cpuMsMedio;
+  if (!perf.disponibile) {
+    _perfEl.textContent =
+      `${fps} fps · ${cpu.toFixed(1)} ms CPU\n⏱ GPU timer non disponibile qui`;
+    return;
+  }
+  const s = perf.statistiche();
+  const p = s.passate;
+  const riga = (nome, et) => {
+    const c = p[nome];
+    if (!c || c.n === 0) return `  ${et.padEnd(12)}   —`;
+    return `  ${et.padEnd(12)} ${c.media.toFixed(2).padStart(5)} ms  (p95 ${c.p95.toFixed(2)})`;
+  };
+  const dove = modalitaXR.attiva ? ' · AR avanzata' : (modalitaAR.attiva ? ' · AR marker' : '');
+  _perfEl.textContent =
+    `${fps} fps · ${cpu.toFixed(1)} ms CPU${dove}\n` +
+    `GPU totale ${s.totaleMedia.toFixed(2)} ms  (p95 ${s.totaleP95.toFixed(2)})\n` +
+    riga('principale', 'principale') + '\n' +
+    riga('riflesso', 'riflesso') + '\n' +
+    riga('schiuma', 'schiuma');
+}
 // in AR i click mirano con la camera del telefono, e il raggio va riportato
 // nello spazio celle (il mondo sta su un pivot scalato sul marker)
 function raggioGioco(sx, sy) {
@@ -755,6 +813,7 @@ const comandiTouch = new ComandiTouch(input, {});
 input.onTasto = (codice, e) => {
   if (codice === 'KeyB') impostaModo(!costruisci);
   else if (codice === 'KeyE' || codice === 'KeyF') interagisci();
+  else if (codice === 'KeyG') { impostaPerf(); hud.toast(_perfAcceso ? '⏱ Misuratore GPU acceso (G)' : 'Misuratore GPU spento'); }
   else if (codice === 'KeyH') hud.mostraAiuto();
   else if (codice === 'KeyI') apriZaino();
   else if (codice === 'F3') { e.preventDefault(); apriMenu('avanzate'); }
@@ -1553,6 +1612,7 @@ const menuDebug = new MenuDebug({
   mondo, arredo, controller, ciclo, rig, mesher, hud, fuochiFatui,
   azioni: {
     respawn: () => { respawn(); hud.toast('🏠 A casa'); },
+    perf: (on) => impostaPerf(on),
     stagione: (chiave) => cambiaStagione(chiave),
     snapshot: () => salvaSnapshot(),
     ripristina: () => ripristinaSnapshot(),
@@ -1828,7 +1888,7 @@ async function avvia() {
   applicaOpzioni(false);     // fog/distanza/effetti salvati dall'utente (⚙️)
 
   // debug in console
-  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise() };
+  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf };
 
   // accelerazione hardware: avvisa se il WebView disegna in SOFTWARE (fps bassi)
   if (rig.software) {
@@ -2002,7 +2062,13 @@ function applicaQualita() {
   // qualità se le può permettere". Qui si tocca SOLO l'interruttore dello shader
   // (uOcclusione): la texture 3D dei muri la gestisce l'interruttore utente in
   // applicaOpzioni, così una scalata automatica non fa ricostruire la mesh.
-  impostaOcclusione((qManuale ? true : q.ombre) && opzioni.luceCotta !== false);
+  // PROFILO AR "MINIMO": in AR marker il marching d'ombra resta SEMPRE spento —
+  // è l'aggiunta per-pixel più cara e il telefono paga già camera + tracking.
+  // La guardia sta QUI (e non solo all'avvio dell'AR) perché adattaQualita e
+  // applicaOpzioni possono richiamare applicaQualita mentre l'AR è accesa e la
+  // riaccenderebbero. Riflesso, schiuma e tilt-shift sono invece GIÀ spenti in AR
+  // per costruzione (render via MindAR, pianoAcqua = null).
+  impostaOcclusione((qManuale ? true : q.ombre) && opzioni.luceCotta !== false && !modalitaAR.attiva);
   // ridimensionare rifà i buffer del riflesso = un frame nero: farlo SOLO se
   // le misure sono davvero cambiate, non a ogni passaggio di qui
   const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight), pr = rig.renderer.getPixelRatio();
@@ -2156,6 +2222,18 @@ document.getElementById('opzMarker').addEventListener('click', () => document.ge
 document.getElementById('markerView').addEventListener('click', () => document.getElementById('markerView').classList.remove('aperto'));
 // ---- AR sul marker: stesso gioco, visto attraverso la camera ----
 modalitaAR.onStato = (t) => hud.toast(t, 3200);
+// PROFILO AR "MINIMO" (COMPITO 3): all'accensione/spegnimento dell'AR rifà la
+// qualità — applicaQualita, con la guardia !modalitaAR.attiva, spegne il marching
+// d'ombra in AR e lo riaccende all'uscita. In più abbassa la scala di render del
+// renderer di MindAR: in AR il telefono paga già la texture video della camera e
+// il tracking MindAR, quindi ogni pixel in meno conta doppio. Il tracking NON si
+// tocca. Riflesso, schiuma e tilt-shift sono già spenti in AR per costruzione.
+modalitaAR.onCambio = (attivo) => {
+  applicaQualita();
+  if (attivo && modalitaAR.mindar) {
+    modalitaAR.mindar.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, rig.mobile ? 1 : 1.5));
+  }
+};
 // ---- AR AVANZATA (WebXR, senza marker): solo dove il dispositivo la offre ----
 modalitaXR.onStato = (t, fine) => hud.toast(t, fine ? 3200 : 5200);
 modalitaXR.onFine = () => {
@@ -2342,6 +2420,7 @@ function loop(adesso) {
 }
 
 function passo(adesso, frameXR) {
+  const _cpuInizio = performance.now();   // ms CPU del lavoro di questo frame (overlay perf)
   const dt = Math.min((adesso - prima) / 1000, 0.05);
   prima = adesso;
 
@@ -2519,13 +2598,21 @@ function passo(adesso, frameXR) {
   // mondo (riflesso, silhouette schiuma) si spengono, resta la schiuma di riva
   const pianoAcqua = (modalitaAR.attiva || modalitaXR.attiva) ? null : pianoAcquaVicino();
 
+  // MISURATORE PERF: prima di misurare, lega il contesto GPU corrente. In AR
+  // marker il render passa per il renderer di MindAR, che è un ALTRO contesto GL:
+  // usaContesto() se ne accorge e ri-alloca le query di là. Solo da acceso.
+  if (_perfAcceso) {
+    const glOra = (modalitaAR.attiva && modalitaAR.mindar) ? modalitaAR.mindar.renderer.getContext() : rig.renderer.getContext();
+    perf.usaContesto(glOra);
+  }
+
   // schiuma a silhouette: la fetta di geometria che buca il pelo. A frame
   // ALTERNI su OGNI dispositivo — su desktop girava a ogni frame ed era il 30%
   // del costo del frame (render extra su target 512²). Ora che la scia sfuma a
   // tempo e non a frame, dimezzare le chiamate non cambia quello che si vede.
   _schiumaDt += dt;
   if (pianoAcqua === null) { schiumaTop.spegni(); _schiumaDt = 0; }
-  else if (_riflAlterna) { schiumaTop.aggiorna(rig.scena, rig.bersaglio, pianoAcqua, _schiumaDt); _schiumaDt = 0; }
+  else if (_riflAlterna) { perf.regione('schiuma', () => schiumaTop.aggiorna(rig.scena, rig.bersaglio, pianoAcqua, _schiumaDt)); _schiumaDt = 0; }
   impostaSchiumaTop(schiumaTop.rt.texture, schiumaTop.info);
 
   // riflesso planare: a FRAME ALTERNI (la RT resta valida, il wobble copre il
@@ -2535,13 +2622,17 @@ function passo(adesso, frameXR) {
   if (!riflesso.attivo) {
     _riflUltimo = false;
   } else if (_riflAlterna || !_riflUltimo) {
-    _riflUltimo = pianoAcqua !== null && riflesso.aggiorna(rig.scena, rig.camera, pianoAcqua, nascostiPerRiflesso());
+    _riflUltimo = pianoAcqua !== null && perf.regione('riflesso', () => riflesso.aggiorna(rig.scena, rig.camera, pianoAcqua, nascostiPerRiflesso()));
   }
   impostaRiflesso(_riflUltimo, riflesso.rt.texture, riflesso.matriceTexture);
 
-  if (modalitaXR.attiva) { modalitaXR.aggiorna(frameXR); modalitaXR.render(); }
-  else if (modalitaAR.attiva) modalitaAR.render();
-  else rig.render();
+  // render principale (composer col tilt-shift, o render diretto): la passata
+  // più cara, avvolta in un query dedicato. In AR/XR è quella del rispettivo
+  // renderer — il contesto è già stato legato sopra.
+  if (modalitaXR.attiva) { modalitaXR.aggiorna(frameXR); perf.regione('principale', () => modalitaXR.render()); }
+  else if (modalitaAR.attiva) perf.regione('principale', () => modalitaAR.render());
+  else perf.regione('principale', () => rig.render());
+  perf.raccogli();   // i timer sono asincroni: raccoglie i risultati pronti (di qualche frame fa)
 
   hud.orologio(ciclo.oraTesto(), ciclo.faseEmoji(), ciclo.t);
   contFrame++; contTempo += dt;
@@ -2549,8 +2640,13 @@ function passo(adesso, frameXR) {
     const fps = Math.round(contFrame / contTempo);
     hud.fps(fps);
     adattaQualita(fps);
+    aggiornaPerf(fps);         // overlay perf (~2 Hz): fps, ms CPU, ms GPU per passata
     contFrame = 0; contTempo = 0;
   }
+
+  // ms CPU del frame, mediati dolcemente: costa un performance.now() anche da
+  // overlay spento, trascurabile, e così il numero è già pronto quando si accende
+  _cpuMsMedio += ((performance.now() - _cpuInizio) - _cpuMsMedio) * 0.1;
 
   // da OSPITE niente autosave: in RAM c'è il diorama dell'host, non il tuo
   if (salvataggioSporco && !modalitaOspite && adesso - ultimoSalvataggio > 3000) {

@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=mrsac3y8';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mrsac3y8';
-import { FISICA } from '../config.js?v=mrsac3y8';
+import { CHUNK } from '../world/world.js?v=mrsbzwyi';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mrsbzwyi';
+import { FISICA } from '../config.js?v=mrsbzwyi';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -105,6 +105,7 @@ const HTML = /* html */`
   <div class="dbg-sez">
     <div class="dbg-tit">👁 Overlay</div>
     <div class="dbg-riga dbg-colonna">
+      <label><input type="checkbox" data-perf> ⏱ GPU: tempo reale per passata (tasto G)</label>
       <label><input type="checkbox" data-ov="luci"> 💡 Raggi delle luci-sfera</label>
       <label><input type="checkbox" data-ov="footprint"> 🪑 Footprint dei furni</label>
       <label><input type="checkbox" data-ov="chunk"> 🧩 Bordi dei chunk</label>
@@ -188,12 +189,19 @@ export class MenuDebug {
     this._hitMesh.scale.set(FISICA.larghezza, FISICA.altezza, FISICA.larghezza);
     this.gruppi.hitbox.add(this._hitMesh);
 
+    this.elPerf = this.el.querySelector('[data-perf]');
+
     this.el.addEventListener('click', (e) => this._click(e));
     this.el.addEventListener('change', (e) => {
       const ov = e.target.getAttribute && e.target.getAttribute('data-ov');
       if (ov) this._toggleOverlay(ov, e.target.checked);
+      // il misuratore GPU non è un overlay three: lo gestisce main (azioni.perf)
+      if (e.target === this.elPerf && this.azioni.perf) this.azioni.perf(e.target.checked);
     });
   }
+
+  /** Riflette lo stato del misuratore perf sulla spunta (se acceso col tasto G). */
+  segnaPerf(on) { if (this.elPerf) this.elPerf.checked = !!on; }
 
   toggle(apri = !this.aperto) {
     this.aperto = apri;
