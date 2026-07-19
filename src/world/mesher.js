@@ -11,9 +11,9 @@
 import * as THREE from 'three';
 import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js';
 import { paletteBlocco, coloreFaccia } from './stagioni.js';
-import { FORME_EXTRA, FORME_VUOTE, FORME_SENZA_OMBRA } from './forme.js';
+import { FORME_EXTRA, FORME_VUOTE } from './forme.js';
 import { tintaPalette } from './motivi.js';
-import { GrigliaLuce, scatolaPerMondo, MAX_LIVELLO } from './luce.js';
+import { GrigliaLuce, scatolaPerMondo, RAGGIO_MAX, MARGINE_MASCHERA } from './luce.js';
 import { materialeMondo, materialeAcqua, aggiornaCielo } from '../fx/materials.js';
 import { CHUNK } from './world.js';
 
@@ -22,126 +22,23 @@ const COPPIE_SMUSSO = [[0, 1], [0, 2], [1, 2]];
 const LATI = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const _colore = new THREE.Color();
 
-// ---- ombreggiatura per DIREZIONE DI FACCIA ----------------------------------
-// La resa è unlit: senza questo, due facce perpendicolari con la stessa palette
-// hanno lo STESSO colore e lo spigolo sparisce — è il motivo per cui il mondo
-// sembrava piatto. Minecraft moltiplica ogni faccia per una costante che dipende
-// solo dalla sua normale (1 / 0.8 / 0.6 / 0.5): niente vicini, niente raycast,
-// quindi nessun artefatto possibile. Qui i valori sono ATTENUATI perché
-// coloreFaccia() sceglie GIÀ colori diversi per cima/lato/fondo: con i numeri
-// pieni i lati diventavano fangosi (si scuriva due volte).
-//
-// TARATURA (la prima versione 1.00/0.88/0.76/0.65 era sbilanciata): il salto
-// cima→lato incassa GRATIS anche la differenza di palette (def.cima vs def.lato,
-// 5-7 L*), mentre il salto lato→lato (±Z→±X) ha SOLO il moltiplicatore — ed è
-// proprio lo spigolo verticale di un edificio, il punto dove il cel shading deve
-// staccare. Con 0.88/0.76 quel gradino valeva 2.7 L* sui mattoni, a ridosso
-// della soglia di percettibilità. Allargando la fascia laterale (0.94/0.74) il
-// gradino minimo sale a 4.4 L* e l'escursione totale cima→sotto resta la stessa.
-// NB: i numeri sono in spazio LINEARE, non percettivo: 0.74 lineare vale un
-// rapporto sRGB di ~0.93, molto più gentile di quanto "−26%" faccia pensare.
-const OMBRA_CIMA = 1.00;          // +Y
-const OMBRA_NORD_SUD = 0.94;      // ±Z
-const OMBRA_EST_OVEST = 0.74;     // ±X
-const OMBRA_SOTTO = 0.62;         // −Y
+// COLORI PIATTI DA PALETTE, ED È UNA SCELTA GRAFICA — non una cosa che manca.
+// Qui NON c'è ombreggiatura per direzione di faccia e NON c'è occlusione
+// ambientale: un tentativo le aveva aggiunte entrambe (una costante per normale
+// più il velo classico sui tre vicini dell'angolo) ed è stato bocciato. Lo
+// stacco fra le facce lo dà GIÀ coloreFaccia() scegliendo cima/lato/fondo dalla
+// palette, e il volume lo danno le luci-sfera con le loro bande nette: sono
+// quelli i gradini voluti, e un secondo moltiplicatore continuo sopra li
+// sporcava. Il colore che finisce nel buffer è quindi ESATTAMENTE quello della
+// palette, senza nessun fattore in mezzo. Se un giorno torna la tentazione:
+// git show b540f50 ha l'implementazione completa di entrambe.
 
-/** Moltiplicatore per una normale uscente qualsiasi (anche gli smussi, che
- *  hanno normali diagonali tipo [1,1,0]). Pesare con le componenti AL QUADRATO
- *  della normale normalizzata dà esattamente le costanti sulle facce piane
- *  (una sola componente = 1) e una sfumatura continua sugli smussi. */
-function ombraDiFaccia(fuori) {
-  const x = fuori[0], y = fuori[1], z = fuori[2];
-  const q = x * x + y * y + z * z;
-  if (q < 1e-9) return 1;
-  return (x * x * OMBRA_EST_OVEST
-        + y * y * (y > 0 ? OMBRA_CIMA : OMBRA_SOTTO)
-        + z * z * OMBRA_NORD_SUD) / q;
-}
-
-// ---- occlusione ambientale PER VERTICE ---------------------------------------
-// L'ombra per faccia stacca i piani fra loro ma non sa NULLA dei vicini: un
-// angolo concavo (dove due muri si incontrano) e la base di una parete restano
-// luminosi quanto il centro della parete. L'AO è il velo che manca.
-//
-// Un tentativo precedente calcolava l'occlusione PER BLOCCO — scuriva tutte e
-// sei le facce insieme — e si vedevano fasce squadrate in alto, in basso e ai
-// lati dei cubi. Va per VERTICE: l'algoritmo classico (0fps.net, "Ambient
-// occlusion for Minecraft-like worlds") guarda, per ogni angolo di una faccia,
-// i TRE blocchi che lo toccano DAL LATO ESTERNO — i due "lati" e la
-// "diagonale" — e conta quanti sono pieni.
-//
-// I VICINI SONO PRECALCOLATI in un Uint8Array(27) per blocco: mondo.tipo()
-// compone una stringa "x,y,z" e cerca in una Map, e l'AO ne vorrebbe fino a 9
-// per vertice (centinaia per blocco). Con la cache diventa un indice d'array.
+// Indice nell'intorno 3×3×3 precalcolato del blocco in corso. I VICINI SI
+// PRECALCOLANO perché mondo.tipo() compone una stringa "x,y,z" e cerca in una
+// Map, e il solo culling del supercubo ne chiede una cinquantina per blocco:
+// con la cache diventa un'indicizzazione d'array.
 const IV = (dx, dy, dz) => ((dy + 1) * 3 + (dz + 1)) * 3 + (dx + 1);
-const _off = [0, 0, 0];               // scratch: evita una allocazione per angolo
 
-/** Occlusione di UN angolo rispetto a una faccia con normale sull'asse `na`
- *  verso `sn`. `s1`/`s2` sono i segni dell'angolo sugli altri due assi
- *  (0 = il vertice sta a metà su quell'asse → quel lato non occlude).
- *  Ritorna 0..3, dove 3 = cielo aperto e 0 = angolo sigillato. */
-function aoAngolo(vic, na, sn, a1, s1, a2, s2) {
-  _off[0] = 0; _off[1] = 0; _off[2] = 0; _off[na] = sn;
-  let l1 = 0, l2 = 0, dg = 0;
-  if (s1) { _off[a1] = s1; l1 = vic[IV(_off[0], _off[1], _off[2])]; _off[a1] = 0; }
-  if (s2) { _off[a2] = s2; l2 = vic[IV(_off[0], _off[1], _off[2])]; _off[a2] = 0; }
-  // CASO SPECIALE ESSENZIALE: due lati pieni sigillano l'angolo anche se la
-  // diagonale è vuota (non ci si vede attraverso uno spigolo). Senza questo
-  // ramo gli spigoli concavi restano chiari e la geometria si appiattisce.
-  if (l1 && l2) return 0;
-  if (s1 && s2) {
-    _off[a1] = s1; _off[a2] = s2;
-    dg = vic[IV(_off[0], _off[1], _off[2])];
-  }
-  return 3 - l1 - l2 - dg;
-}
-
-/** AO di un vertice: segni d'angolo (sx,sy,sz) rispetto al centro cella + la
- *  normale della faccia. Sulle facce piane una sola componente di `fuori` è
- *  non nulla e questo è l'algoritmo classico tale e quale; sugli smussi
- *  (normali tipo [1,1,0]) si media sugli assi coinvolti con lo stesso peso al
- *  quadrato di ombraDiFaccia(), così il velo attraversa lo smusso senza salti. */
-function aoVertice(vic, sx, sy, sz, fuori) {
-  const s0 = sx, s1 = sy, s2 = sz;
-  let somma = 0, peso = 0;
-  for (let a = 0; a < 3; a++) {
-    const f = fuori[a];
-    if (f === 0) continue;
-    const w = f * f;
-    const b = (a + 1) % 3, c = (a + 2) % 3;
-    const sb = b === 0 ? s0 : (b === 1 ? s1 : s2);
-    const sc = c === 0 ? s0 : (c === 1 ? s1 : s2);
-    somma += w * aoAngolo(vic, a, f > 0 ? 1 : -1, b, sb, c, sc);
-    peso += w;
-  }
-  return peso === 0 ? 3 : somma / peso;
-}
-
-// QUANTO: quattro gradini in spazio LINEARE. La prima taratura (0.76 in fondo)
-// era troppo timida per essere vista: l'angolo più chiuso perdeva ~11%
-// percettivo e la base di un muro su un pavimento piatto cade tipicamente sui
-// due gradini di mezzo, cioè 3-6% — invisibile. A schermo il muro incontrava
-// l'erba SENZA alcun scurimento e sembrava incollato, e i gradini delle terrazze
-// leggevano come cartone piatto.
-// C'è un'aggravante che la rende il velo più importante di tutti: all'aperto la
-// luce cotta non aggiunge NULLA (ogni faccia a cielo aperto ha cielo=15, quindi
-// lo stesso fattore per tutte), quindi di giorno l'AO è l'UNICA cosa che dà
-// volume. 0.58 lineare vale ~0.76 sRGB: ~24% percettivo nell'angolo sigillato.
-// I gradini restano CONCAVI (passi 0.16 / 0.15 / 0.11): quad() ci conta per
-// scegliere la diagonale, vedi il commento lì.
-const LIV_AO = [0.58, 0.74, 0.89, 1.00];
-
-function mulAO(t) {
-  if (t >= 3) return 1;
-  if (t <= 0) return LIV_AO[0];
-  const i = t | 0;
-  return LIV_AO[i] + (LIV_AO[i + 1] - LIV_AO[i]) * (t - i);
-}
-
-/** Segno dell'angolo su un asse. La soglia è mezzo pixel: tutte le facce del
- *  mesher hanno i vertici agli spigoli della cella (±8 px o più), quindi 0 non
- *  capita in pratica — ma se capitasse vale "quel lato non occlude". */
-const segnoAngolo = (d) => (d > 1 / 64 ? 1 : (d < -1 / 64 ? -1 : 0));
 
 class Costruttore {
   constructor() {
@@ -150,47 +47,30 @@ class Costruttore {
     // riscrive solo questi float nel color buffer, senza ricostruire nulla
     this.erbe = [];
     this._erbaHex = null; this._erbaY = 0;
-    // ombreggiatura per faccia DISATTIVATA: per l'acqua e per le forme a
-    // pannello (croce), dove non ci sono facce assiali da stagliare e il
-    // moltiplicatore sarebbe solo una perdita secca di luminosità. Vedi tri().
-    this.senzaOmbra = false;
-    // occlusione ambientale: cache 3×3×3 dei vicini del blocco IN CORSO (null
-    // = AO spenta, com'è per l'acqua, per le forme dell'Officina e per il
-    // ghost di anteprima, che non hanno un intorno da interrogare)
-    this.occ = null; this._cx = 0; this._cy = 0; this._cz = 0;
-    // LUCE COTTA a voxel, per-vertice: aLuce = (cielo che MANCA, lume) in DUE
-    // BYTE. La polarità è scelta per il default WebGL di un attributo che la
-    // geometria non ha, (0,0,0,1): chi non lo porta legge "cielo pieno, nessun
-    // lume" — cioè esattamente com'era prima. Memorizzare il cielo dritto lo
-    // annerirebbe. Il terzo canale ("sono dati cotti") era un flag COSTANTE per
-    // mesh: adesso è la uniform per-materiale uLuceDati e non pesa più nulla.
+    // MASCHERA D'OCCLUSIONE cotta per-vertice: aOcc = TRE byte, cioè 24 bit, uno
+    // per SLOT di lampada (vedi world/luce.js). Bit acceso = quella lampada qui
+    // non arriva, c'è un muro in mezzo.
+    // LA POLARITÀ è scelta per il default WebGL di un attributo che la geometria
+    // non ha, (0,0,0,1): chi non lo porta legge x=y=z=0, cioè "nessuna lampada
+    // bloccata", e resta illuminato esattamente com'era. Memorizzare il
+    // contrario avrebbe spento gatto, mano e mobili. Ed è anche il motivo per cui
+    // i byte sono TRE e non quattro: la w di quel default vale 1, quindi un
+    // quarto byte accenderebbe da solo il bit dello slot 24.
     this.luc = [];
     this.conLuce = false;                 // qualche blocco ha avuto una griglia?
+    // la cintura di taglia in geometria() ha dovuto buttare aOcc? Il guasto lo
+    // CONTA il Mesher, per chunk: qui si alza solo la bandierina (vedi _chunk)
+    this.mascheraScartata = false;
     this.luceG = null; this._lx = 0; this._ly = 0; this._lz = 0;
-    this._lFuori = null; this._lVal = [0, 0]; this._lByte = [0, 0];
+    this._lFuori = null; this._lMask = 0;
   }
 
-  /** Griglia di luce + cella in corso. null = luce cotta spenta (ghost, Officina). */
+  /** Griglia d'occlusione + cella in corso. null = spenta (ghost, Officina). */
   luceCella(griglia, x, y, z) {
     if (griglia) this.conLuce = true;
     this.luceG = griglia; this._lx = x; this._ly = y; this._lz = z; this._lFuori = null;
   }
   fineLuce() { this.luceG = null; this._lFuori = null; }
-
-  /** Accende l'AO per il blocco corrente: `vicini` è l'Uint8Array(27) della
-   *  solidità dell'intorno, (cx,cy,cz) il centro della cella. */
-  occlusione(vicini, cx, cy, cz) {
-    this.occ = vicini; this._cx = cx; this._cy = cy; this._cz = cz;
-  }
-  fineOcclusione() { this.occ = null; }
-
-  /** AO grezza (0..3) di un vertice in coordinate mondo. */
-  aoDi(v, fuori) {
-    return aoVertice(this.occ,
-      segnoAngolo(v[0] - this._cx),
-      segnoAngolo(v[1] - this._cy),
-      segnoAngolo(v[2] - this._cz), fuori);
-  }
 
   /** Attiva/spegne la marcatura dei triangoli color pal.cima come "erba". */
   erba(hexCima, quotaCella) { this._erbaHex = hexCima; this._erbaY = quotaCella; }
@@ -206,65 +86,43 @@ class Costruttore {
   /** riva per-vertice, DUE numeri per angolo: (quanto è lontana la sponda,
    *  quanta acqua aperta c'è intorno) — vedi rivaAngolo(). Il default (1,1) è
    *  "largo e aperto", cioè nessuna schiuma: è ciò che leggono le facce
-   *  laterali, che la riva non ce l'hanno.
-   *  `oABC` sono i FATTORI AO (già passati per mulAO) dei tre vertici SE il
-   *  chiamante li ha calcolati: quad() deve valutarli comunque per scegliere la
-   *  diagonale, e rifarli qui costava 10 aoVertice() per quad invece di 4. Se
-   *  manca si calcolano al volo (i tri() sciolti del cappello d'erba). */
-  tri(a, b, c, colore, fuori, rABC = null, oABC = null) {
+   *  laterali, che la riva non ce l'hanno. */
+  tri(a, b, c, colore, fuori, rABC = null) {
     let rA = UNO_UNO, rB = UNO_UNO, rC = UNO_UNO;
     if (rABC) { rA = rABC[0]; rB = rABC[1]; rC = rABC[2]; }
-    let tA = -1, tB = -1, tC = -1;
-    if (oABC) { tA = oABC[0]; tB = oABC[1]; tC = oABC[2]; }
     const abx = b[0] - a[0], aby = b[1] - a[1], abz = b[2] - a[2];
     const acx = c[0] - a[0], acy = c[1] - a[1], acz = c[2] - a[2];
     const nx = aby * acz - abz * acy, ny = abz * acx - abx * acz, nz = abx * acy - aby * acx;
     if (nx * fuori[0] + ny * fuori[1] + nz * fuori[2] < 0) {
       const t = b; b = c; c = t;
       const tr = rB; rB = rC; rC = tr;
-      const tt = tB; tB = tC; tC = tt;   // le AO seguono i vertici, non le posizioni
-    }
-    const ombra = this.senzaOmbra ? 1 : ombraDiFaccia(fuori);
-    // AO applicata DOPO l'eventuale scambio b↔c, o i fattori finirebbero sui
-    // vertici sbagliati (e nelle `erbe` in ordine sbagliato)
-    let oa = 1, ob = 1, oc = 1;
-    if (this.occ) {
-      oa = tA >= 0 ? tA : mulAO(this.aoDi(a, fuori));
-      ob = tB >= 0 ? tB : mulAO(this.aoDi(b, fuori));
-      oc = tC >= 0 ? tC : mulAO(this.aoDi(c, fuori));
     }
     if (this._erbaHex !== null && colore === this._erbaHex) {
-      // ombra e AO vanno memorizzate QUI: la ritinta stagionale riscrive questi
-      // vertici e senza i moltiplicatori l'erba tornerebbe piatta al primo
-      // cambio di stagione (stride 5: indice, quota, poi un fattore PER VERTICE)
-      this.erbe.push(this.pos.length / 3, this._erbaY, ombra * oa, ombra * ob, ombra * oc);
+      this.erbe.push(this.pos.length / 3, this._erbaY);
     }
-    // LUCE PER FACCIA, NON PER BLOCCO. Si legge nella cella d'ARIA che questa
-    // faccia affaccia — `fuori` è già la sua normale uscente. Leggendo un
-    // valore solo per blocco (tentativo precedente) un muro illuminato da un
-    // lato risultava chiaro anche dall'altro: è il punto che rende credibile
-    // tutto il resto. Il valore è COSTANTE sui tre vertici: la fascia netta
-    // cella per cella è il cel shading, non un difetto.
+    // OCCLUSIONE PER FACCIA, NON PER BLOCCO. Si legge nella cella d'ARIA che
+    // questa faccia affaccia — `fuori` è già la sua normale uscente. Leggendo un
+    // valore solo per blocco, un muro illuminato da un lato risulterebbe chiaro
+    // anche dall'altro: è il punto che rende credibile tutta l'occlusione.
+    // Il valore è COSTANTE sui tre vertici: sono bit, non un gradiente.
     if (this.luceG) {
       // quad() passa lo STESSO array `fuori` ai suoi due triangoli, e
       // conCappello lo riusa per più pezzi dello stesso fianco: l'identità
       // basta a dimezzare le letture senza rischiare un valore stantio (la
       // cella corrente azzera il memo in luceCella).
       if (fuori !== this._lFuori) {
-        this.luceG.faccia(this._lx, this._ly, this._lz, fuori, this._lVal);
         this._lFuori = fuori;
-        // in byte: i livelli sono interi 0..15 e 255 = 15×17, quindi ognuno
-        // torna ESATTO dopo la normalizzazione fatta dalla GPU
-        this._lByte[0] = Math.round((1 - this._lVal[0]) * 255);
-        this._lByte[1] = Math.round(this._lVal[1] * 255);
+        this._lMask = this.luceG.occlusaFaccia(this._lx, this._ly, this._lz, fuori);
       }
-      const cm = this._lByte[0], lm = this._lByte[1];
-      this.luc.push(cm, lm, cm, lm, cm, lm);
+      const m = this._lMask;
+      const b0 = m & 255, b1 = (m >> 8) & 255, b2 = (m >> 16) & 255;
+      for (let i = 0; i < 3; i++) this.luc.push(b0, b1, b2);
     }
     this.pos.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+    // IL COLORE DELLA PALETTE, TALE E QUALE, su tutti e tre i vertici: nessun
+    // moltiplicatore per direzione di faccia né per occlusione (vedi in alto)
     _colore.setHex(colore);
-    const r = _colore.r * ombra, g = _colore.g * ombra, bl = _colore.b * ombra;
-    this.col.push(r * oa, g * oa, bl * oa, r * ob, g * ob, bl * ob, r * oc, g * oc, bl * oc);
+    for (let i = 0; i < 3; i++) this.col.push(_colore.r, _colore.g, _colore.b);
     if (this.acq) {
       const e = this._ex || [0, 0, 5];
       for (let i = 0; i < 3; i++) this.acq.push(e[0], e[1], e[2]);
@@ -272,44 +130,13 @@ class Costruttore {
     }
   }
 
+  // SEMPRE la diagonale a–c. La rotazione condizionale su b–d serviva SOLO
+  // all'occlusione ambientale: erano i suoi quattro valori d'angolo a poter
+  // essere non coplanari, e lì la diagonale sbagliata lasciava una cucitura
+  // visibile in mezzo alla faccia. Senza AO i quattro vertici di un quad hanno
+  // lo STESSO identico colore, quindi non c'è più niente da interpolare e
+  // nessun taglio può vedersi.
   quad(a, b, c, d, colore, fuori, rABCD = null) {
-    // TRANELLO DOCUMENTATO: un quad si spezza in due triangoli, e il colore
-    // interpolato dipende da QUALE diagonale si sceglie. Se i quattro valori di
-    // AO non sono "coplanari" (ao0+ao2 ≠ ao1+ao3) la diagonale a–c produce
-    // un'interpolazione anisotropa e si vede una cucitura diagonale netta in
-    // mezzo alla faccia. La cura standard è RUOTARE la diagonale su b–d.
-    // IL VERSO CONTA, e un valore assoluto qui fa il DANNO che vuole evitare.
-    // La diagonale va appoggiata alla coppia PIÙ CHIARA, così il vertice scuro
-    // resta un angolo isolato e non si spalma lungo il taglio. Default a–c: si
-    // ruota su b–d SOLO se a+c è la coppia più scura. Con Math.abs() si ruotava
-    // anche nel caso opposto — scuro in b (livelli 3,1,3,3): a+c=6 > b+d=4, la
-    // diagonale a–c EVITA già b, e ruotare gliela metteva addosso.
-    //
-    // Il confronto è sui FATTORI (post-mulAO), non sui livelli 0..3: LIV_AO ha
-    // gradini decrescenti (0.10 / 0.08 / 0.06), quindi è concava e due coppie
-    // con la stessa somma di livelli NON hanno la stessa somma di luminosità —
-    // livelli {3,1} valgono 1.76, {2,2} valgono 1.88. Decidere sul numero che
-    // finisce davvero nel color buffer risolve anche quei pareggi (erano 6 dei
-    // quad a faccia piena della scena di collaudo) e non costa nulla: i fattori
-    // servivano comunque. A parità esatta si tiene a–c.
-    if (this.occ) {
-      const t0 = mulAO(this.aoDi(a, fuori)), t1 = mulAO(this.aoDi(b, fuori));
-      const t2 = mulAO(this.aoDi(c, fuori)), t3 = mulAO(this.aoDi(d, fuori));
-      // i quattro fattori viaggiano fino a tri(): senza, ognuno verrebbe
-      // ricalcolato nei due triangoli (10 valutazioni per quad invece di 4)
-      if ((t0 + t2) < (t1 + t3) - 1e-6) {
-        this.tri(b, c, d, colore, fuori, rABCD ? [rABCD[1], rABCD[2], rABCD[3]] : null,
-                 [t1, t2, t3]);
-        this.tri(b, d, a, colore, fuori, rABCD ? [rABCD[1], rABCD[3], rABCD[0]] : null,
-                 [t1, t3, t0]);
-        return;
-      }
-      this.tri(a, b, c, colore, fuori, rABCD ? [rABCD[0], rABCD[1], rABCD[2]] : null,
-               [t0, t1, t2]);
-      this.tri(a, c, d, colore, fuori, rABCD ? [rABCD[0], rABCD[2], rABCD[3]] : null,
-               [t0, t2, t3]);
-      return;
-    }
     this.tri(a, b, c, colore, fuori, rABCD ? [rABCD[0], rABCD[1], rABCD[2]] : null);
     this.tri(a, c, d, colore, fuori, rABCD ? [rABCD[0], rABCD[2], rABCD[3]] : null);
   }
@@ -318,16 +145,21 @@ class Costruttore {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
-    // ATTRIBUTO OMESSO quando la luce cotta è spenta (o non c'è: ghost,
+    // ATTRIBUTO OMESSO quando l'occlusione è spenta (o non c'è: ghost,
     // Officina). In WebGL un attributo che la geometria NON ha legge (0,0,0,1),
-    // cioè esattamente la polarità "nessun effetto" già assunta dallo shader —
-    // quindi omettere è GRATIS. Prima la push era incondizionata e setAttribute
-    // pure: l'interruttore pensato per le macchine deboli allocava e caricava in
-    // GPU un buffer di soli zeri (2,8 MB su un open world r48).
+    // cioè esattamente la polarità "nessuna occlusione" assunta dallo shader —
+    // quindi omettere è GRATIS, e l'interruttore per le macchine deboli non
+    // alloca né carica in GPU un buffer di soli zeri.
     // Il controllo di taglia è una cintura: se una geometria mescolasse blocchi
     // con e senza griglia, meglio nessun dato che dati disallineati.
-    if (this.conLuce && this.luc.length * 3 === this.pos.length * 2) {
-      g.setAttribute('aLuce', new THREE.Uint8BufferAttribute(this.luc, 2, true));
+    // NON MUTA: se scatta, il pannello debug lo dice invece di continuare a
+    // dichiarare l'occlusione attiva su chunk che non ce l'hanno (era un guasto
+    // che degradava in silenzio verso il comportamento di prima della maschera).
+    // Non normalizzato: i tre byte sono BIT, e vanno letti 0..255, non 0..1.
+    if (this.conLuce) {
+      if (this.luc.length === this.pos.length) {
+        g.setAttribute('aOcc', new THREE.Uint8BufferAttribute(this.luc, 3));
+      } else this.mascheraScartata = true;
     }
     if (this.acq) {
       g.setAttribute('aAcqua', new THREE.Float32BufferAttribute(this.acq, 3));
@@ -339,15 +171,10 @@ class Costruttore {
   get vuoto() { return this.pos.length === 0; }
 }
 
-/** Costruttore per il liquido. L'acqua NON prende l'ombra per faccia: è un
- *  materiale TRASPARENTE gestito da patchAcqua, dove il colore per-vertice si
- *  compone con l'alpha e con il riflesso. Scurire i fianchi verticali del 26%
- *  spegneva le colonne di cascata e i lati dei rivoli — che sono fatti QUASI SOLO
- *  di facce ±X/±Z — senza dare alcuno stacco utile, perché il volume dell'acqua
- *  si legge dalla trasparenza e dalla schiuma, non dalle sue sei facce. */
+/** Costruttore per il liquido: in più tiene i punti per i particellari
+ *  (correnti sul pelo e impatti delle cascate). */
 function costruttoreAcqua() {
   const c = new Costruttore();
-  c.senzaOmbra = true;
   c.flussi = []; c.impatti = [];
   return c;
 }
@@ -736,8 +563,7 @@ function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo, luce = null) {
   }
   // INTORNO 3×3×3 IN UNA VOLTA SOLA. Prima ogni vicinoSolido() rifaceva una
   // mondo.tipo() (stringa + Map) e il supercubo ne chiede una cinquantina per
-  // blocco; l'AO ne vorrebbe altre centinaia. Qui si pagano 26 lookup fissi e
-  // poi tutto è indicizzazione d'array — culling e AO leggono la stessa cache.
+  // blocco. Qui si pagano 26 lookup fissi e poi tutto è indicizzazione d'array.
   // 1 = solido che occlude; acqua e forme non piene valgono 0 (lastre, pilastri
   // e croci non riempiono la cella: se cullassero i vicini si aprirebbero buchi).
   const vicini = new Uint8Array(27);
@@ -756,18 +582,11 @@ function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo, luce = null) {
   // forme non-cubiche dell'Officina: non cullano (non riempiono la cella)
   const extra = def.forma && FORME_EXTRA[def.forma];
   if (extra) {
-    // le forme a pannello (croce) non hanno facce assiali: l'ombra le scurirebbe
-    // in blocco senza differenziare nulla. Lastra e pilastro sono scatole vere,
-    // con spigoli verticali da staccare: quelle l'ombra la tengono.
-    const senza = FORME_SENZA_OMBRA.has(def.forma);
-    if (senza) bSolidi.senzaOmbra = true;
     bSolidi.luceCella(luce, x, y, z);
     extra(bSolidi, cx, cy, cz, pal, () => false);
     bSolidi.fineLuce();
-    bSolidi.senzaOmbra = false;
     return;
   }
-  bSolidi.occlusione(vicini, cx, cy, cz);
   bSolidi.luceCella(luce, x, y, z);
   if (def.cappello && !vicinoSolido(0, 1, 0)) {
     bSolidi.erba(pal.cima, y);          // marca le cime: ritinta stagionale in-place
@@ -785,14 +604,13 @@ function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo, luce = null) {
     };
     supercubo(bSolidi, cx, cy, cz, pal, vicinoTuttaAltezza);
   }
-  bSolidi.fineOcclusione();
   bSolidi.fineLuce();
 }
 
 // ---- mesher a chunk ------------------------------------------------------------
 
 // PARACADUTE: oltre questa taglia la griglia di luce non si calcola proprio.
-// Meglio nessuna luce cotta (il mondo torna esattamente com'era) che mezzo
+// Meglio nessuna maschera (il mondo torna esattamente com'era) che mezzo
 // secondo di blocco all'apertura di un mondo enorme.
 //
 // DA DOVE VIENE IL NUMERO. Il ricalcolo pieno costa ~75 µs ogni mille celle
@@ -808,12 +626,12 @@ const LUCE_LIMITE_CELLE = 2e6;
 // (generazione del mondo, import, incolla di una struttura): meglio una griglia
 // nuova. NON è più una soglia sulla TAGLIA DEL MONDO: quella era una rupe
 // invisibile — misurava le celle di un AABB denso, quindi sull'arcipelago
-// scattava per un blocco posato più in alto, e da lì in poi la luce cotta
+// scattava per un blocco posato più in alto, e da lì in poi la maschera
 // smetteva di aggiornarsi senza dare alcun segnale.
 //
 // PERCHÉ 96. È il punto in cui le due strade costano uguale sul mondo di prova.
-// Una cella cambiata costa una BFS di spegnimento e riaccensione sul suo raggio
-// di luce; il ricalcolo pieno costa quanto il mondo e non dipende da quante
+// Una cella cambiata costa una ri-illuminazione della zona che tocca (una
+// traversata per lampada e per cella dentro il raggio); il ricalcolo pieno costa quanto il mondo e non dipende da quante
 // celle sono cambiate. Sull'open world r48 il pieno sta fra 20 e 90 ms, e la
 // via locale ci arriva attorno al centinaio di celle. Sotto conviene sempre il
 // locale, sopra il pieno: il numero è la frontiera, non una preferenza. È anche
@@ -825,39 +643,40 @@ export class Mesher {
   constructor(scena) {
     this.scena = scena;
     this.chunks = new Map();       // "cx,cz" → { solidi: Mesh, acqua: Mesh }
-    // luceTroppoGrande: il paracadute LUCE_LIMITE_CELLE è scattato. Serve un
-    // campo suo perché prima quel caso lasciava luceCelle = 0 e il pannello
-    // stampava "luce cotta spenta" — la STESSA identica riga di "l'utente ha
+    // occTroppoGrande: il paracadute LUCE_LIMITE_CELLE è scattato. Serve un
+    // campo suo perché prima quel caso lasciava occCelle = 0 e il pannello
+    // stampava "occlusione spenta" — la STESSA identica riga di "l'utente ha
     // spento l'interruttore" e di "mondo vuoto". Tre stati diversi sotto
     // un'etichetta sola: se il paracadute si aprisse davvero, nessuno saprebbe
     // distinguerlo da una preferenza.
-    this.statistiche = { ultimaMs: 0, chunkAttivi: 0, luceMs: 0, luceCelle: 0, luceLocali: 0, luceTroppoGrande: 0 };
+    this.statistiche = { ultimaMs: 0, chunkAttivi: 0, occMs: 0, occCelle: 0, occLocali: 0, occTroppoGrande: 0 };
     this.luce = null;              // GrigliaLuce, rifatta prima dei chunk
-    this.luceAttiva = true;        // interruttore delle Impostazioni
+    this.occlusioneAttiva = true;        // interruttore delle Impostazioni
     // sorgenti che NON sono blocchi (lampioni dei furni): una funzione, non un
     // elenco copiato, così è sempre quella di adesso e non serve tenerla in pari
-    this.sorgentiExtra = null;     // () => [{x, y, z, livello}]
+    this.sorgentiExtra = null;     // () => [{x, y, z, raggio}]
     this._celleLuce = new Set();   // celle-sorgente cambiate fuori dal mondo (furni)
     this._sorgFurni = [];
   }
 
   /**
-   * Ricalcola la griglia di luce sull'estensione occupata dal mondo. Si fa QUI,
-   * una volta per ricostruzione: il risultato finisce nei vertici e il ciclo
-   * giorno/notte poi non richiede di rifare niente — è lo shader che modula il
-   * canale cielo con l'ora.
+   * Ricalcola la MASCHERA D'OCCLUSIONE sull'estensione occupata dal mondo. Si fa
+   * QUI, una volta per ricostruzione: il risultato finisce nei vertici come bit
+   * per-lampada e NON dipende dall'ora. Il giorno e la notte li fa uAmbiente, un
+   * colore che lo shader moltiplica per tutto: cambiare ora non tocca la
+   * maschera, e infatti il ciclo non rimesha mai niente.
    */
   _ricalcolaLuce(mondo) {
     const t0 = performance.now();
     const vecchia = this.luce;
     this.luce = null;
-    this.statistiche.luceCelle = 0;
-    this.statistiche.luceMs = 0;
-    this.statistiche.luceLocali = 0;
-    this.statistiche.luceTroppoGrande = 0;
+    this.statistiche.occCelle = 0;
+    this.statistiche.occMs = 0;
+    this.statistiche.occLocali = 0;
+    this.statistiche.occTroppoGrande = 0;
     mondo.scordaCambi();
     this._celleLuce.clear();      // il ricalcolo pieno assorbe tutto
-    if (!this.luceAttiva) return;
+    if (!this.occlusioneAttiva) return;
 
     // UNA SOLA PASSATA SUL MONDO. La scatola serve prima di poter allocare la
     // griglia, quindi le celle solide si mettono da parte qui appiattite: la
@@ -876,28 +695,31 @@ export class Mesher {
       // (una pianta o una lastra non fanno ombra). I furni nemmeno: non sono
       // blocchi, e un tavolo che proietta un quadrato nero sarebbe peggio.
       if (!d.acqua && !FORME_VUOTE.has(d.forma)) solidi.push(x, y, z);
-      // il raggio della sfera È la portata in celle: la luce perde un livello
-      // per cella, quindi raggio 5 = livello 5. Così il canale cotto e la
-      // luce-sfera coprono la stessa zona e possono lavorare insieme.
-      if (d.luce) sorgenti.push(x, y, z, Math.round(d.luce.raggio));
+      // LO STESSO RAGGIO DELLA SFERA, non arrotondato: la maschera deve coprire
+      // esattamente la zona che la luce-sfera illumina, o l'ultimo anello
+      // sparirebbe. (Il margine per i centri sfalsati lo mette la griglia.)
+      if (d.luce) sorgenti.push(x, y, z, d.luce.raggio);
     });
     if (!isFinite(minX)) return;                    // mondo vuoto
 
     const scatola = scatolaPerMondo(minX, minY, minZ, maxX, maxY, maxZ);
     const celle = scatola.larghezza * scatola.altezza * scatola.profondita;
     // il pannello deve poter dire "troppo grande", non "spenta": vedi statistiche
-    if (celle > LUCE_LIMITE_CELLE) { this.statistiche.luceTroppoGrande = celle; return; }
+    if (celle > LUCE_LIMITE_CELLE) { this.statistiche.occTroppoGrande = celle; return; }
     // RIUSO: se la scatola non è cambiata (il caso normale, perché il ricalcolo
-    // pieno capita quasi solo al caricamento e all'import) si riciclano i tre
-    // Uint8Array invece di riallocarne 670 KB e darli in pasto al GC
+    // pieno capita quasi solo al caricamento e all'import) si riciclano i due
+    // array della griglia — `visto` (Uint32, quattro byte a cella: è il prezzo
+    // del bit per lampada) e `solidi` (Uint8) — invece di riallocarli e darli in
+    // pasto al GC
     const g = (vecchia && vecchia.stessaScatola(scatola))
       ? (vecchia.azzera(), vecchia) : new GrigliaLuce(scatola);
 
     // SOLIDITÀ PRECALCOLATA, la lezione costata cara: passare `mondo.pieno` come
     // test costava 423 ms su 195k celle contro 56, perché compone una stringa
-    // "x,y,z" e cerca in una Map, e la propagazione lo chiede per ogni cella e
-    // per ognuno dei 6 vicini. Qui è un Uint8Array riempito una volta, e poi la
-    // propagazione legge solo memoria contigua.
+    // "x,y,z" e cerca in una Map — e la maschera lo chiede a OGNI PASSO di OGNI
+    // traversata, cioè il ciclo più caldo del gioco. Qui è un Uint8Array riempito
+    // una volta, e la traversata legge un indice che si porta dietro (vedi
+    // _bloccato in luce.js).
     for (let i = 0; i < solidi.length; i += 3) g.marcaSolido(solidi[i], solidi[i + 1], solidi[i + 2]);
     for (let i = 0; i < sorgenti.length; i += 4) {
       g.aggiungiSorgente(sorgenti[i], sorgenti[i + 1], sorgenti[i + 2], sorgenti[i + 3]);
@@ -908,36 +730,34 @@ export class Mesher {
       // ma a schermo dava un interruttore che non spegne (l'alone spariva e la
       // stanza restava illuminata, per giunta virata all'arancione).
       this._sorgFurni = this.sorgentiExtra();
-      for (const s of this._sorgFurni) g.aggiungiSorgente(s.x, s.y, s.z, s.livello);
+      for (const s of this._sorgFurni) g.aggiungiSorgente(s.x, s.y, s.z, s.raggio);
     }
     g.calcola();
     this.luce = g;
-    this.statistiche.luceCelle = celle;
-    this.statistiche.luceMs = performance.now() - t0;
+    this.statistiche.occCelle = celle;
+    this.statistiche.occMs = performance.now() - t0;
   }
 
   /**
    * Ricalcolo pieno CHIAMATO DAL VIVO, cioè mentre si gioca. Oltre a rifare la
-   * griglia deve dire QUALI CHUNK sono cambiati, e quello è il punto: i tre
-   * ripieghi di _rillumina rifacevano la griglia e uscivano senza sporcare
-   * niente, quindi restavano sporchi solo i chunk marcati da world._sporca, che
-   * ha raggio ~1 cella — mentre la luce viaggia fino a 15.
-   * PROVATO: tetto 48×31 a y=12, poi 403 blocchi tolti in un frame. La griglia
-   * si aggiornava benissimo (il cielo sotto il tetto passava da 0 a 7) ma due
-   * chunk su cinque restavano STANTII finché il giocatore non toccava qualcosa
-   * lì vicino. Ed è proprio il ramo che scatta quando il cambiamento è GRANDE,
-   * cioè quando il rischio è massimo.
+   * griglia deve dire QUALI CHUNK sono cambiati, e quello è il punto: i ripieghi
+   * di _rillumina rifacevano la griglia e uscivano senza sporcare niente, quindi
+   * restavano sporchi solo i chunk marcati da world._sporca, che ha raggio ~1
+   * cella — mentre l'ombra di una lampada arriva fino al suo raggio.
+   * PROVATO: un muro nuovo davanti a una lampada aggiornava benissimo la
+   * maschera, ma i chunk oltre il muro restavano STANTII (illuminati) finché il
+   * giocatore non toccava qualcosa lì vicino. Ed è proprio il ramo che scatta
+   * quando il cambiamento è GRANDE, cioè quando il rischio è massimo.
    *
    * Non si sporca tutto a scatola chiusa: su un open world sarebbero 900 ms di
-   * rimesh. Si tiene una COPIA dei due canali e si confronta colonna per
-   * colonna — 530 KB di memcpy e un giro di confronti, contro un rebuild che
-   * non serve. Solo quando la scatola cambia (allora gli indici si spostano
-   * tutti) si sporca l'intero mondo.
+   * rimesh. Si tiene una COPIA della maschera e si confronta colonna per colonna
+   * — un memcpy e un giro di confronti, contro un rebuild che non serve. Solo
+   * quando la scatola cambia (allora gli indici si spostano tutti) si sporca
+   * l'intero mondo.
    */
   _ricalcolaLuceDalVivo(mondo) {
     const vecchia = this.luce;
-    const primaC = vecchia ? vecchia.cielo.slice() : null;
-    const primaB = vecchia ? vecchia.blocco.slice() : null;
+    const prima = vecchia ? vecchia.visto.slice() : null;
     this._ricalcolaLuce(mondo);
     const g = this.luce;
     // _ricalcolaLuce riusa l'oggetto SOLO se la scatola combacia: l'identità è
@@ -946,7 +766,7 @@ export class Mesher {
       for (const kc of mondo.chunks.keys()) mondo.sporchi.add(kc);
       return;
     }
-    const { lx, ly, lz, minX, minZ, cielo, blocco } = g;
+    const { lx, ly, lz, minX, minZ, visto } = g;
     for (let i = 0; i < lx; i++) {
       const kx = Math.floor((i + minX) / CHUNK);
       for (let k = 0; k < lz; k++) {
@@ -955,30 +775,61 @@ export class Mesher {
         const base = i * ly * lz + k;
         for (let j = 0; j < ly; j++) {
           const id = base + j * lz;
-          if (cielo[id] !== primaC[id] || blocco[id] !== primaB[id]) { mondo.sporchi.add(kc); break; }
+          if (visto[id] !== prima[id]) { mondo.sporchi.add(kc); break; }
         }
       }
     }
   }
 
-  /** Luce cotta in un PUNTO, per le mesh che non passano dal mesher (gatto,
-   *  mano, palle, mobili): scrive [cieloManca, lume] 0..1 in `out` e ritorna
-   *  true. false = non c'è griglia, chi chiama lasci le cose com'erano. */
-  sonda(x, y, z, out) {
-    if (!this.luce) return false;
-    this.luce.punto(Math.floor(x), Math.floor(y), Math.floor(z), out);
-    out[0] = 1 - out[0];                 // il canale cielo si memorizza AL NEGATIVO
-    return true;
+  /** Occlusione in un PUNTO, per le mesh che non passano dal mesher (gatto,
+   *  mano, palle, mobili): maschera delle lampade bloccate, 0 = luce libera.
+   *  -1 = non c'è griglia, chi chiama lasci le cose com'erano. */
+  sonda(x, y, z) {
+    if (!this.luce) return -1;
+    return this.luce.occlusaPunto(Math.floor(x), Math.floor(y), Math.floor(z));
   }
 
-  /** Una LUCE è cambiata in `cella`: la griglia va rifatta e vanno rimeshati i
+  /** Lo SLOT della lampada che sta in questo punto (−1 = nessuna). È il ponte
+   *  fra la sfera che lo shader disegna e il bit cotto nei vertici: senza, la
+   *  maschera per-lampada non saprebbe quale bit interrogare. */
+  slotLuce(pos) {
+    if (!this.luce) return -1;
+    return this.luce.slotDi(Math.floor(pos.x), Math.floor(pos.y), Math.floor(pos.z));
+  }
+
+  /** I guasti che degraderebbero in silenzio: il pannello debug li stampa.
+   *  · occScartate  chunk a cui la cintura di taglia ha tolto aOcc
+   *  · slotEsauriti lampade senza bit (tornano ad attraversare i muri)
+   *  · raggiTroncati raggi tagliati da RAGGIO_MAX (sfera più lunga della maschera)
+   *
+   *  TUTTI E TRE DICONO COM'È ADESSO, non quante volte è successo dall'avvio.
+   *  occScartate era un contatore di modulo che sapeva solo crescere: una volta
+   *  scattato, il pannello continuava a stampare «⚠ N chunk senza maschera» per
+   *  sempre, anche dopo che una ricostruzione aveva rimesso a posto quei chunk —
+   *  e il numero saliva a ogni remesh. Qui si contano i chunk che il guasto ce
+   *  l'hanno ORA, quindi rimeshare lo cancella e togliere il chunk pure.
+   *  (slotEsauriti e raggiTroncati stanno sulla griglia e si azzerano in
+   *  GrigliaLuce.azzera(): stessa proprietà, strada diversa.) */
+  guasti() {
+    let occScartate = 0;
+    for (const e of this.chunks.values()) if (e.senzaMaschera || e.senzaMascheraAcqua) occScartate++;
+    return {
+      occScartate,
+      slotEsauriti: this.luce ? this.luce.slotEsauriti : 0,
+      raggiTroncati: this.luce ? this.luce.raggiTroncati : 0,
+    };
+  }
+
+  /** Una LUCE è cambiata in `cella`: la maschera va rifatta e vanno rimeshati i
    *  chunk che quella luce raggiunge. `portata` è il raggio in celle — usarlo
    *  invece del massimo (15) conta: con l'anello fisso di 3×3 chunk, posare una
-   *  lucciola su un open world costava 216 ms perché ne rifaceva nove. */
-  sporcaLuce(mondo, cella, portata = MAX_LIVELLO) {
-    if (!this.luceAttiva) return;
+   *  lucciola su un open world costava 216 ms perché ne rifaceva nove.
+   *  Il margine è lo stesso della griglia: la maschera arriva una cella più in
+   *  là della sfera, e quei chunk vanno rifatti anche loro. */
+  sporcaLuce(mondo, cella, portata = RAGGIO_MAX) {
+    if (!this.occlusioneAttiva) return;
     this._celleLuce.add(cella[0] + ',' + cella[1] + ',' + cella[2]);
-    const r = Math.max(1, Math.min(MAX_LIVELLO, Math.ceil(portata)));
+    const r = Math.max(1, Math.min(RAGGIO_MAX, Math.ceil(portata) + MARGINE_MASCHERA));
     const x0 = Math.floor((cella[0] - r) / CHUNK), x1 = Math.floor((cella[0] + r) / CHUNK);
     const z0 = Math.floor((cella[2] - r) / CHUNK), z1 = Math.floor((cella[2] + r) / CHUNK);
     for (let i = x0; i <= x1; i++) {
@@ -994,12 +845,12 @@ export class Mesher {
    *  non porta con sé la luce che aveva, e senza il raggio non si saprebbe
    *  nemmeno quali chunk rifare. */
   verificaLuciFurni(mondo) {
-    if (!this.luceAttiva || !this.sorgentiExtra) return;
-    const chiave = (v) => `${v.x},${v.y},${v.z}:${v.livello}`;
+    if (!this.occlusioneAttiva || !this.sorgentiExtra) return;
+    const chiave = (v) => `${v.x},${v.y},${v.z}:${v.raggio}`;
     const ora = this.sorgentiExtra(), prima = this._sorgFurni || [];
     const oraK = new Set(ora.map(chiave)), primaK = new Set(prima.map(chiave));
-    for (const v of prima) if (!oraK.has(chiave(v))) this.sporcaLuce(mondo, [v.x, v.y, v.z], v.livello);
-    for (const v of ora) if (!primaK.has(chiave(v))) this.sporcaLuce(mondo, [v.x, v.y, v.z], v.livello);
+    for (const v of prima) if (!oraK.has(chiave(v))) this.sporcaLuce(mondo, [v.x, v.y, v.z], v.raggio);
+    for (const v of ora) if (!primaK.has(chiave(v))) this.sporcaLuce(mondo, [v.x, v.y, v.z], v.raggio);
     this._sorgFurni = ora;
   }
 
@@ -1067,6 +918,7 @@ export class Mesher {
       e0.acqua.geometry.dispose();
       e0.acqua.geometry = acqua.geometria();
       e0.acqua.geometry.computeBoundingBox();
+      e0.senzaMascheraAcqua = acqua.mascheraScartata;
       e0.flussi = acqua.flussi;
       e0.impatti = acqua.impatti;
       return;
@@ -1086,6 +938,11 @@ export class Mesher {
     e.acqua.geometry.dispose();
     e.acqua.geometry = acqua.geometria();
     e.acqua.geometry.computeBoundingBox();   // il riflesso cerca il pelo più vicino
+    // GUASTO DI QUESTO CHUNK, NON DEL MONDO: si riscrive ogni volta che il chunk
+    // si ricostruisce, così una ricostruzione che risolve il problema lo TOGLIE
+    // dal conto (vedi guasti()).
+    e.senzaMaschera = solidi.mascheraScartata;
+    e.senzaMascheraAcqua = acqua.mascheraScartata;
     e.flussi = acqua.flussi;
     e.impatti = acqua.impatti;
   }
@@ -1099,15 +956,18 @@ export class Mesher {
       const attr = e.solidi.geometry.getAttribute('color');
       if (!attr) continue;
       const arr = attr.array;
-      for (let i = 0; i < e.erbe.length; i += 5) {
+      // stride 2 (indice del primo vertice, quota) e NIENTE fattori: il colore
+      // di stagione va nel buffer tale e quale, esattamente come lo scrive
+      // tri(). Portava anche tre moltiplicatori per triangolo — ombra per
+      // faccia × AO — e senza di loro qui l'erba sarebbe tornata piatta al
+      // primo cambio di stagione; adesso quei moltiplicatori non esistono più
+      // e riapplicarli scurirebbe le sole cime d'erba, che sono le uniche a
+      // passare da qui.
+      for (let i = 0; i < e.erbe.length; i += 2) {
         const vi = e.erbe[i], c = colorePer(e.erbe[i + 1]);
-        // stessi moltiplicatori applicati dal Costruttore (ombra per direzione
-        // × AO per vertice), o la stagione appiattirebbe l'erba: il fattore è
-        // PER VERTICE, quindi tre valori distinti — con uno solo il cambio
-        // stagione cancellerebbe l'occlusione ambientale sulle cime d'erba
         for (let v = 0; v < 3; v++) {
-          const f = e.erbe[i + 2 + v], o = (vi + v) * 3;
-          arr[o] = c.r * f; arr[o + 1] = c.g * f; arr[o + 2] = c.b * f;
+          const o = (vi + v) * 3;
+          arr[o] = c.r; arr[o + 1] = c.g; arr[o + 2] = c.b;
         }
       }
       attr.needsUpdate = true;
@@ -1131,14 +991,14 @@ export class Mesher {
   /**
    * Porta la griglia in pari con ciò che è cambiato: LOCALE quando può, da capo
    * quando il cambiamento è troppo grosso (generazione, import) o esce dalla
-   * scatola. Non c'è più nessuna soglia sulla taglia del mondo: la luce cotta si
+   * scatola. Non c'è più nessuna soglia sulla taglia del mondo: la maschera si
    * aggiorna mentre si costruisce SEMPRE, anche su un open world r48.
    *
    * L'acqua non entra mai qui: non ferma la luce e non ne emette, e la sua
    * simulazione tocca celle di continuo (world.js non la registra apposta).
    */
   _rillumina(mondo) {
-    if (!this.luceAttiva) { mondo.scordaCambi(); this._celleLuce.clear(); return; }
+    if (!this.occlusioneAttiva) { mondo.scordaCambi(); this._celleLuce.clear(); return; }
     if (!this.luce) { this._ricalcolaLuceDalVivo(mondo); return; }
     // niente da fare: si esce PRIMA di interrogare l'arredo, o la simulazione
     // dell'acqua (che sporca chunk di continuo) pagherebbe quel giro a ogni tick
@@ -1151,16 +1011,16 @@ export class Mesher {
       const ora = this.sorgentiExtra();
       // DIFF DI SICUREZZA: chi accende un lampione dovrebbe passare da
       // verificaLuciFurni, ma legarsi a quella promessa vuol dire che un giorno
-      // qualcuno aggiunge un modo di accendere e la luce cotta resta indietro
+      // qualcuno aggiunge un modo di accendere e la maschera resta indietro
       // in silenzio. Qui si guarda com'è ADESSO e si recupera comunque.
-      const chiave = (v) => `${v.x},${v.y},${v.z}:${v.livello}`;
+      const chiave = (v) => `${v.x},${v.y},${v.z}:${v.raggio}`;
       const oraK = new Set(ora.map(chiave)), primaK = new Set(this._sorgFurni.map(chiave));
       for (const v of this._sorgFurni) if (!oraK.has(chiave(v))) this._celleLuce.add(`${v.x},${v.y},${v.z}`);
       for (const v of ora) if (!primaK.has(chiave(v))) this._celleLuce.add(`${v.x},${v.y},${v.z}`);
       this._sorgFurni = ora;
       for (const s of ora) {
         const k = s.x + ',' + s.y + ',' + s.z;
-        furni.set(k, Math.max(furni.get(k) || 0, s.livello));
+        furni.set(k, Math.max(furni.get(k) || 0, s.raggio));
       }
     }
 
@@ -1177,10 +1037,10 @@ export class Mesher {
       visto.add(k);
       const t = mondo.tipo(x, y, z);
       const d = t ? defDi(t) : null;
-      let liv = d && d.luce ? Math.round(d.luce.raggio) : 0;
+      let raggio = d && d.luce ? d.luce.raggio : 0;
       const f = furni.get(k);
-      if (f > liv) liv = f;
-      cambi.push({ x, y, z, livello: liv, solido: !!(d && !d.acqua && !FORME_VUOTE.has(d.forma)) });
+      if (f > raggio) raggio = f;
+      cambi.push({ x, y, z, raggio, solido: !!(d && !d.acqua && !FORME_VUOTE.has(d.forma)) });
     };
     const c = mondo.cambiate;
     for (let i = 0; i < c.length; i += 3) aggiungi(c[i], c[i + 1], c[i + 2]);
@@ -1202,8 +1062,8 @@ export class Mesher {
         if (mondo.chunks.has(kc)) mondo.sporchi.add(kc);
       }
     }
-    this.statistiche.luceMs = performance.now() - t0;
-    this.statistiche.luceLocali = cambi.length;
+    this.statistiche.occMs = performance.now() - t0;
+    this.statistiche.occLocali = cambi.length;
   }
 
   /** Ricostruzione incrementale: solo i chunk sporchi. Da chiamare nel loop. */
@@ -1229,13 +1089,10 @@ export class Mesher {
 }
 
 // ---- superficie di prova ----------------------------------------------------
-// Roba interna esportata SOLO per i test (test/mesher.test.mjs). Erano le
-// funzioni che decidono come si vede il mondo — ombra per direzione di faccia,
-// occlusione ambientale, scelta della diagonale nel quad, riva — e non le
-// copriva NIENTE: la suite si fermava alla griglia di luce, cioè al solo pezzo
-// che il giocatore non guarda direttamente. Le soglie dello shader sono tarate
-// su questi valori, quindi cambiarli qui lo scalibra in silenzio.
-export { ombraDiFaccia, aoVertice, mulAO, rivaCella, Costruttore, PENDENZA_RIPIDA, RIVA_RAGGIO, LIV_AO };
+// Roba interna esportata SOLO per i test (test/mesher.test.mjs): la riva e la
+// soglia di pendenza, cioè i numeri su cui sono tarate le soglie dello shader
+// dell'acqua — cambiarli qui lo scalibrerebbe in silenzio.
+export { rivaCella, Costruttore, PENDENZA_RIPIDA, RIVA_RAGGIO };
 
 /** Geometria di un singolo blocco isolato (per il ghost di anteprima). */
 export function geometriaSingola(tipo) {

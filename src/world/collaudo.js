@@ -100,22 +100,22 @@ export function generaCollaudo(mondo) {
   // Stanza 7×7 esterni (interno 5×5), alta 3 (aria a y=2,3,4), tetto a y=5, con
   // una lucciola dentro. Serve a vedere una LAMPADA prevalere sul cielo.
   //
-  // ATTENZIONE ALL'ORACLE, che qui prometteva una cosa impossibile: diceva
-  // "serve a vedere una luce PURA, senza cielo: se il buio della grotta non è
-  // nero, l'ambiente sta trapelando dove non deve". Falso, e boccerebbe
-  // un'implementazione CORRETTA. La porta 1×2 fa entrare cielo vero, e deve
-  // farlo: sigillando la stanza non ci si potrebbe entrare, e il canale cielo
-  // parte da 15 perdendo un solo livello per cella — con quel budget qualunque
-  // apertura illumina una stanza di cinque celle di lato. Nemmeno una trappola
-  // a L basterebbe: allungando il percorso di tre celle si guadagnano tre
-  // livelli, non quindici.
-  // MISURATO a mezzogiorno: cielo 13 sulla porta, 11 alla cella della lucciola,
-  // 7 nell'angolo più lontano, contro 15 del prato aperto.
-  // IL CRITERIO GIUSTO è questo, ed è ancora una prova severa:
-  //  · l'angolo più lontano deve stare ALMENO 8 livelli sotto il prato aperto
-  //    (se ci si avvicina, il cielo sta trapelando attraverso le pareti);
-  //  · di NOTTE, quando il canale cielo si spegne, dentro deve restare acceso
-  //    solo ciò che la lucciola raggiunge davvero.
+  // COSA PROVA, ADESSO. Qui c'era un criterio scritto sul canale CIELO cotto nei
+  // vertici ("l'angolo più lontano deve stare ALMENO 8 livelli sotto il prato
+  // aperto", con misure tipo "cielo 13 sulla porta, 11 alla lucciola, 7
+  // nell'angolo"). Quel canale non esiste più — il giorno e la notte li fa
+  // uAmbiente, che è un colore globale — quindi il criterio non è nemmeno
+  // misurabile, e lasciarlo scritto voleva dire mandare chi legge a cercare un
+  // numero che nessuno produce più. Il modello di oggi è una MASCHERA
+  // D'OCCLUSIONE per lampada: per ogni faccia, quali sfere ci arrivano davvero.
+  // LE DUE PROVE VERE, ed è ancora una prova severa:
+  //  · dentro la stanza la lucciola ARRIVA — occlusaFaccia(-15,1,-7,[0,1,0]) = 0,
+  //    cioè nessuna lampada bloccata sul pavimento sotto di lei;
+  //  · fuori NO: la stessa faccia sul prato aperto (0,1,9) vale 1, e così la
+  //    passeggiata. La stanza è l'unico posto illuminato, e le pareti reggono.
+  // La porta 1×2 resta aperta perché ci si deve poter entrare, e non toglie
+  // niente alla prova: l'ambiente entra ovunque per costruzione (è un colore, non
+  // una propagazione) e quello che si guarda qui è la sfera.
   apri('grotta');
   const G = { x0: -18, x1: -12, z0: -10, z1: -4 };
   for (let x = G.x0; x <= G.x1; x++) {
@@ -135,23 +135,23 @@ export function generaCollaudo(mondo) {
   // Piattaforma 5×5 sospesa: il pavimento è il piano di base (superficie y=1),
   // quindi 4 blocchi d'aria (y=2,3,4,5) e la piattaforma a y=6.
   //
-  // NON CI SI DEVE ASPETTARE UN'OMBRA NETTA, e il commento di prima la
-  // pretendeva ("un quadrato NETTO e isolato"). In questo motore NON esistono
-  // ombre direzionali del sole — è una scelta, spiegata in luce.js: su un
+  // NON CI SI DEVE ASPETTARE NESSUNA OMBRA, e nemmeno il "pianoro morbido" di
+  // occlusione del cielo che questo commento descriveva prima: quel canale è
+  // stato cancellato insieme all'occlusione ambientale e all'ombra per faccia.
+  // Ombre direzionali del sole non ce ne sono mai state (è una scelta: su un
   // terreno a terrazze ogni gradino sarebbe un occlusore e i prati si
-  // riempirebbero di rettangoli scuri. Un tetto sospeso può quindi produrre
-  // solo OCCLUSIONE DI CIELO, che è un pianoro morbido, e la sua profondità
-  // dipende dalla LARGHEZZA del tetto, non dalla sua altezza: il cielo rientra
-  // di lato perdendo un livello per cella, quindi il centro di un 5×5 sta due
-  // celle dentro e vale 13 invece di 15.
-  // MISURATO a mezzogiorno con la formula esatta dello shader: centro 0,876
-  // contro 1,000 del prato (−12,4% lineare, −5,8% percettivo) e il bordo
-  // dell'impronta esattamente 1,000, cioè nessuna ombra. È corretto, non rotto.
-  // COSA PROVA DAVVERO questa zona: che il pianoro ESISTE e sta al posto suo, e
-  // che di notte (prato 0,459 contro tettoia 0,395) la differenza si assottiglia
-  // invece di invertirsi. Per giudicare banding o nitidezza di una fascia serve
-  // un tetto largo almeno 11 celle, che qui non ci sta senza coprire la
-  // passeggiata: quella prova si fa in open world, non qui.
+  // riempirebbero di rettangoli scuri), e la maschera d'occlusione riguarda le
+  // sole LAMPADE — qui la più vicina è a 11 celle con raggio 5, cioè fuori
+  // portata.
+  // VERIFICATO a runtime, ed è il punto: occlusaFaccia(-4,1,-7,[0,1,0]) sotto il
+  // tetto e occlusaFaccia(0,1,9,[0,1,0]) sul piano nudo danno lo stesso identico
+  // valore (1, "nessuna lampada arriva"). Lo shader produce quindi lo STESSO
+  // pixel nei due punti: per la luce, questa zona non distingue più niente.
+  // COSA PROVA ANCORA, e non è poco: il RIPARO DALLE OMBRE DELLE NUVOLE.
+  // lanternaOmbra() legge la heightmap del cielo e si spegne sotto un tetto, per
+  // cui passando una nuvola la passeggiata si scurisce e sotto la tettoia no.
+  // È l'unico fenomeno che questa zona esercita — se un giorno servisse provare
+  // la maschera per-lampada, qui va messa una lampada, non un tetto.
   apri('tettoia');
   for (let x = -6; x <= -2; x++) for (let z = -9; z <= -5; z++) posa(x, 6, z, 'asse');
 

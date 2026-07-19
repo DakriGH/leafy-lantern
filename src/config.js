@@ -31,9 +31,21 @@ export const TEMPO = {
 };
 
 export const LUCI_MAX = 24;      // cap luci-sfera per frame
-// (le bande delle luci-sfera stavano qui, a 3 e con un arrotondamento tutto
-//  suo: due quantizzazioni diverse sulla STESSA lampada non potevano dare
-//  anelli coincidenti. Adesso c'è una regola sola, GRADINI in world/luce.js)
+// ANELLI DI POSTERIZZAZIONE della luce-sfera, ED È L'ASPETTO DEL GIOCO: la
+// caduta è lineare e viene tagliata a 3 bande nette. Non è un'approssimazione
+// da raffinare — è la scelta grafica. Un tentativo l'aveva sostituita con una
+// rampa a 5 gradini agganciata ai livelli di un flood fill: bocciato.
+//
+// LA USANO IN TRE, e devono restare d'accordo: le bande delle luci-sfera
+// (fx/materials.js, lanternaAccumulo), il fade in profondità dell'ombra del
+// gatto (ombraPg) e lo spegnimento degli anelli di pioggia. Sono i "gradini"
+// che il committente ha indicato come metro della nettezza, quindi vanno tutti
+// dallo stesso numero: prima gli ultimi due avevano un 3 scritto a mano e si
+// sarebbero scollegati al primo ritocco qui.
+// Non deve essere per forza intera: materials.js la porta in GLSL con toFixed(1)
+// apposta, perché scritta a mano come `${BANDE_LUCE}.0` un valore come 3.5
+// diventerebbe «3.5.0» e lo shader non compilerebbe — cioè mondo invisibile.
+export const BANDE_LUCE = 3;
 
 export const RAGGIO_CLICK = 90;  // portata del raycast di mira
 export const CHIAVE_SALVATAGGIO = 'lantern.diorama.v1';

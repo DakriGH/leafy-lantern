@@ -3,8 +3,16 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX } from '../config.js';
-import { GRADINI, LUCE_MIN, QUOTA_MIN_NOTTE, GUADAGNO_LUME, MAX_LIVELLO } from '../world/luce.js';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js';
+
+// BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
+// a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
+// 3.5 uscirebbe «3.5.0», lo shader non compila e il mondo diventa INVISIBILE
+// senza altri segnali. toFixed(1) rende valido qualunque valore.
+// Serve un valore JS e non una `const float` GLSL perché le bande servono in DUE
+// stringhe iniettate (quella comune e quella dell'acqua) e l'ordine con cui
+// finiscono nel sorgente non garantisce che la dichiarazione preceda l'uso.
+const GBANDE = BANDE_LUCE.toFixed(1);
 
 // ---- heightmap del cielo: per colonna, la quota della superficie più alta.
 // Serve alle OMBRE DELLE NUVOLE: scuriscono solo la cima della colonna
@@ -130,6 +138,8 @@ export function impostaSchiumaAcqua(impatti, fuoco = null) {
 const uniformi = {
   uLuciPosRaggio: { value: Array.from({ length: LUCI_MAX }, () => new THREE.Vector4(0, 0, 0, 1)) },
   uLuciColore: { value: Array.from({ length: LUCI_MAX }, () => new THREE.Vector4(1, 1, 1, 0)) },
+  // slot di ogni lampada inviata: −1 = nessuna maschera (vedi lanternaBloccata)
+  uLuciSlot: { value: new Float32Array(LUCI_MAX).fill(-1) },
   uLuciNum: { value: 0 },
   uAmbiente: { value: new THREE.Color(1, 1, 1) },
   uOmbraNum: { value: 0 },        // 0 = nessuna nuvola: lo shader esce subito
@@ -138,30 +148,9 @@ const uniformi = {
   uCielo: { value: _cieloTex },
   uCieloInfo: { value: new THREE.Vector4(CIELO_ORIGINE, CIELO_ORIGINE, 1 / CIELO_DIM, CIELO_DIM) },
   uTempo: { value: 0 },
-  // ---- luce cotta a voxel (world/luce.js) ----
-  uLuceCotta: { value: 1 },                      // 0 = spenta (interruttore Impostazioni)
-  uOraLuce: { value: 1 },                        // 0 notte fonda … 1 pieno giorno
-  uLuceGradini: { value: GRADINI },              // scalini del cel shading
-  uLuceMin: { value: LUCE_MIN },                 // pavimento di luminosità a mezzogiorno
-  uLuceMinNotte: { value: QUOTA_MIN_NOTTE },     // …e quota che ne resta a notte fonda
-  uLumeGuadagno: { value: GUADAGNO_LUME },
-  uLumeColore: { value: new THREE.Color(1.0, 0.86, 0.62) },   // caldo di lanterna:
-                                                 // RIPIEGO, quando nessuna sfera
-                                                 // arriva qui a dire la sua tinta
-  // Quanto la tinta della lampada si allontana dal bianco. I colori delle
-  // sorgenti sono scelti per l'ASPETTO DEL PUNTINO (una lucciola menta accesa),
-  // e in spazio LINEARE #7dffa0 vale (0.21, 1.00, 0.35): usato dritto come
-  // colore di LUCE tinge la grotta di verde fluo. A 0.55 la lucciola resta
-  // verdina e il lampione #ffd889 esce (1.00, 0.83, 0.66) — cioè esattamente
-  // l'ambra dichiarata in uLumeColore, che prima non compariva mai.
-  uLumeSatura: { value: 0.55 },
-  // La sfera additiva adesso è il NUCLEO, non il piatto forte: il canale cotto
-  // porta finalmente la sua parte di colore (prima veniva moltiplicato per
-  // l'ambiente blu e si annullava). A piena intensità i due si sommavano e il
-  // verde della lucciola sfondava il bianco.
-  uLumeSfera: { value: 0.5 },
-  uColoreCielo: { value: new THREE.Color(1, 1, 1) },          // cielo dell'ora corrente
-  uTintaCielo: { value: 0 },                     // quanto il cielo TINGE il terreno
+  // Interruttore Impostazioni della maschera d'occlusione (world/luce.js):
+  // 0 = spenta, e le luci-sfera tornano ad attraversare i muri com'era prima.
+  uOcclusione: { value: 1 },
   uPioggia: { value: 0 },                        // 0..1: increspature di pioggia
   uRiflesso: { value: null },                    // RT del mirror (riflesso.js)
   uRiflessoMat: { value: new THREE.Matrix4() },
@@ -174,6 +163,39 @@ const uniformi = {
   uImpattiNum: { value: 0 },
   uSchiumaRT: { value: null },                   // silhouette dall'alto (schiumaTop.js)
   uSchiumaRTInfo: { value: new THREE.Vector4(0, 0, 0, 0) },   // minX, minZ, 1/est, attivo
+  // QUANTA LUCE PROPRIA HA IL BIANCO DELL'ACQUA, ed è il rilievo del committente:
+  // "adesso è troppo emissiva… non deve brillare al buio come una lampada".
+  // Qui c'era 0.85 fisso, e 0.85 non è una quantità di schiuma: è una quantità
+  // di LUCE sommata dopo l'illuminazione. Con NoToneMapping (il renderer non
+  // comprime niente sopra 1.0) sommare 0.85 al bianco pieno vuol dire che la
+  // schiuma esce clampata a 255 a qualunque ora: era l'unica cosa in tutto lo
+  // schermo che il ciclo giorno/notte non toccava, ed è precisamente ciò che la
+  // faceva leggere come una sorgente accesa invece che come acqua bianca.
+  // A 0.18 il ciclo se la riprende — MISURATO sulla pozza del collaudo, maschera
+  // esatta di ~46k px, luminanza media: mezzanotte 162.6 · alba 216.8 ·
+  // mezzogiorno 231.4 · tramonto 212.0. Sale e scende con tutto il resto.
+  //
+  // MA 0.18 NON CHIUDE LA QUESTIONE, e vale la pena scriverlo perché il prossimo
+  // che legge non giri la manopola sbagliata. Nello STESSO fotogramma, sempre a
+  // mezzanotte, la schiuma sta a 1.61 volte l'erba illuminata dal solo ambiente;
+  // e ad additivo SPENTO (uSchiumaEmiss = 0) sta comunque a 1.37. Cioè circa il
+  // 60% dell'eccesso non viene da qui: viene dall'albedo BIANCO moltiplicato per
+  // l'ambiente notturno (0.32/0.36/0.55). Si vede dal fatto che il rapporto ad
+  // additivo spento non si muove con l'ora — 1.37 a mezzanotte, 1.35 all'alba,
+  // 1.34 a mezzogiorno, 1.35 al tramonto: è il rapporto fra due albedo, bianco
+  // su verde, non un effetto di luce.
+  // Quindi: se il rilievo "brilla come una lampada" tornasse, abbassare ancora
+  // questo numero NON lo sistemerebbe. Le leve vere sono due, e sono altrove —
+  // l'albedo della schiuma (il mix(…, vec3(1.0), band) in GLSL_ACQUA_COLORE) o
+  // l'ambiente notturno di daynight.js. Entrambe hanno un prezzo su tutto il
+  // resto della scena, ed è per questo che non sono state toccate qui.
+  //
+  // ED È UNA MANOPOLA SOPRATTUTTO NOTTURNA, per costruzione: l'additivo trova
+  // spazio dove c'è spazio sotto il clipping, quindi rende +24.8 di luminanza a
+  // mezzanotte e +9.5 a mezzogiorno. Lavora cioè più forte proprio dove il
+  // committente ha detto che l'eccesso si vede — un motivo in più per tenerla
+  // bassa. Per tararla dal vivo: LANTERN.uniformi.uSchiumaEmiss.value.
+  uSchiumaEmiss: { value: 0.18 },
   // in AR il mondo vive dentro un pivot ruoto-scalato: questa è la sua INVERSA,
   // così vPosMondo resta in coordinate MONDO e luci/ombre/schiuma funzionano
   // anche sul diorama in AR (identità quando l'AR è spenta)
@@ -238,77 +260,66 @@ export function impostaOmbreNuvole(box, forza) {
 const GLSL_VERTEX = /* glsl */`
   varying vec3 vPosMondo;
   uniform mat4 uMondoInv;
-  // LUCE COTTA A VOXEL, per FACCIA: (quanto cielo MANCA, quanto lume c'è).
+  // MASCHERA D'OCCLUSIONE cotta per FACCIA: TRE byte = 24 bit, uno per SLOT di
+  // lampada (world/luce.js). Bit acceso = quella lampada qui non arriva, c'è un
+  // muro in mezzo. Costante sui tre vertici del triangolo — sono bit, non una
+  // sfumatura.
   //
-  // DUE BYTE, non tre float. L'informazione è COSTANTE sui tre vertici di ogni
-  // triangolo e i livelli sono interi 0..15: otto bit avanzano, e 255 = 15×17
-  // fa tornare ogni livello esatto dopo la normalizzazione. Il terzo canale
-  // ("è cotta?") era un flag globale per mesh e ora è la uniform uLuceDati.
-  // Prima erano 12 B/vertice: 2,8 MB su un open world r48 per un attributo per
-  // metà a zero. Su un Braswell a memoria condivisa la banda per vertice è
-  // proprio il costo che conta.
+  // UN BIT PER LAMPADA, NON UNO SOLO PER TUTTE: con un bit di unione bastava una
+  // lampada dalla parte giusta del muro per dichiarare libera la cella davanti, e
+  // la sfera della lampada murata ci passava dentro lo stesso (misurato: +11.6%
+  // ÷ +22% di luce trapelata sul muro di collaudo con una lucciola per lato).
   //
-  // La polarità è scelta per il default WebGL di un attributo che la geometria
-  // NON ha, (0,0,0,1): chi non lo porta legge "cielo pieno, nessun lume", cioè
-  // resta esattamente com'era. Memorizzare il cielo dritto (invece di "quanto
-  // manca") avrebbe annerito quelle mesh.
-  attribute vec2 aLuce;
-  varying vec2 vLuce;
+  // LA POLARITÀ È SCELTA APPOSTA, ed è metà del lavoro: un attributo che la
+  // geometria NON ha in WebGL legge (0,0,0,1), cioè x=y=z=0 = "nessuna lampada
+  // bloccata". Gatto, mano, palle e mobili non passano dal mesher e restano
+  // illuminati esattamente come prima, senza nessun flag per materiale.
+  // Ed è per la stessa ragione che i byte sono TRE e non quattro: la w di quel
+  // default vale 1, e un quarto byte accenderebbe da solo il bit dello slot 24.
+  attribute vec3 aOcc;
+  varying vec3 vOcc;
 `;
 const GLSL_FRAGMENT = /* glsl */`
   varying vec3 vPosMondo;
-  varying vec2 vLuce;
+  varying vec3 vOcc;
 
-  uniform vec3 uAmbiente;
-  uniform float uLuceDati;       // PER MATERIALE: 1 = questa mesh porta aLuce
-  uniform float uLuceCotta;      // interruttore globale (Impostazioni)
-  uniform float uOraLuce;        // 0 = notte fonda, 1 = pieno giorno
-  uniform float uLuceGradini;    // scalini del cel shading: UNO SOLO per tutto
-  uniform float uLuceMin;        // pavimento di luminosità a mezzogiorno
-  uniform float uLuceMinNotte;   // …e quota che ne resta a notte fonda
-  uniform float uLumeGuadagno;   // i raggi delle lampade qui sono piccoli
-  uniform vec3 uLumeColore;      // caldo di lanterna: RIPIEGO quando nessuna
-                                 // sfera arriva qui a dire la sua tinta
-  uniform float uLumeSatura;     // quanto la tinta si stacca dal bianco
-  uniform float uLumeSfera;      // peso del nucleo additivo
-  uniform vec3 uColoreCielo;     // colore del cielo all'ora corrente
-  uniform float uTintaCielo;     // quanto il cielo TINGE il terreno
   uniform vec4 uLuciPosRaggio[${LUCI_MAX}];
   uniform vec4 uLuciColore[${LUCI_MAX}];
+  // Lo SLOT di ogni lampada inviata: dice QUALE bit di aOcc la riguarda. Le
+  // sfere si riordinano a ogni frame (le più vicine al giocatore), i bit cotti
+  // no — questo array è il ponte fra i due. −1 = lampada senza slot: non viene
+  // mascherata, cioè torna a comportarsi come prima (vedi slotEsauriti).
+  uniform float uLuciSlot[${LUCI_MAX}];
   uniform int uLuciNum;
+  uniform vec3 uAmbiente;
+  uniform float uOcclusione;     // interruttore Impostazioni: 0 = niente maschera
 
-  // UNA SOLA REGOLA DI ARROTONDAMENTO PER TUTTO. Prima il canale cotto usava
-  // floor(v*4+0.5) sui livelli voxel e le luci-sfera ceil(v*3) sulla distanza
-  // radiale: numero di bande DIVERSO e regola DIVERSA sulla stessa lampada,
-  // quindi i due insiemi di anelli non potevano coincidere e attorno alle luci
-  // si vedevano le transizioni sporche.
-  float lanternaGradino(float v) {
-    return floor(clamp(v, 0.0, 1.0) * uLuceGradini + 0.5) / uLuceGradini;
-  }
-  // livelli residui (0..15, normalizzati) → 0..1. Il guadagno esiste perché qui
-  // i raggi sono piccoli: senza, una lucciola (raggio 5) varrebbe un terzo di
-  // luce e non illuminerebbe nemmeno la propria cella.
-  float lanternaDaLivello(float liv) { return min(1.0, liv * uLumeGuadagno); }
-
-  // stato del fragment: lo prepara lanternaPrepara() una volta sola
-  vec3 _lumeSomma; float _lumePeso;      // tinta media delle lampade che arrivano qui
-  float _cieloVista, _cieloQ, _lumeQ;
-
-  void lanternaPrepara() {
-    _cieloVista = lanternaGradino(1.0 - vLuce.x);   // quanto questa faccia VEDE il cielo
-    _cieloQ = _cieloVista * uOraLuce;               // …e quanto gliene arriva ADESSO
-    _lumeQ = lanternaGradino(lanternaDaLivello(vLuce.y));
-    _lumeSomma = vec3(0.0); _lumePeso = 0.0;
-  }
-
-  // MASCHERA DELLE LUCI-SFERA. Una sfera è solo una distanza: non sa niente dei
-  // muri, e infatti i lampioni li attraversavano. Il canale cotto invece i muri
-  // li conosce — dove il lume non è mai arrivato la sfera si spegne.
-  // uLuceDati (per MATERIALE, non più un canale dell'attributo) tiene fuori chi
-  // non ha dati cotti: senza, quelle mesh perderebbero del tutto i lampioni.
-  float lanternaMascheraLume() {
-    if (uLuceCotta < 0.5) return 1.0;
-    return mix(1.0, _lumeQ, uLuceDati);
+  // DOVE la luce può arrivare — l'UNICA modifica alle luci-sfera.
+  // Una sfera è solo una distanza: non sa niente dei muri, e infatti i lampioni
+  // li attraversavano. La maschera cotta nei vertici (world/luce.js: la lampada
+  // vede questa cella, sì o no?) i muri li conosce, e qui spegne la sfera dove
+  // la luce non arriva.
+  //
+  // IL TAGLIO È NETTO, non sfumato: un bit è acceso o spento, non c'è un mezzo
+  // bit. È lo stile del gioco — le bande della sfera e il disco dell'ombra del
+  // player sono netti, e un bordo morbido qui sarebbe l'unica sfocatura dello
+  // schermo.
+  //
+  // SI SPEGNE LA SINGOLA SFERA, NON TUTTE INSIEME, e questa è la correzione: la
+  // maschera diceva "qui arriva luce artificiale", non "qui arriva la luce della
+  // lampada numero 3", quindi due lampade ai lati opposti dello stesso muro si
+  // coprivano a vicenda e quella murata trapelava. Adesso ogni lampada ha il suo
+  // bit e il suo muro.
+  //
+  // NIENTE OPERATORI DI BIT: GLSL ES 1.0 non li ha, e i tre byte arrivano come
+  // float esatti (0..255). Dividere per una potenza di due è esatto in binario,
+  // quindi floor+mod estraggono il bit senza rischi di arrotondamento.
+  float lanternaBloccata(float slot) {
+    if (uOcclusione < 0.5 || slot < 0.0) return 0.0;
+    float b = floor(slot / 8.0);                      // quale dei tre byte
+    float k = slot - b * 8.0;                         // quale bit dentro il byte
+    float byte = b < 0.5 ? vOcc.x : (b < 1.5 ? vOcc.y : vOcc.z);
+    return mod(floor(floor(byte + 0.5) / exp2(k)), 2.0);
   }
 
   vec3 lanternaAccumulo() {
@@ -320,72 +331,14 @@ const GLSL_FRAGMENT = /* glsl */`
       vec3 dv = vPosMondo - pr.xyz;
       float d2 = dot(dv, dv);
       if (d2 < pr.w * pr.w) {                         // sqrt e divisione solo dentro la sfera
-        // STESSA SCALA del canale cotto: livelli residui in CELLE (raggio meno
-        // distanza), non frazione del raggio, e stesso arrotondamento. Così una
-        // lampada ha UNA sola rampa e gli anelli della sfera cadono dove cadono
-        // quelli cotti, invece di intrecciarsi.
-        float banda = lanternaGradino(lanternaDaLivello((pr.w - sqrt(d2)) / ${MAX_LIVELLO}.0));
-        vec3 c = uLuciColore[i].rgb;
-        acc += c * uLuciColore[i].a * banda;
-        _lumeSomma += c * banda; _lumePeso += banda;
+        if (lanternaBloccata(uLuciSlot[i]) > 0.5) continue;   // muro in mezzo
+        float f = 1.0 - sqrt(d2) / pr.w;
+        // anelli concentrici: le sfere si sommano dove si compenetrano
+        float banda = ceil(min(f, 1.0) * ${GBANDE}) / ${GBANDE};
+        acc += uLuciColore[i].rgb * uLuciColore[i].a * banda;
       }
     }
-    // la maschera è ciò che impedisce alla sfera di passare oltre i muri
-    return acc * (lanternaMascheraLume() * uLumeSfera);
-  }
-
-  // UNA LAMPADA, UNA TINTA. Il canale cotto non sa da QUALE lampada viene il
-  // lume: tingerlo sempre d'ambra dava TRE colori diversi per la stessa
-  // sorgente — nucleo verde menta (la sfera della lucciola), alone ambra (il
-  // cotto) e campo blu (l'ambiente notturno). Qui la tinta la dettano le sfere
-  // che arrivano davvero in questo punto; dove non ne arriva nessuna (lampada
-  // fuori dalle LUCI_MAX più vicine) resta il caldo di lanterna.
-  vec3 lanternaTinta() {
-    if (_lumePeso < 0.0001) return uLumeColore;
-    vec3 m = _lumeSomma / _lumePeso;
-    m = m / max(max(m.r, m.g), max(m.b, 0.0001));      // conta la TINTA, non l'intensità
-    return mix(vec3(1.0), m, uLumeSatura);             // …e non fino in fondo, vedi uLumeSatura
-  }
-
-  // IL CIELO TINGE, NON SOLO MOLTIPLICA. Alle 18:00 il cielo era arancione
-  // saturo e l'erba restava dello stesso verde freddo di mezzogiorno: sembrava
-  // un render diurno incollato su un cielo arancione. Il motivo è aritmetico —
-  // l'ambiente al tramonto ha un rapporto R/G di appena 1.29, e una tinta
-  // puramente MOLTIPLICATIVA non può spostare la tonalità di un albedo verde
-  // saturo. Qui il colore vira VERSO il cielo, in proporzione a quanto la
-  // faccia il cielo lo vede davvero: le grotte restano fuori.
-  vec3 lanternaAlbedo(vec3 col) {
-    return mix(col, uColoreCielo, uTintaCielo * _cieloVista);
-  }
-
-  // IL CEL SHADING NASCE QUI. I due canali si combinano prendendo il MASSIMO:
-  // una stanza chiusa e illuminata resta illuminata anche a mezzogiorno, e di
-  // notte — quando uOraLuce scende — sopravvive solo ciò che le lanterne
-  // raggiungono. Le fasce nette sono la luce stessa arrotondata, non un
-  // effetto disegnato sopra.
-  //
-  // Si quantizzano i LIVELLI e poi si moltiplica per l'ora, non il contrario:
-  // arrotondando il prodotto, al tramonto il mondo intero salterebbe di
-  // luminosità ogni volta che l'ora scavalca un gradino. Le fasce vanno nette
-  // nello SPAZIO, continue nel TEMPO.
-  vec3 lanternaLuce() {
-    if (uLuceCotta < 0.5) return uAmbiente;
-    // il PAVIMENTO scala col sole: di giorno protegge dalle macchie nere, di
-    // notte deve poter essere davvero buio. Fisso a 0.38 il contrasto
-    // cielo-aperto/buio-sigillato crollava a 1,6:1 proprio a mezzanotte —
-    // "il giorno con la luminosità abbassata", nessuna pozza di luce.
-    float minimo = uLuceMin * max(uLuceMinNotte, uOraLuce);
-    float f = minimo + (1.0 - minimo) * max(_cieloQ, _lumeQ);
-    // QUANTA luce la decide il massimo; DI CHE COLORE la decide chi vince.
-    // Il termine della lampada NON passa per l'ambiente del cielo: moltiplicato
-    // per il blu notturno (0.32, 0.36, 0.55) il caldo si annullava e una
-    // superficie a distanza ZERO da una lanterna usciva ancora con B/R = 1.26,
-    // cioè BLU. La lanterna non scaldava mai: passava da gelido a meno gelido.
-    // basta che la lampada vinca di un gradino perché il colore sia il suo:
-    // con una rampa più dolce le zone illuminate SOLO dalla lanterna restavano
-    // a metà strada nel blu dell'ambiente
-    float peso = clamp((_lumeQ - _cieloQ) * 4.0, 0.0, 1.0);
-    return f * mix(uAmbiente, lanternaTinta(), peso);
+    return acc;
   }
 
   uniform int uOmbraNum;
@@ -411,6 +364,16 @@ const GLSL_FRAGMENT = /* glsl */`
   uniform vec4 uPgPos[6];
   uniform int uPgNum;
 
+  // L'OMBRA DEL FRAMMENTO (nuvole × personaggi), tenuta da parte da
+  // GLSL_COMPOSIZIONE. Serve a chi somma luce PROPRIA dopo la composizione — cioè
+  // alla schiuma dell'acqua — perché un additivo messo dopo l'ombra l'ombra non
+  // la riceve: era misurabile, a mezzanotte il disco del gatto scuriva l'acqua
+  // nuda del 18% e la schiuma accanto molto meno, e a emissiva alta spariva del
+  // tutto (zero pixel cambiati). Una superficie su cui le ombre non si posano si
+  // legge come una sorgente accesa, che è precisamente il rilievo del
+  // committente sulla schiuma.
+  float _ombraTot;
+
   // Ombra-cono dei personaggi (stile Minecraft Bedrock): un cono proiettato
   // in giù dai piedi che SCURISCE LE MESH che attraversa — si adagia sui bordi
   // dei blocchi invece di saltare al piano sotto, e si stringe con la profondità.
@@ -425,50 +388,45 @@ const GLSL_FRAGMENT = /* glsl */`
       if (raggio <= 0.02) continue;
       float d = distance(vPosMondo.xz, o.xz);
       if (d >= raggio) continue;
-      // UN solo disco netto (le due bande concentriche non piacevano);
-      // il fade con la profondità va a scatti (niente gradienti morbidi)
-      float fade = lanternaGradino(1.0 - prof / 6.0);
+      // UN solo disco netto (le due bande concentriche non piacevano); il fade
+      // con la profondità va a scatti, e sugli STESSI gradini delle luci-sfera
+      // (BANDE_LUCE): sono i due metri di paragone che il committente ha dato
+      // per la nettezza, e mandarli in giro con due quantizzazioni scollegate
+      // era il modo di farli divergere al primo ritocco della costante.
+      float fade = ceil((1.0 - prof / 6.0) * ${GBANDE}) / ${GBANDE};
       f = min(f, 1.0 - 0.45 * fade);
     }
     return f;
   }
 `;
 
-// L'ORDINE CONTA, e in GLSL non è garantito dentro un'espressione: la tinta
-// delle lampade la calcola lanternaAccumulo(), quindi va chiamata PRIMA di
-// lanternaLuce(). Scrivendo `lanternaLuce() + lanternaAccumulo()` il compilatore
-// sarebbe libero di valutarle al contrario e la tinta sarebbe quella di default.
+// IL GIORNO E LA NOTTE LI FA uAmbiente, punto. È il ciclo (fx/daynight.js) a
+// chiamare impostaAmbiente() con il colore dell'ora, e le lampade si sommano
+// sopra: dove non arriva nessuna sfera resta l'ambiente, che di notte è il blu
+// e a mezzogiorno è quasi bianco. Un tentativo aveva sostituito tutto questo con
+// due canali di luce cotti nei vertici (cielo e lume) più occlusione ambientale
+// e ombreggiatura per direzione di faccia: bocciato in blocco.
 const GLSL_COMPOSIZIONE = /* glsl */`
-lanternaPrepara();
-vec3 _accLume = lanternaAccumulo();
-outgoingLight = lanternaAlbedo(outgoingLight) * (lanternaLuce() + _accLume) * lanternaOmbra() * ombraPg();
+_ombraTot = lanternaOmbra() * ombraPg();
+outgoingLight = outgoingLight * (uAmbiente + lanternaAccumulo()) * _ombraTot;
 `;
 
-function iniettaLanterna(shader, uDati) {
+function iniettaLanterna(shader) {
   Object.assign(shader.uniforms, uniformi);
-  // NON condivisa: dice se QUESTA mesh porta davvero l'attributo aLuce. Era il
-  // terzo canale dell'attributo (12 B/vertice per un flag costante su tutta la
-  // mesh); come uniform per materiale costa zero byte di banda.
-  shader.uniforms.uLuceDati = uDati;
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\n' + GLSL_VERTEX)
     .replace('#include <begin_vertex>',
-      '#include <begin_vertex>\nvPosMondo = (uMondoInv * modelMatrix * vec4(transformed, 1.0)).xyz;\nvLuce = aLuce;');
+      '#include <begin_vertex>\nvPosMondo = (uMondoInv * modelMatrix * vec4(transformed, 1.0)).xyz;\nvOcc = aOcc;');
   shader.fragmentShader = shader.fragmentShader
     .replace('#include <common>', '#include <common>\n' + GLSL_FRAGMENT)
-    // la luce cotta modula l'AMBIENTE, non le luci-sfera: quelle hanno già la
-    // loro maschera dentro lanternaAccumulo(). Moltiplicando tutto insieme, una
-    // lanterna dentro una grotta buia si sarebbe spenta da sola.
     .replace('#include <opaque_fragment>', GLSL_COMPOSIZIONE + '#include <opaque_fragment>');
 }
 
-/** `conDati` = questa mesh porta l'attributo aLuce (chunk del mondo, oppure
- *  entità sondate da scriviLuceEnte). Chi non lo porta NON deve dichiararlo, o
- *  la maschera lo lascerebbe al buio: senza attributo il lume legge 0. */
-export function patchLuci(materiale, conDati = false) {
-  const uDati = { value: conDati ? 1 : 0 };
-  materiale.userData.uLuceDati = uDati;
-  materiale.onBeforeCompile = (shader) => iniettaLanterna(shader, uDati);
+/** Materiale unlit con luci-sfera. NON serve dichiarare se la mesh porta o no
+ *  l'attributo aOcc: chi non ce l'ha legge 0, cioè "luce libera", ed è la
+ *  polarità giusta (vedi GLSL_VERTEX). */
+export function patchLuci(materiale) {
+  materiale.onBeforeCompile = iniettaLanterna;
   // marca per il cache-key: materiali con patch diversa non condividono programma
   materiale.customProgramCacheKey = () => 'lanterna-luci';
   return materiale;
@@ -476,35 +434,34 @@ export function patchLuci(materiale, conDati = false) {
 
 // ---- sonda per le mesh SENZA facce ------------------------------------------
 // Gatto, mano, palle e mobili non passano dal mesher: non hanno una faccia da
-// cui leggere la luce cotta, quindi leggevano l'attributo mancante — "cielo
-// pieno" OVUNQUE. Nella grotta di collaudo il gatto appoggiato alla parete
-// rendeva 1.000 contro lo 0.690 della parete che toccava (45% più chiaro), e la
-// maschera che tiene le luci-sfera dietro i muri per lui valeva 1: il lampione
-// lo illuminava ATTRAVERSO il muro. Qui la luce gliela si SONDA nel punto in cui
-// sta e la si scrive nell'attributo, costante su tutti i vertici.
+// cui leggere la maschera d'occlusione, quindi leggevano l'attributo mancante,
+// cioè "nessuna lampada bloccata" OVUNQUE — e per loro il lampione dall'altra
+// parte del muro illuminava ATTRAVERSO la parete, proprio il difetto che la
+// maschera esiste per togliere. Qui la maschera gliela si SONDA nel punto in cui
+// stanno e la si scrive nell'attributo, costante su tutti i vertici.
 
 // UNA GEOMETRIA, UN PADRONE — e questa è metà del lavoro di scriviLuceEnte.
 // `Object3D.clone()` passa da `Mesh.copy`, che assegna geometria e materiale PER
 // RIFERIMENTO: due lampioni piazzati dallo stesso def condividono lo STESSO
 // BufferGeometry, e il gatto locale e uno remoto condividono il mini-cubo che
-// tengono in mano (GEO_CUBO in mano.js). aLuce sta lì dentro, quindi scrivendoci
+// tengono in mano (GEO_CUBO in mano.js). aOcc sta lì dentro, quindi scrivendoci
 // sopra tutte le istanze finivano coi valori dell'ULTIMA sondata.
-// PROVATO: due lampioni, uno in grotta (atteso [68,51]) e uno in campo aperto
-// (atteso [0,0]), uscivano identici, e quale dei due vincesse dipendeva
+// PROVATO: due lampioni, uno dietro un muro (atteso occluso) e uno in campo
+// aperto (atteso libero), uscivano identici, e quale dei due vincesse dipendeva
 // dall'ordine di `arredo.istanze` — cioè esattamente il difetto che questa sonda
 // esiste per risolvere, sul secondo oggetto più guardato dello schermo.
 // Alla prima collisione la geometria si SGANCIA. Quella nuova RIUSA gli stessi
 // BufferAttribute — stessi buffer in GPU, non si copia un solo vertice — e si
-// tiene per sé soltanto aLuce: due byte per vertice.
+// tiene per sé soltanto aOcc: un byte per vertice.
 // NB: proprio perché i buffer sono condivisi, una geometria sganciata non va
 // mai dispose()-ata (three cancellerebbe gli attributi anche all'originale).
 // Nessuno lo fa: furni e mano si tolgono dalla scena, non si distruggono.
 function sganciaGeometria(g) {
   const n = new THREE.BufferGeometry();
-  // TUTTI gli attributi per riferimento TRANNE aLuce: quello è l'unica cosa che
+  // TUTTI gli attributi per riferimento TRANNE aOcc: quello è l'unica cosa che
   // deve diventare privata, e riportarselo dietro avrebbe rimesso in mano alla
   // copia lo stesso identico buffer da cui si sta scappando.
-  for (const nome in g.attributes) if (nome !== 'aLuce') n.setAttribute(nome, g.attributes[nome]);
+  for (const nome in g.attributes) if (nome !== 'aOcc') n.setAttribute(nome, g.attributes[nome]);
   if (g.index) n.setIndex(g.index);
   for (const gr of g.groups) n.addGroup(gr.start, gr.count, gr.materialIndex);
   n.setDrawRange(g.drawRange.start, g.drawRange.count);
@@ -514,15 +471,19 @@ function sganciaGeometria(g) {
 }
 
 /**
- * Scrive la luce cotta di un punto su tutte le mesh di un oggetto.
- * `cieloManca` e `lume` sono 0..1 (la polarità dell'attributo, vedi GLSL_VERTEX).
- * Costa un fill SOLO quando il valore cambia: è quantizzato a 1/255, quindi per
- * un gatto fermo o un mobile non cambia mai.
+ * Scrive l'occlusione sondata in un punto su tutte le mesh di un oggetto
+ * (`maschera` = bit per SLOT di lampada, 0 = nessuna bloccata: luce libera).
+ *
+ * SENZA QUESTO il gatto non ha facce da interrogare: leggerebbe l'attributo
+ * mancante, cioè "luce libera" OVUNQUE, e in grotta il lampione dall'altra
+ * parte del muro lo illuminerebbe ATTRAVERSO la parete — proprio il difetto che
+ * la maschera esiste per togliere, sull'oggetto più guardato dello schermo.
+ * Costa un fill SOLO quando il valore cambia: per un gatto fermo, mai.
  */
-export function scriviLuceEnte(oggetto, cieloManca, lume) {
-  const cm = Math.round(Math.max(0, Math.min(1, cieloManca)) * 255);
-  const lu = Math.round(Math.max(0, Math.min(1, lume)) * 255);
-  const firma = cm * 256 + lu + 1;               // +1: 0 = "mai scritto"
+export function scriviLuceEnte(oggetto, maschera) {
+  const m = Math.max(0, maschera | 0);
+  const b0 = m & 255, b1 = (m >> 8) & 255, b2 = (m >> 16) & 255;
+  const firma = m + 1;                           // +1: 0 = "mai scritto"
   const padrone = oggetto.id;                    // id three, unico per oggetto
   oggetto.traverse((o) => {
     if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
@@ -535,23 +496,19 @@ export function scriviLuceEnte(oggetto, cieloManca, lume) {
       g.userData.lucePadrone = padrone;
       o.geometry = g;
     }
-    if (g.userData.luceFirma !== firma) {
-      g.userData.luceFirma = firma;
-      const n = g.attributes.position.count;
-      let a = g.getAttribute('aLuce');
-      if (!a || a.count !== n) {
-        a = new THREE.Uint8BufferAttribute(new Uint8Array(n * 2), 2, true);
-        a.setUsage(THREE.DynamicDrawUsage);
-        g.setAttribute('aLuce', a);
-      }
-      const arr = a.array;
-      for (let i = 0; i < arr.length; i += 2) { arr[i] = cm; arr[i + 1] = lu; }
-      a.needsUpdate = true;
+    if (g.userData.luceFirma === firma) return;
+    g.userData.luceFirma = firma;
+    const n = g.attributes.position.count;
+    let a = g.getAttribute('aOcc');
+    if (!a || a.count !== n) {
+      a = new THREE.Uint8BufferAttribute(new Uint8Array(n * 3), 3);
+      a.setUsage(THREE.DynamicDrawUsage);
+      g.setAttribute('aOcc', a);
     }
-    // il flag va acceso QUI e non alla creazione del materiale: dichiarare
-    // "ho i dati" su una mesh che l'attributo non ce l'ha la spegnerebbe
-    const m = o.material;
-    if (m && m.userData && m.userData.uLuceDati) m.userData.uLuceDati.value = 1;
+    for (let i = 0; i < n; i++) {
+      a.array[i * 3] = b0; a.array[i * 3 + 1] = b1; a.array[i * 3 + 2] = b2;
+    }
+    a.needsUpdate = true;
   });
 }
 
@@ -583,7 +540,16 @@ const GLSL_ACQUA_FRAGMENT = /* glsl */`
   uniform float uPioggia;
   uniform float uRiflessoOn;
   uniform float uRiflessoForza;
-  float _schiumaAcqua;   // quanta schiuma qui: usata come EMISSIVA (brilla anche di notte)
+  // dichiarata QUI perché serve al blocco iniettato su <opaque_fragment>, che in
+  // GLSL viene molto più in basso: la dichiarazione deve precedere l'uso
+  uniform float uSchiumaEmiss;
+  // QUANTO BIANCO C'È SU QUESTO PIXEL D'ACQUA, ed è più della sola schiuma: ci
+  // finiscono anche le strisce dello scivolo, le scie di corrente, gli anelli di
+  // pioggia e i filamenti/frangia della cascata (vedi la variabile band, in
+  // fondo a GLSL_ACQUA_COLORE). È voluto — sono tutti spuma, non cose diverse —
+  // ma il nome dice bianco e non schiuma proprio per non far credere che
+  // uSchiumaEmiss accenda solo le rive.
+  float _biancoAcqua;
 
   float lanternaHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   // value-noise morbido: la base di schiuma, wobble e scie (MAI ripetitivo)
@@ -606,7 +572,18 @@ const GLSL_ACQUA_FRAGMENT = /* glsl */`
       float fase = fract(uTempo * (0.8 + 0.4 * h) + h * 7.0);
       vec2 centro = cella + 0.5 + (vec2(h, fract(h * 7.13)) - 0.5) * 0.7;
       float d = length(pk - centro);
-      somma += smoothstep(0.05, 0.0, abs(d - fase * 0.45)) * (1.0 - fase);
+      // ANELLO NETTO, non sfumato: step sul raggio (il cerchio ha uno spessore
+      // vero, non una rampa) e lo spegnimento col tempo va A GRADINI come le
+      // bande delle luci-sfera — con la LORO costante, non con un 3 scritto a
+      // mano che poteva scollegarsi al primo ritocco. Con smoothstep +
+      // (1.0 − fase) ogni anello era un alone grigio che sbiadiva, cioè l'unica
+      // sfocatura in mezzo a uno schermo di tagli netti.
+      // 0.035 è lo SPESSORE dell'anello in unità mondo, cioè poco più di mezzo
+      // pixel di blocco (1 px = 1/16 = 0.0625): l'increspatura di una goccia è
+      // un filo, e a spessore doppio gli anelli si saldavano fra loro appena la
+      // pioggia si infittiva. Il raggio corre fino a 0.45 in una fase intera,
+      // quindi il filo resta sottile per tutta la vita dell'anello.
+      somma += step(abs(d - fase * 0.45), 0.035) * ceil((1.0 - fase) * ${GBANDE}) / ${GBANDE};
     }
     return min(somma, 1.0);
   }
@@ -649,7 +626,11 @@ const GLSL_ACQUA_FRAGMENT = /* glsl */`
         // SOTTILE: a spessore 0.34·r l'anello copriva più area del disco che
         // sostituiva (una corona 0.69→1.41 batte un cerchio di raggio 1.05) e
         // restava un lenzuolo, solo con un buco in mezzo.
-        s = max(s, step(d, im.w * 0.18) * smoothstep(1.0, 0.55, dy));
+        // ANCHE LA QUOTA TAGLIA NETTO. La rampa 1.0÷0.55 sfumava l'anello in
+        // verticale: 0.72 sta comodo fra i suoi due padroni — sopra il massimo
+        // dislivello possibile fra pelo e centro cella (peloDi(0) = 0.4375) e
+        // sotto il gradino di una cella, che è il limite da non superare.
+        s = max(s, step(d, im.w * 0.18) * step(dy, 0.72));
       }
     }
     return s;
@@ -678,7 +659,7 @@ const GLSL_ACQUA_COLORE = /* glsl */`
 {
   float tipoA = vAcqua.z;
   float band = 0.0;
-  _schiumaAcqua = 0.0;
+  _biancoAcqua = 0.0;
   bool pelo = tipoA < 1.5 || (tipoA > 2.5 && tipoA < 3.5);
   if (pelo) {
     float lontano = clamp(distance(cameraPosition, vPosMondo) / 32.0, 0.0, 1.0);
@@ -721,31 +702,75 @@ const GLSL_ACQUA_COLORE = /* glsl */`
     }
     float maschera = anelloImpatti(vPosMondo.xz, vPosMondo.y);   // impatti cascate
     float vivo = lanternaRumore(vPosMondo.xz * 4.6 + uTempo * vec2(1.2, 0.9));
-    // RIVA: UNA SOLA SOGLIA MORBIDA sulla distanza dalla sponda, e il rumore
-    // entra DENTRO la distanza invece di moltiplicare il risultato. È il punto
-    // che fa la differenza: la formula "a cresta" con due smoothstep disegnava
-    // zigzag bianchi netti, perché le sue soglie cadevano sugli spigoli dei
-    // triangoli su cui aRiva è interpolato e si leggeva la trama della mesh.
-    // Sfrangiando la distanza il bordo non ha più una forma geometrica da
-    // seguire, e con una soglia sola non ci sono due bordi che si rincorrono.
-    // La banda ora è larga ~1 cella e mezza (prima esattamente una, e per
-    // forza: aRiva era 0/1) — la schiuma di riva che mancava.
-    // L'APERTURA è il guardiano dei canali stretti: lì la distanza è ~0 su tutta
-    // la cella e da sola dipingerebbe tutto di bianco.
-    // Le soglie sono tarate sui valori VERI prodotti dal mesher, non a occhio.
+    // RIVA: UNA SOGLIA SOLA E NETTA, ed è il rilievo del committente ("la
+    // schiuma ai bordi è troppo sfocata, voglio qualcosa di più nitido senza
+    // sfocature, netto come l'ombra del player e le fake pointlight").
+    // Qui c'erano DUE smoothstep in cascata — sulla distanza e sull'apertura —
+    // cioè due rampe moltiplicate fra loro: misurato sulla pozza della cascata,
+    // il bordo era una transizione di 153 px (2 celle) con 25 livelli di grigio
+    // distinti, contro gli 0 px e i 3 livelli della banda di una luce-sfera
+    // NELLO STESSO fotogramma. Era l'unica sfocatura di tutto lo schermo.
+    //
+    // QUANTO NETTO, misurato con la STESSA metrica sui tre fenomeni, ognuno
+    // isolato per differenza di uniform (larghezza del fronte = run di variazioni
+    // consecutive; 0 px intermedi = un solo salto fra due plateau piatti):
+    //   schiuma di riva ..... 0.29 px intermedi medi (n=1493, mai oltre 1)
+    //   bande luci-sfera .... 0.37 (n=2994)
+    //   ombra del gatto ..... 0.28 (n=1079)
+    // La schiuma taglia quindi esattamente come i due metri di paragone che il
+    // committente ha dato — ed è l'unica delle tre a non avere NEMMENO un fronte
+    // più largo di un pixel. Ma non è letteralmente zero, e nemmeno le luci-sfera
+    // lo sono: scrivere «0 px» sarebbe una promessa che il primo che rimisura
+    // smonta, perché su un bordo obliquo un pixel di mezzo tono ci finisce sempre.
+    // ATTENZIONE: quei numeri valgono col TILT-SHIFT SPENTO. Il blur di
+    // post-processing in renderer.js lo accende il tuner adattivo di qualità, e
+    // quando è acceso sfoca allo stesso modo il bordo della schiuma, le bande
+    // delle sfere e il disco dell'ombra — cioè tutte e tre le misure insieme.
+    //
+    // LA BANDA SI ASSOTTIGLIA PER COPERTURA, NON PER OPACITÀ, e questo è il
+    // punto: ogni pixel è schiuma piena o acqua, mai una via di mezzo, e a
+    // sfrangiare il bordo è il rumore dentro la distanza. Il risultato è
+    // speckle a taglio vivo — la stessa idea del step(0.72, …) di prima della
+    // regressione, ma sui valori nuovi del mesher (che sono migliori: una
+    // distanza vera invece di un 0/1, e l'apertura che i canali li riconosce).
+    // L'ampiezza 0.44 è metà banda per lato: alla sponda (distanza 0.104) la
+    // schiuma è quasi piena, a una cella dentro (0.541) è già finita.
+    //
+    // Le soglie stanno sui valori VERI prodotti dal mesher, non a occhio.
     // Distanza: le uniche tre distinte sono 0.104 (angolo sulla sponda), 0.541
     // (angolo una cella dentro) e 1 — coerenti col calcolo geometrico, perché
     // sqrt(0.5)−0.5 = 0.2071 e sqrt(2.5)−0.5 = 1.0811, entrambe diviso 2.
-    // Apertura: adesso è una LARGHEZZA in celle diviso 5 (vedi rivaCella), e i
-    // valori possibili sono pochi e noti — canale largo 1 = 0.20, largo 2 =
-    // 0.40, largo 3 = 0.60, e uno specchio d'acqua non scende MAI sotto 0.60
-    // (la sua cella d'angolo ha 3 celle libere per verso). La rampa 0.34÷0.58 ci
-    // si appoggia sopra: il canale da 1 resta a zero com'era, quello da 2 tiene
-    // un accenno (0.16) invece della lastra bianca misurata prima, e da 3 celle
-    // in su la schiuma è PIENA. Prima la rampa finiva a 0.44 e tagliava al 64%
-    // la schiuma delle celle di bordo della pozza, che valevano 0.36.
-    float dRiva = vRiva.x + (frasta - 0.5) * 0.30;
-    float schiumaRiva = smoothstep(0.52, 0.08, dRiva) * smoothstep(0.34, 0.58, vRiva.y);
+    float dRiva = vRiva.x + (frasta - 0.5) * 0.44;
+    // L'APERTURA È IL GUARDIANO DEI CANALI STRETTI e resta, ma anche lei taglia
+    // netto: è un interruttore 0/1, quindi non può rimettere in mezzo nessuna
+    // sfumatura — il prodotto di due step vale 0 oppure 1, mai 0.37.
+    // In un canale largo una cella la sponda è addosso a TUTTI e quattro gli
+    // angoli: la distanza vale ~0 su tutta la cella e qualunque soglia
+    // dipingerebbe il canale di bianco pieno (il "foglio bianco" già visto).
+    // I valori sono pochi e noti (vedi rivaCella): largo 1 = 0.20, largo 2 =
+    // 0.40, largo 3 = 0.60, e uno specchio d'acqua non scende MAI sotto 0.60.
+    // La soglia a 0.50 fa passare da 3 celle in su: sotto, la cella è tutta
+    // sponda e la schiuma sarebbe una lastra, non un bordo.
+    // 0.30 È LA MEZZERIA FRA I DUE VALORI CHE IL MESHER PRODUCE DAVVERO, non un
+    // numero scelto a occhio: 0.104 (angolo sulla sponda) e 0.541 (angolo una
+    // cella dentro) hanno come punto medio 0.32, e tagliando lì la banda cade
+    // esattamente fra i due — la sponda dentro, la cella successiva fuori. Col
+    // rumore di ±0.22 sopra, la fascia larga ~0.37 celle che ne esce è quella
+    // vista a schermo.
+    // SU UNA POZZA PICCOLA LA FASCIA PESA, ed è geometria pura, non un difetto.
+    // La banda entra ~0.37 celle da ogni sponda, quindi su una vasca quadrata di
+    // lato N la schiuma copre 1 − ((N − 0.74)/N)²: il 43% a N=3, il 27% a N=5, il
+    // 20% a N=7. (Le percentuali contate a schermo dipendono dall'inquadratura —
+    // con la pozza che sborda dal fotogramma scendono parecchio — quindi il
+    // numero da citare è questo, che non dipende da dove sta la camera.)
+    // VERIFICATO che non è il «foglio bianco» già visto: rigenerando la scena e
+    // costruendo le vasche una per una, il pixel centrale resta acqua azzurra
+    // (97,170,195) da N=3 in su, e a N=1 e N=2 l'apertura spegne tutto.
+    // Resta però che una pozza di tre celle si legge più come vassoio bianco col
+    // centro blu che come specchio d'acqua bordato: chi vorrà stringere la banda
+    // scenda l'ampiezza del rumore qui sopra, non questa soglia, che è agganciata
+    // alle distanze vere del mesher.
+    float schiumaRiva = step(dRiva, 0.30) * step(0.50, vRiva.y);
     // silhouette e SCIA (il RT sfuma la storia): chiazze che vivono col tempo
     float schiumaSag = step(0.62, sagoma * (0.55 + 0.55 * vivo));
     float schiuma = max(max(schiumaRiva, maschera), schiumaSag);
@@ -768,7 +793,11 @@ const GLSL_ACQUA_COLORE = /* glsl */`
       vec2 pf = vPosMondo.xz - dir * uTempo * 1.5;
       float lungo = dot(pf, dir) + vPosMondo.y * 1.15;
       float trasv = dot(pf, vec2(-dir.y, dir.x));
-      float strisce = smoothstep(0.60, 0.90, lanternaRumore(vec2(lungo * 1.05, trasv * 3.0))) * 0.7;
+      // step e non smoothstep: le strisce sono nastri a bordo vivo, non aloni.
+      // 0.75 è il CENTRO della vecchia rampa 0.60÷0.90 — stessa regola di filo e
+      // frangia più sotto: prendendo la mediana la quantità di bianco resta
+      // quella già tarata a schermo e a cambiare è solo il contorno.
+      float strisce = step(0.75, lanternaRumore(vec2(lungo * 1.05, trasv * 3.0))) * 0.7;
       band = max(band, strisce);
       diffuseColor.a = min(1.0, diffuseColor.a + strisce * 0.25);
     } else if (tipoA >= 0.5) {
@@ -777,7 +806,8 @@ const GLSL_ACQUA_COLORE = /* glsl */`
       float lungoF = dot(pf, vAcqua.xy);
       float traverso = dot(pf, vec2(-vAcqua.y, vAcqua.x));
       float scia = lanternaRumore(vec2(lungoF * 0.9, traverso * 3.5));
-      band = max(band, smoothstep(0.68, 0.86, scia) * 0.3);
+      // 0.77 = centro della vecchia rampa 0.68÷0.86, come le strisce qui sopra
+      band = max(band, step(0.77, scia) * 0.3);
     }
 
     // pioggia: anelli bianchi sul pelo (solo quando piove)
@@ -788,22 +818,25 @@ const GLSL_ACQUA_COLORE = /* glsl */`
     // prima step(0.35) copriva i 2/3 della faccia → tutta bianca)
     float colonna = lanternaRumore(vec2((vPosMondo.x + vPosMondo.z) * 1.9, floor(vPosMondo.y * 0.6)));
     float scorri = sin(vPosMondo.y * 4.8 + uTempo * 5.4 + colonna * 9.0);
-    float filo = smoothstep(0.72, 0.96, scorri) * 0.7;
+    // FILAMENTI A TAGLIO VIVO: le due rampe qui sfumavano i bordi dei filamenti
+    // e della frangia — le soglie sono al centro delle rampe di prima, così la
+    // quantità di bianco resta quella tarata ma il contorno diventa netto.
+    float filo = step(0.84, scorri) * 0.7;
     // sottile frangia al ciglio (dove trabocca), non su tutta l'altezza
-    float frangia = smoothstep(0.82, 0.98, lanternaRumore(vPosMondo.xz * 3.1) * 0.4 + fract(-vPosMondo.y) * 0.6) * 0.6;
+    float frangia = step(0.90, lanternaRumore(vPosMondo.xz * 3.1) * 0.4 + fract(-vPosMondo.y) * 0.6) * 0.6;
     band = max(filo, frangia);
     diffuseColor.a = min(1.0, diffuseColor.a + band * 0.25);
   }
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), band);
-  _schiumaAcqua = band;         // la schiuma brillerà (emissiva) anche al buio
+  // TUTTO il bianco di questo pixel, schiuma di riva compresa: è quello che
+  // uSchiumaEmiss dosa (vedi la dichiarazione di _biancoAcqua).
+  _biancoAcqua = band;
 }
 `;
 
 export function patchAcqua(materiale) {
-  const uDati = { value: 1 };            // l'acqua passa dal mesher: aLuce ce l'ha
-  materiale.userData.uLuceDati = uDati;
   materiale.onBeforeCompile = (shader) => {
-    iniettaLanterna(shader, uDati);
+    iniettaLanterna(shader);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\n' + GLSL_ACQUA_VERTEX)
       .replace('#include <begin_vertex>',
@@ -835,38 +868,38 @@ vRiflessoUv = uRiflessoMat * vec4((modelMatrix * vec4(transformed, 1.0)).xyz, 1.
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\n' + GLSL_ACQUA_FRAGMENT)
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + GLSL_ACQUA_COLORE)
-      // la schiuma è EMISSIVA: si aggiunge DOPO l'illuminazione lanterna, così
-      // resta bianca e visibile anche di notte (prima veniva moltiplicata per
-      // l'ambiente scuro → schiuma "nera")
+      // UN FILO di luce propria, non una lampada. L'additivo serve ancora — senza,
+      // il bianco verrebbe moltiplicato per l'ambiente scuro e di notte
+      // diventerebbe grigio-blu come l'acqua, cioè invisibile — ma la dose adesso
+      // si regola da uSchiumaEmiss invece di essere murata a 0.85, che clampava
+      // la schiuma a 255 a ogni ora del giorno.
+      //
+      // × _ombraTot, E NON È UN DETTAGLIO: questa riga viene DOPO la composizione,
+      // cioè dopo che ombra delle nuvole e ombra del gatto hanno già moltiplicato
+      // outgoingLight. Sommare qui un termine che quelle ombre non hanno visto
+      // vuol dire schiarire di nuovo ciò che era appena stato scurito, e a dose
+      // alta l'ombra sulla schiuma spariva del tutto. Moltiplicandolo per la
+      // stessa ombra, il filo di luce si spegne dove si spegne tutto il resto.
       .replace('#include <opaque_fragment>',
-        'outgoingLight += _schiumaAcqua * vec3(0.85);\n#include <opaque_fragment>');
+        'outgoingLight += vec3(_biancoAcqua * uSchiumaEmiss * _ombraTot);\n#include <opaque_fragment>');
   };
   materiale.customProgramCacheKey = () => 'lanterna-acqua';
   return materiale;
 }
 
+/** IL GIORNO E LA NOTTE SONO QUESTO, e basta questo: il ciclo (daynight.js)
+ *  chiama qui a ogni frame col colore dell'ora, le lampade si sommano sopra e
+ *  LE MESH NON SI RICOSTRUISCONO MAI — cambia un solo numero. */
 export function impostaAmbiente(colore) {
   uniformi.uAmbiente.value.copy(colore);
-  // IL CICLO GIORNO/NOTTE DELLA LUCE COTTA NASCE QUI, e non serve altro: il
-  // ciclo chiama questa funzione a ogni frame col colore d'ambiente, e la sua
-  // LUMINANZA diventa uOraLuce, cioè quanto pesa il canale CIELO. Al calare
-  // della sera il cielo si spegne, le zone che vedevano solo il sole scivolano
-  // in ombra e resta acceso solo ciò che le lanterne raggiungono — che dall'ora
-  // non dipende. LA MESH NON SI RICOSTRUISCE MAI: cambia un solo numero.
-  const l = colore.r * 0.299 + colore.g * 0.587 + colore.b * 0.114;
-  uniformi.uOraLuce.value = Math.max(0, Math.min(1, l));
 }
 
-/** Il cielo dell'ora corrente e quanto TINGE il terreno (vedi lanternaAlbedo).
- *  Lo chiama il ciclo giorno/notte insieme a impostaAmbiente. */
-export function impostaTintaCielo(colore, forza) {
-  uniformi.uColoreCielo.value.copy(colore);
-  uniformi.uTintaCielo.value = Math.max(0, Math.min(1, forza));
-}
-
-/** Interruttore della luce cotta (Impostazioni). Spenta = tutto com'era prima. */
-export function impostaLuceCotta(attiva) {
-  uniformi.uLuceCotta.value = attiva ? 1 : 0;
+/** Interruttore dell'occlusione (Impostazioni). Spenta = le luci-sfera tornano
+ *  ad attraversare i muri, cioè esattamente com'erano prima della maschera.
+ *  (Si chiamava impostaLuceCotta: il nome veniva dal modello a due canali cotti
+ *  nei vertici, che non esiste più — qui si cuoce solo una maschera di bit.) */
+export function impostaOcclusione(attiva) {
+  uniformi.uOcclusione.value = attiva ? 1 : 0;
 }
 
 /** Le uniform condivise: per ispezionarle e tararle dal vivo (debug/console). */
@@ -898,6 +931,17 @@ export function statLuci() {
 
 const _ordinabili = [];
 
+// COME SI CHIAMA QUESTA LAMPADA NELLA MASCHERA. Le sfere si riordinano a ogni
+// frame (le LUCI_MAX più vicine al giocatore), i bit cotti nei vertici no: il
+// ponte fra i due è lo SLOT, che la griglia d'occlusione assegna per cella.
+// Finché nessuno lo collega, la risposta è −1 = "nessuna maschera": le luci
+// tornano ad attraversare i muri, che è il ripiego giusto per l'Officina e per i
+// ghost, dove una griglia non c'è proprio.
+let _slotDiLuce = () => -1;
+
+/** Collega il risolutore degli slot (main.js: lo sa il mesher). */
+export function impostaRisolutoreSlot(fn) { _slotDiLuce = fn || (() => -1); }
+
 /** Da chiamare una volta per frame: sceglie le LUCI_MAX più vicine al fuoco (player). */
 export function aggiornaLuci(fuoco) {
   _ordinabili.length = 0;
@@ -909,10 +953,12 @@ export function aggiornaLuci(fuoco) {
     _ordinabili.sort((a, b) => a.pos.distanceToSquared(fuoco) - b.pos.distanceToSquared(fuoco));
     _ordinabili.length = LUCI_MAX;
   }
+  const slot = uniformi.uLuciSlot.value;
   for (let i = 0; i < _ordinabili.length; i++) {
     const l = _ordinabili[i];
     uniformi.uLuciPosRaggio.value[i].set(l.pos.x, l.pos.y, l.pos.z, l.raggio);
     uniformi.uLuciColore.value[i].set(l.colore.r, l.colore.g, l.colore.b, l.intensita);
+    slot[i] = _slotDiLuce(l);
   }
   uniformi.uLuciNum.value = _ordinabili.length;
 }
@@ -922,9 +968,7 @@ export function aggiornaLuci(fuoco) {
 
 let _matMondo = null;
 export function materialeMondo() {
-  // conDati: i chunk arrivano dal mesher, l'attributo aLuce ce l'hanno sempre
-  // (tranne a interruttore spento — e lì la maschera è già disattivata a monte)
-  if (!_matMondo) _matMondo = patchLuci(new THREE.MeshBasicMaterial({ vertexColors: true }), true);
+  if (!_matMondo) _matMondo = patchLuci(new THREE.MeshBasicMaterial({ vertexColors: true }));
   return _matMondo;
 }
 

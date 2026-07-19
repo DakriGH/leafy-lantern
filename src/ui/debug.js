@@ -8,12 +8,21 @@ import { CHUNK } from '../world/world.js';
 import { elencoLuci, statLuci, statImpatti } from '../fx/materials.js';
 import { FISICA } from '../config.js';
 
-/** Le tre condizioni della luce cotta, distinte: spenta dall'utente, mondo
- *  vuoto, oppure troppo grande per il paracadute. Prima erano una riga sola. */
-function luceTesto(st) {
-  if (st.luceTroppoGrande) return `⚠ mondo troppo grande (${(st.luceTroppoGrande / 1e6).toFixed(2)}M celle): non calcolata`;
-  if (!st.luceCelle) return 'spenta (interruttore o mondo vuoto)';
-  return `${(st.luceCelle / 1000).toFixed(0)}k celle · ultimo agg. ${st.luceMs.toFixed(1)} ms${st.luceLocali ? ` (${st.luceLocali} celle)` : ''}`;
+/** Le tre condizioni della maschera d'occlusione, distinte: spenta dall'utente,
+ *  mondo vuoto, oppure troppo grande per il paracadute. Erano una riga sola, e
+ *  un guasto travestito da preferenza è il modo migliore per non accorgersene. */
+function luceTesto(st, gu) {
+  if (st.occTroppoGrande) return `⚠ mondo troppo grande (${(st.occTroppoGrande / 1e6).toFixed(2)}M celle): non calcolata`;
+  if (!st.occCelle) return 'spenta (interruttore o mondo vuoto)';
+  // I TRE GUASTI CHE DEGRADEREBBERO IN SILENZIO. Tutti e tre riportano le luci a
+  // passare i muri, ma senza dire niente: un chunk senza attributo, una lampada
+  // senza slot e un raggio più lungo della maschera si vedono solo se contati.
+  // Costano una riga e tolgono una caccia.
+  const av = [];
+  if (gu.slotEsauriti) av.push(`⚠ ${gu.slotEsauriti} lampade senza slot`);
+  if (gu.occScartate) av.push(`⚠ ${gu.occScartate} chunk senza maschera`);
+  if (gu.raggiTroncati) av.push(`⚠ ${gu.raggiTroncati} raggi troncati`);
+  return `${(st.occCelle / 1000).toFixed(0)}k celle · ultimo agg. ${st.occMs.toFixed(1)} ms${st.occLocali ? ` (${st.occLocali} celle)` : ''}${av.length ? ' · ' + av.join(' · ') : ''}`;
 }
 
 const HTML = /* html */`
@@ -347,13 +356,13 @@ export class MenuDebug {
     this.elStat.textContent =
       `${this._fps} fps · ${(info.triangles / 1000).toFixed(1)}k tri · ${info.calls} draw\n` +
       `${this.mondo.contaBlocchi} blocchi · ${st.chunkAttivi} chunk · rimesh ${st.ultimaMs.toFixed(1)} ms\n` +
-      // luceMs è il costo dell'ULTIMO aggiornamento: quasi sempre quello LOCALE
+      // occMs è il costo dell'ULTIMO aggiornamento: quasi sempre quello LOCALE
       // (poche celle, frazioni di ms), non la griglia intera. Il conteggio delle
       // celle è invece la taglia della griglia, che cambia solo coi ricalcoli pieni.
       // TRE STATI, TRE ETICHETTE: "spenta" era la stessa riga anche quando il
       // paracadute LUCE_LIMITE_CELLE scattava, cioè un guasto travestito da
       // preferenza dell'utente.
-      `luce cotta ${luceTesto(st)}\n` +
+      `occlusione ${luceTesto(st, this.mesher.guasti())}\n` +
       `luci ${luci.attive}/${luci.totali} (inviate ${luci.inviate}) · furni ${this.arredo.istanze.length}\n` +
       `anelli d'impatto ${imp.mostrati}/${imp.totali}${imp.totali > imp.mostrati ? ' ⚠ oltre il tetto' : ''}\n` +
       `gatto ${this.controller.pos.x.toFixed(1)}, ${this.controller.pos.y.toFixed(1)}, ${this.controller.pos.z.toFixed(1)}${this.controller.vola ? ' · ✈️' : ''}`;

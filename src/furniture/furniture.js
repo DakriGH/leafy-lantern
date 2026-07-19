@@ -31,7 +31,7 @@ export class Arredo {
     this.mondo = mondo;
     this.istanze = [];
     this.onEvento = null;
-    this.onLuce = null;        // un lampione si è acceso/spento: rifare la luce cotta
+    this.onLuce = null;        // un lampione si è acceso/spento: rifare la maschera
   }
 
   /** Controlla se un furni può stare lì. Ritorna {ok, motivo}. */
@@ -127,7 +127,7 @@ export class Arredo {
     const accesa = !!(stato && stato.luce);
     if (istanza.luce && istanza.luce.attiva !== accesa) {
       istanza.luce.attiva = accesa;
-      // la luce COTTA deve seguire l'interruttore, non solo la sfera: avvisa chi
+      // la MASCHERA d'occlusione deve seguire l'interruttore, non solo la sfera: avvisa chi
       // di dovere (main.js → mesher.verificaLuciFurni). Un solo punto per tutti
       // i modi di accendere un lampione: click, menu debug, ciclo giorno/notte.
       if (this.onLuce) this.onLuce(istanza);

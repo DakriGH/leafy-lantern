@@ -26,7 +26,7 @@ export class Mondo {
     this.furni = new Map();          // "x,y,z" → istanza furni che occupa la cella
     this.contaBlocchi = 0;
     this.onEvento = null;
-    // CELLE cambiate (x,y,z appiattiti), non chunk: la luce cotta si aggiorna
+    // CELLE cambiate (x,y,z appiattiti), non chunk: la maschera d'occlusione si aggiorna
     // in modo incrementale e ha bisogno di sapere DOVE, non solo dove rimeshare.
     // L'acqua non entra qui: non ferma la luce e non ne emette, e la sua
     // simulazione tocca celle di continuo.

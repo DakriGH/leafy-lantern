@@ -23,7 +23,7 @@ import { Meteo } from './fx/meteo.js';
 import { Inventario, ATTREZZI } from './gioco/inventario.js';
 import { Scavo, DUREZZE } from './gioco/scavo.js';
 import { CicloGiorno } from './fx/daynight.js';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, rimuoviLuce, impostaLuceCotta, uniformiCondivise, scriviLuceEnte } from './fx/materials.js';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, scriviLuceEnte, impostaRisolutoreSlot } from './fx/materials.js';
 import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js';
 import { ModalitaAR } from './ar/ar.js';
 import { Nuvole } from './fx/nuvole.js';
@@ -107,23 +107,28 @@ const mesher = new Mesher(rig.scena);
 const ciclo = new CicloGiorno(rig.scena);
 const hud = new HUD();
 const arredo = new Arredo(rig.scena, mondo);
-// Le sorgenti della luce cotta che NON sono blocchi: i lampioni dei furni.
-// È una funzione, non un elenco copiato, così è sempre quella di adesso — e il
-// mesher non deve sapere niente dell'arredo. Si cuociono sempre accese: il
-// canale serve da maschera d'occlusione, e la sfera è già spenta di giorno.
-// UN LAMPIONE SPENTO NON DEVE ILLUMINARE. L'handle `i.luce` esiste appena il
-// furni ha uno stato con luce, quindi filtrando solo su quello si cuoceva anche
-// lo stato "Spento": l'alone spariva ma la stanza restava accesa (+39% sulla
-// parete) e virava all'arancione — un interruttore che non spegne. Cuocere lo
-// stato vero costa una rilluminazione quando si preme l'interruttore e due al
-// giorno per i lampioni automatici: con l'aggiornamento incrementale è lavoro
-// locale alla lampada, non più una scansione dell'intero mondo.
+// Le sorgenti della maschera d'occlusione che NON sono blocchi: i lampioni dei
+// furni. È una funzione, non un elenco copiato, così è sempre quella di adesso —
+// e il mesher non deve sapere niente dell'arredo.
+// UN LAMPIONE SPENTO NON HA MASCHERA. L'handle `i.luce` esiste appena il furni
+// ha uno stato con luce, quindi filtrando solo su quello entrava anche lo stato
+// "Spento": la maschera restava aperta dove la lampada non illumina più. Costa
+// un aggiornamento locale quando si preme l'interruttore e due al giorno per i
+// lampioni automatici.
+// Il raggio NON si arrotonda: è quello vero della sfera (4.6 per il lampione),
+// e la maschera deve coprire esattamente ciò che la sfera illumina.
 mesher.sorgentiExtra = () => arredo.istanze
   .filter((i) => i.luce && i.luce.attiva && i.luce.intensita > 0)
   .map((i) => ({
     x: Math.floor(i.luce.pos.x), y: Math.floor(i.luce.pos.y), z: Math.floor(i.luce.pos.z),
-    livello: Math.round(i.luce.raggio),
+    raggio: i.luce.raggio,
   }));
+// IL PONTE FRA LA SFERA E IL BIT COTTO. Lo shader disegna le lampade in ordine
+// di vicinanza al giocatore (l'ordine cambia a ogni frame), mentre i bit nei
+// vertici sono fissi: lo slot dice a quale bit guardare. La chiave è la CELLA,
+// ed è la stessa da cui sorgentiExtra costruisce le sorgenti — un Math.floor
+// della posizione della sfera, per i blocchi come per i lampioni d'arredo.
+impostaRisolutoreSlot((l) => mesher.slotLuce(l.pos));
 const gatto = new Gatto();
 rig.scena.add(gatto.gruppo);
 const mano = new ManoStrumento(gatto.gruppo);
@@ -222,7 +227,7 @@ function impostaPosa(id) {
 }
 
 ciclo.onFase = (eNotte) => arredo.aggiornaNotte(eNotte);
-// Un lampione che si accende o si spegne cambia la luce COTTA, non solo la sua
+// Un lampione che si accende o si spegne cambia la MASCHERA d'occlusione, non solo la sua
 // sfera: l'arredo lo dice qui e il mesher rifà la zona. Il giro passa da un
 // unico punto (Arredo._applicaStato) invece che dai cinque posti da cui si può
 // premere un interruttore — l'interruttore del menu debug incluso.
@@ -1052,7 +1057,7 @@ function gestisciLuceBlocco(e) {
       }));
     }
   }
-  // una lampada comparsa o sparita cambia la luce cotta anche nei chunk vicini,
+  // una lampada comparsa o sparita cambia la maschera anche nei chunk vicini,
   // fin dove arriva il suo raggio: vanno rifatti, o la sfera resterebbe
   // mascherata a zero e la lampada sembrerebbe rotta
   if (raggio > 0) mesher.sporcaLuce(mondo, e.cella, raggio);
@@ -1983,13 +1988,19 @@ function applicaOpzioni(salva = true) {
   modalitaAR.impostaAssetto(opzioni.arRot, opzioni.arScala);
   modalitaXR.impostaAssetto(opzioni.arRot, opzioni.arScala);
   impostaForzaRiflesso(opzioni.riflForza);
-  // LUCE COTTA: lo shader la spegne all'istante (una uniform), ma spento il
-  // mesher può anche smettere di calcolare la griglia — e quello richiede di
-  // rifare la mesh, una volta sola, solo quando l'interruttore cambia davvero.
-  const luceOra = opzioni.luceCotta !== false;
-  impostaLuceCotta(luceOra);
-  if (mesher.luceAttiva !== luceOra) {
-    mesher.luceAttiva = luceOra;
+  // OCCLUSIONE DELLE LUCI-SFERA: lo shader la spegne all'istante (una uniform),
+  // ma spento il mesher può anche smettere di calcolare la griglia — e quello
+  // richiede di rifare la mesh, una volta sola, solo quando l'interruttore
+  // cambia davvero.
+  // LA CHIAVE SALVATA SI CHIAMA ANCORA `luceCotta`, ed è voluto: sta dentro
+  // `lantern.opzioni.v1` nel localStorage di chi gioca, e rinominarla vorrebbe
+  // dire riportare l'interruttore al valore di fabbrica a tutti quelli che
+  // l'avevano spento. Il nome è vecchio (veniva dai due canali di luce cotti nei
+  // vertici, che non esistono più), il dato no.
+  const occlusioneOra = opzioni.luceCotta !== false;
+  impostaOcclusione(occlusioneOra);
+  if (mesher.occlusioneAttiva !== occlusioneOra) {
+    mesher.occlusioneAttiva = occlusioneOra;
     mesher.ricostruisciTutto(mondo);
   }
   riflessiUtente = opzioni.riflessi;
@@ -2248,23 +2259,22 @@ function adattaQualita(fps) {
   }
 }
 
-// ---- luce cotta di chi NON passa dal mesher ---------------------------------
-// Gatto, mano, palle e mobili non hanno facce da interrogare: leggevano
-// l'attributo mancante, cioè "cielo pieno" OVUNQUE. Nella grotta di collaudo il
-// gatto appoggiato alla parete rendeva 1.000 contro lo 0.690 della parete che
-// toccava, e la maschera che tiene le luci-sfera dietro i muri per lui valeva 1
-// — il lampione lo illuminava ATTRAVERSO il muro, cioè proprio il difetto che
-// questa feature esiste per risolvere, sull'oggetto più guardato dello schermo.
-// Qui la luce gliela si SONDA nella cella dove stanno, una volta per frame.
+// ---- occlusione di chi NON passa dal mesher ---------------------------------
+// Gatto, mano, palle e mobili non hanno facce da interrogare: leggerebbero
+// l'attributo mancante, cioè "luce libera" OVUNQUE, e dietro un muro il
+// lampione li illuminerebbe ATTRAVERSO la parete — proprio il difetto che la
+// maschera esiste per togliere, sull'oggetto più guardato dello schermo.
+// Qui l'occlusione gliela si SONDA nella cella dove stanno, una volta per frame.
 // Le creature restano fuori apposta: farfalle e lucciole condividono geometrie
-// fra istanze e la sonda si pesterebbe i piedi da sola. Non avendo dati, per
-// loro tutto resta com'era prima (nessun effetto), che è la polarità giusta.
-const _sondaLuce = [0, 0];
+// fra istanze e la sonda si pesterebbe i piedi da sola. Non avendo l'attributo,
+// per loro tutto resta com'era prima (nessuna occlusione), che è la polarità
+// giusta — e sono minuscole e in volo, dove un muro non le nasconde comunque.
 let _sondaFurni = 0;
-/** `alzata` = quanto sopra i piedi si legge la luce: 0.5 (mezzo blocco) è
- *  l'altezza del corpo di un gatto, i furni la calcolano sul loro modello. */
+/** `alzata` = quanto sopra i piedi si legge: 0.5 (mezzo blocco) è l'altezza del
+ *  corpo di un gatto, i furni la calcolano sul loro modello. */
 function luceSuEnte(oggetto, x, y, z, alzata = 0.5) {
-  if (mesher.sonda(x, y + alzata, z, _sondaLuce)) scriviLuceEnte(oggetto, _sondaLuce[0], _sondaLuce[1]);
+  const occ = mesher.sonda(x, y + alzata, z);
+  if (occ >= 0) scriviLuceEnte(oggetto, occ);
 }
 /** Quanto sopra la sua cella di base va sondato un furni: METÀ ALTEZZA del
  *  modello. Si leggeva a +0.5, cioè la luce del PAVIMENTO: un lampione è alto
@@ -2286,11 +2296,9 @@ function aggiornaLuceEnti(dt) {
   const tutti = _sondaFurni <= 0;
   if (tutti) _sondaFurni = 0.4;
   for (const ist of arredo.istanze) {
-    // I NUOVI SI SONDANO SUBITO. Il materiale di un def è condiviso fra le
-    // istanze, quindi appena UNA viene sondata quel materiale dichiara "ho i
-    // dati cotti" per tutte: un furni appena piazzato che aspettasse il turno
-    // leggerebbe l'attributo mancante e per mezzo secondo resterebbe senza la
-    // sua luce-sfera.
+    // I NUOVI SI SONDANO SUBITO, senza aspettare il turno: un mobile appena
+    // posato dietro un muro leggerebbe l'attributo mancante (= luce libera) e
+    // per mezzo secondo si vedrebbe illuminato da una lampada che non lo vede.
     if (!tutti && ist.sondata) continue;
     ist.sondata = true;
     luceSuEnte(ist.gruppo, ist.cella[0] + 0.5, ist.cella[1], ist.cella[2] + 0.5, alzataSonda(ist));
