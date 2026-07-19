@@ -15,7 +15,7 @@
 // in cache (Cache API).
 
 import * as THREE from 'three';
-import { impostaMondoInv } from '../fx/materials.js?v=mrsbzwyi';
+import { impostaMondoInv } from '../fx/materials.js?v=mrsd6jrw';
 
 const URL_MIND = './AR-Marker/marker-lanterna.mind';
 const URL_MARKER = './AR-Marker/marker-lanterna.png';
@@ -83,7 +83,7 @@ export class ModalitaAR {
     this.inAvvio = true;
     try {
       const [{ MindARThree }, { Compiler }] = await Promise.all([
-        import('./vendor/mindar-image-three.js?v=mrsbzwyi'),
+        import('./vendor/mindar-image-three.js?v=mrsd6jrw'),
         import('../../node_modules/mind-ar/dist/mindar-image.prod.js'),
       ]);
 

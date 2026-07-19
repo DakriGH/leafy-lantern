@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=mrsbzwyi';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mrsbzwyi';
-import { FISICA } from '../config.js?v=mrsbzwyi';
+import { CHUNK } from '../world/world.js?v=mrsd6jrw';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mrsd6jrw';
+import { FISICA } from '../config.js?v=mrsd6jrw';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -26,6 +26,12 @@ function luceTesto(st, gu) {
 
 const HTML = /* html */`
   <div class="dbg-testa"><span>🐞 Debug</span><button data-az="chiudi" title="Chiudi (F3)">×</button></div>
+
+  <div class="dbg-sez">
+    <button data-az="diagnostica" title="Prova TUTTO sul tuo dispositivo e scarica un file con i risultati"
+      style="width:100%;min-height:52px;padding:12px;border-radius:12px;border:1px solid rgba(124,255,176,.5);background:linear-gradient(90deg,rgba(91,209,255,.22),rgba(124,255,176,.22));color:#eaf3ff;font:700 15px/1.3 system-ui,Segoe UI,Roboto,sans-serif;cursor:pointer">📊 Diagnostica completa (scarica report)</button>
+    <div style="font-size:11px;opacity:.6;margin-top:4px">~20‑30s: misura fps, CPU e GPU sul mondo attuale, poi scarica un file. Il mondo NON viene toccato.</div>
+  </div>
 
   <div class="dbg-sez"><pre class="dbg-stat" data-el="stat">…</pre></div>
 
@@ -241,6 +247,7 @@ export class MenuDebug {
     if (!b) return;
     const az = b.getAttribute('data-az');
     if (az === 'chiudi') this.toggle(false);
+    else if (az === 'diagnostica') { if (this.azioni.diagnostica) this.azioni.diagnostica(); return; }
     else if (az === 'ora') { this.ciclo.t = Number(b.getAttribute('data-t')); this.ciclo.aggiorna(0); }
     else if (az === 'pausa') { this.ciclo.auto = !this.ciclo.auto; this.sincronizza(); }
     else if (az === 'vel') { this.ciclo.durata = Number(b.getAttribute('data-d')); this.ciclo.auto = true; this.sincronizza(); this.hud.toast(`Giorno di ${this.ciclo.durata}s`); }

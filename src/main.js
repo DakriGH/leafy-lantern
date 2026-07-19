@@ -1,56 +1,57 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrsbzwyi';
-import { Rig } from './engine/renderer.js?v=mrsbzwyi';
-import { Input } from './engine/input.js?v=mrsbzwyi';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrsbzwyi';
-import { Cadenza } from './engine/cadenza.js?v=mrsbzwyi';
-import { GpuProfiler } from './engine/gpuTimer.js?v=mrsbzwyi';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrsbzwyi';
-import { Mondo } from './world/world.js?v=mrsbzwyi';
-import { SimAcqua } from './world/acqua.js?v=mrsbzwyi';
-import { Lobby } from './net/lobby.js?v=mrsbzwyi';
-import { Segnalatore } from './net/segnalatore.js?v=mrsbzwyi';
-import { Ruota } from './ui/ruota.js?v=mrsbzwyi';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrsbzwyi';
-import { Zaino } from './ui/zaino.js?v=mrsbzwyi';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mrsbzwyi';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrsbzwyi';
-import { generaMostra } from './world/mostra.js?v=mrsbzwyi';
-import { generaCollaudo } from './world/collaudo.js?v=mrsbzwyi';
-import { generaTestLuci } from './world/testLuci.js?v=mrsbzwyi';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mrsbzwyi';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrsbzwyi';
-import { Meteo } from './fx/meteo.js?v=mrsbzwyi';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrsbzwyi';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrsbzwyi';
-import { CicloGiorno } from './fx/daynight.js?v=mrsbzwyi';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrsbzwyi';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrsbzwyi';
-import { ModalitaAR } from './ar/ar.js?v=mrsbzwyi';
-import { Nuvole } from './fx/nuvole.js?v=mrsbzwyi';
-import { SegnaPercorso } from './fx/percorso.js?v=mrsbzwyi';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mrsbzwyi';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mrsbzwyi';
-import { Pioggia } from './fx/pioggia.js?v=mrsbzwyi';
-import { Particelle } from './fx/particelle.js?v=mrsbzwyi';
-import { Audio } from './fx/audio.js?v=mrsbzwyi';
-import { Creature } from './gioco/creature.js?v=mrsbzwyi';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrsbzwyi';
-import { Palla } from './gioco/palla.js?v=mrsbzwyi';
-import { Gatto } from './player/player.js?v=mrsbzwyi';
-import { ManoStrumento } from './player/mano.js?v=mrsbzwyi';
-import { dropDi } from './gioco/drop.js?v=mrsbzwyi';
-import { Controller } from './player/controller.js?v=mrsbzwyi';
-import { FURNI, centroide } from './furniture/registry.js?v=mrsbzwyi';
-import { caricaModelli } from './furniture/loader.js?v=mrsbzwyi';
-import { Arredo } from './furniture/furniture.js?v=mrsbzwyi';
-import { HUD } from './ui/hud.js?v=mrsbzwyi';
-import { MenuDebug } from './ui/debug.js?v=mrsbzwyi';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrsbzwyi';
-import { ModalitaXR } from './ar/ar-xr.js?v=mrsbzwyi';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrsbzwyi';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrsd6jrw';
+import { Rig } from './engine/renderer.js?v=mrsd6jrw';
+import { Input } from './engine/input.js?v=mrsd6jrw';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrsd6jrw';
+import { Cadenza } from './engine/cadenza.js?v=mrsd6jrw';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=mrsd6jrw';
+import { componiDiagnostica } from './engine/diagnostica.js?v=mrsd6jrw';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrsd6jrw';
+import { Mondo } from './world/world.js?v=mrsd6jrw';
+import { SimAcqua } from './world/acqua.js?v=mrsd6jrw';
+import { Lobby } from './net/lobby.js?v=mrsd6jrw';
+import { Segnalatore } from './net/segnalatore.js?v=mrsd6jrw';
+import { Ruota } from './ui/ruota.js?v=mrsd6jrw';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrsd6jrw';
+import { Zaino } from './ui/zaino.js?v=mrsd6jrw';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mrsd6jrw';
+import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrsd6jrw';
+import { generaMostra } from './world/mostra.js?v=mrsd6jrw';
+import { generaCollaudo } from './world/collaudo.js?v=mrsd6jrw';
+import { generaTestLuci } from './world/testLuci.js?v=mrsd6jrw';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mrsd6jrw';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrsd6jrw';
+import { Meteo } from './fx/meteo.js?v=mrsd6jrw';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrsd6jrw';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrsd6jrw';
+import { CicloGiorno } from './fx/daynight.js?v=mrsd6jrw';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrsd6jrw';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrsd6jrw';
+import { ModalitaAR } from './ar/ar.js?v=mrsd6jrw';
+import { Nuvole } from './fx/nuvole.js?v=mrsd6jrw';
+import { SegnaPercorso } from './fx/percorso.js?v=mrsd6jrw';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mrsd6jrw';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mrsd6jrw';
+import { Pioggia } from './fx/pioggia.js?v=mrsd6jrw';
+import { Particelle } from './fx/particelle.js?v=mrsd6jrw';
+import { Audio } from './fx/audio.js?v=mrsd6jrw';
+import { Creature } from './gioco/creature.js?v=mrsd6jrw';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrsd6jrw';
+import { Palla } from './gioco/palla.js?v=mrsd6jrw';
+import { Gatto } from './player/player.js?v=mrsd6jrw';
+import { ManoStrumento } from './player/mano.js?v=mrsd6jrw';
+import { dropDi } from './gioco/drop.js?v=mrsd6jrw';
+import { Controller } from './player/controller.js?v=mrsd6jrw';
+import { FURNI, centroide } from './furniture/registry.js?v=mrsd6jrw';
+import { caricaModelli } from './furniture/loader.js?v=mrsd6jrw';
+import { Arredo } from './furniture/furniture.js?v=mrsd6jrw';
+import { HUD } from './ui/hud.js?v=mrsd6jrw';
+import { MenuDebug } from './ui/debug.js?v=mrsd6jrw';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrsd6jrw';
+import { ModalitaXR } from './ar/ar-xr.js?v=mrsd6jrw';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrsd6jrw';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -193,6 +194,366 @@ function aggiornaPerf(fps) {
     riga('riflesso', 'riflesso') + '\n' +
     riga('schiuma', 'schiuma');
 }
+
+// ---- DIAGNOSTICA COMPLETA: UN tasto, pensato per MOBILE senza tastiera --------
+// Il committente gioca su hardware debole (Chromebook Braswell / telefono) e in
+// AR, e i cali fps lo rendono ingiocabile. Non posso misurare il SUO hardware da
+// remoto: questo tasto lancia una batteria di benchmark SUL DISPOSITIVO VERO e
+// gli scarica un file con TUTTO. Regole ferree:
+//  · NON rigenera il mondo (il diorama da ~100k blocchi resta): misura sul mondo
+//    ATTUALE toccando SOLO le leve di rendering e l'ora, e RIPRISTINA tutto.
+//  · Non tocca né `opzioni` né il mesher → nessun remesh, contaBlocchi invariato.
+//  · Se il timer GPU non c'è (Safari iOS), degrada a sole misure CPU/fps.
+// La parte PURA (assemblaggio + riassunto) è in engine/diagnostica.js, testata.
+const round2 = (x) => (typeof x === 'number' && isFinite(x) ? Math.round(x * 100) / 100 : null);
+let _diagCpu = null;       // (msCpu)=>void: raccoglitore per-frame, attivo solo in batteria
+let _diagFrames = 0;       // contatore di frame VERI (rispetta la cadenza), letto a delta
+let _diagInCorso = false;  // un giro alla volta
+const DIAG_FINESTRA = 1400; // ms di misura per scenario
+const DIAG_SETTLE = 320;    // ms di assestamento prima di misurare (drena i timer vecchi)
+
+/** Aspetta `ms` di OROLOGIO (non solo rAF, che la preview congela se non è in
+ *  primo piano: così non si blocca mai). Ritorna quanti frame VERI sono passati e
+ *  il tempo reale trascorso, per ricavarne gli fps effettivi. */
+function _diagAttendi(ms) {
+  return new Promise((ok) => {
+    const f0 = _diagFrames, t0 = performance.now();
+    setTimeout(() => ok({ frame: _diagFrames - f0, ms: performance.now() - t0 }), ms);
+  });
+}
+
+/** Misura UNO scenario GIÀ applicato: assesta, azzera, raccoglie CPU+GPU per
+ *  ~DIAG_FINESTRA, legge. Gli fps sono frame veri / tempo reale. */
+async function _diagMisura() {
+  // assestamento: i timer GPU della config PRECEDENTE si drenano (raccogli() li
+  // svuota nel loop) e la CPU si stabilizza — così non sporcano questo scenario
+  await _diagAttendi(DIAG_SETTLE);
+  perf.azzera();
+  const cpu = new Campioni(600);
+  _diagCpu = (ms) => cpu.push(ms);
+  const w = await _diagAttendi(DIAG_FINESTRA);
+  _diagCpu = null;
+  await _diagAttendi(80);   // coda: i timer sono asincroni, gli ultimi arrivano ora
+  const s = perf.disponibile ? perf.statistiche() : null;
+  const pass = (n) => (s && s.passate[n])
+    ? { media: round2(s.passate[n].media), p95: round2(s.passate[n].p95), n: s.passate[n].n }
+    : { media: 0, p95: 0, n: 0 };
+  return {
+    fps: w.ms > 0 ? Math.round(w.frame / (w.ms / 1000)) : 0,
+    frame: w.frame,
+    cpuMedia: round2(cpu.media()), cpuMediana: round2(cpu.mediana()), cpuP95: round2(cpu.p95()), cpuCampioni: cpu.n,
+    gpu: {
+      disponibile: !!s,
+      totaleMedia: s ? round2(s.totaleMedia) : null,
+      totaleP95: s ? round2(s.totaleP95) : null,
+      passate: { principale: pass('principale'), riflesso: pass('riflesso'), schiuma: pass('schiuma') },
+    },
+  };
+}
+
+/** Applica UNA config di rendering muovendo SOLO le leve (scala, riflesso, tilt,
+ *  ombre): le stesse di applicaQualita, a mano, senza toccare `opzioni` né il
+ *  mesher (niente remesh). Ogni campo assente resta com'è. */
+function _diagApplica({ scala, rifl, tiltQ, occ }) {
+  if (scala !== undefined) rig.setScalaRender(scala);
+  if (tiltQ !== undefined) rig.impostaTiltShift(tiltQ);
+  if (rifl !== undefined) riflesso.attivo = !!rifl;
+  if (occ !== undefined) impostaOcclusione(!!occ);
+}
+
+// --- raccolta delle sezioni statiche (nessuna misura, nessun effetto) ---
+function _diagInfoGL() {
+  const gl = rig.renderer.getContext();
+  const par = (p) => { try { return gl.getParameter(p); } catch { return null; } };
+  let vendor = null, renderer = rig.gpu;
+  try {
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    if (ext) { vendor = gl.getParameter(ext.UNMASKED_VENDOR_WEBGL); renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL); }
+  } catch { /* niente info driver */ }
+  let est = [];
+  try { est = gl.getSupportedExtensions() || []; } catch { /* pazienza */ }
+  const chiave = ['EXT_disjoint_timer_query_webgl2', 'EXT_color_buffer_float', 'OES_texture_float_linear',
+    'WEBGL_debug_renderer_info', 'EXT_texture_filter_anisotropic', 'KHR_parallel_shader_compile',
+    'WEBGL_compressed_texture_astc', 'WEBGL_compressed_texture_etc', 'WEBGL_lose_context'];
+  return {
+    webgl2: (typeof WebGL2RenderingContext !== 'undefined') && (gl instanceof WebGL2RenderingContext),
+    vendor, renderer, gpu: rig.gpu, software: rig.software,
+    timerQuery: !!perf.disponibile || est.includes('EXT_disjoint_timer_query_webgl2'),
+    maxTextureSize: par(gl.MAX_TEXTURE_SIZE),
+    max3dTextureSize: par(gl.MAX_3D_TEXTURE_SIZE),
+    maxTextureImageUnits: par(gl.MAX_TEXTURE_IMAGE_UNITS),
+    maxRenderbufferSize: par(gl.MAX_RENDERBUFFER_SIZE),
+    maxViewportDims: (() => { try { const v = gl.getParameter(gl.MAX_VIEWPORT_DIMS); return v ? [v[0], v[1]] : null; } catch { return null; } })(),
+    estensioniChiave: chiave.filter((e) => est.includes(e)),
+    estensioniTotali: est.length,
+  };
+}
+
+function _diagDispositivo() {
+  const n = navigator;
+  return {
+    userAgent: n.userAgent, piattaforma: n.platform || null, lingua: n.language || null,
+    schermoW: screen.width, schermoH: screen.height,
+    finestraW: innerWidth, finestraH: innerHeight,
+    devicePixelRatio, deviceMemory: n.deviceMemory ?? null, hardwareConcurrency: n.hardwareConcurrency ?? null,
+    touch: (n.maxTouchPoints || 0) > 0,
+  };
+}
+
+function _diagImpostazioni() {
+  return {
+    opzioni: JSON.parse(JSON.stringify(opzioni)),
+    qualitaAuto: !qManuale, qLivello, riflessiUtente,
+    rigMobile: rig.mobile, dprMax: rig.dprMax,
+    pixelRatioRenderer: round2(rig.renderer.getPixelRatio()),
+    scalaRenderUtente: opzioni.scala,
+    ar: modalitaAR.attiva, xr: modalitaXR.attiva,
+  };
+}
+
+function _diagScena() {
+  const info = rig.renderer.info;
+  const st = mesher.statistiche;
+  const luci = statLuci();
+  // TRIANGOLI/DRAW CALL VERI: `info.render` si azzera a ogni render() e il
+  // tilt-shift fa più passate (l'ultima è UN quad a schermo intero) — leggerlo
+  // fra due frame conta quel quad, non la scena. Disattivo l'auto-reset, faccio
+  // un render vero e sommo, poi ripristino. È un render in più, senza effetti.
+  let triangoli = info.render.triangles, drawCall = info.render.calls;
+  const autoPrima = info.autoReset;
+  try {
+    info.autoReset = false;
+    info.reset();
+    rig.render();
+    triangoli = info.render.triangles;
+    drawCall = info.render.calls;
+  } catch { /* tengo i valori grezzi */ }
+  finally { info.autoReset = autoPrima; info.reset(); }
+  return {
+    contaBlocchi: mondo.contaBlocchi,
+    chunk: mesher.chunks ? mesher.chunks.size : null,
+    chunkAttivi: st.chunkAttivi,
+    triangoli, drawCall,
+    geometrie: info.memory.geometries, texture: info.memory.textures,
+    programmiShader: info.programs ? info.programs.length : null,
+    meshInScena: rig.scena.children.length,
+    grigliaLuceCelle: st.occCelle, memoriaVoxelKB: round2(memoriaVoxel() / 1024),
+    luci: { totali: luci.totali, attive: luci.attive, pesanti: luci.pesanti, inviate: luci.inviate, conOmbra: luci.conOmbra },
+  };
+}
+
+// --- progresso a schermo (barra + percentuale), non sembra mai bloccato ---
+function _diagCreaProgresso() {
+  let el = document.getElementById('diag-prog');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'diag-prog';
+    el.style.cssText = 'position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(6,10,22,.72);font:600 15px/1.5 system-ui,Segoe UI,Roboto,sans-serif;color:#eaf3ff';
+    el.innerHTML = '<div style="max-width:min(92vw,420px);width:100%;padding:22px;border-radius:16px;background:rgba(14,20,38,.96);border:1px solid rgba(120,200,255,.35);box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:center">'
+      + '<div style="font-size:17px;margin-bottom:4px">📊 Diagnostica in corso…</div>'
+      + '<div data-el="sub" style="font-size:13px;opacity:.85;min-height:2.6em;display:flex;align-items:center;justify-content:center">avvio…</div>'
+      + '<div style="height:12px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden;margin:12px 0 6px"><div data-el="bar" style="height:100%;width:0%;background:linear-gradient(90deg,#5bd1ff,#7CFFB0);transition:width .25s ease"></div></div>'
+      + '<div data-el="pct" style="font-size:12px;opacity:.7">0%</div></div>';
+    document.body.appendChild(el);
+  }
+  el.style.display = 'flex';
+  const sub = el.querySelector('[data-el="sub"]');
+  const bar = el.querySelector('[data-el="bar"]');
+  const pct = el.querySelector('[data-el="pct"]');
+  return {
+    passo(x, y, cosa) {
+      const p = Math.max(0, Math.min(100, Math.round(x / y * 100)));
+      sub.textContent = `Passo ${x}/${y} — ${cosa}`;
+      bar.style.width = p + '%'; pct.textContent = p + '%';
+    },
+    fatto() {
+      sub.innerHTML = '✅ Fatto, file scaricato.<br><span style="opacity:.7;font-size:12px">Se non parte, usa «Copia» nel riquadro.</span>';
+      bar.style.width = '100%'; pct.textContent = '100%';
+      setTimeout(() => { el.style.display = 'none'; }, 900);
+    },
+    errore(e) {
+      sub.textContent = '😿 Errore: ' + String((e && e.message) || e).slice(0, 120);
+      bar.style.background = '#ff6b6b';
+      setTimeout(() => { el.style.display = 'none'; }, 4000);
+    },
+  };
+}
+
+// --- consegna del file: download classico + condivisione + modale con copia ---
+// Non ci si fida di UN solo canale: iOS Safari spesso IGNORA l'attributo download
+// e apre il JSON; il modale con textarea + «Copia» è la rete di sicurezza che
+// funziona ovunque (il committente può sempre incollarmi tutto).
+function _diagConsegna(nomeFile, testo) {
+  let scaricato = false;
+  try {
+    const blob = new Blob([testo], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = nomeFile;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    scaricato = true;
+  } catch (e) { console.warn('[diagnostica] download classico fallito', e); }
+  _diagModale(nomeFile, testo, scaricato);
+}
+
+function _diagModale(nomeFile, testo, scaricato) {
+  const back = document.createElement('div');
+  back.style.cssText = 'position:fixed;inset:0;z-index:220;display:flex;align-items:center;justify-content:center;background:rgba(6,10,22,.8);padding:14px;box-sizing:border-box;font:600 14px/1.5 system-ui,Segoe UI,Roboto,sans-serif;color:#eaf3ff';
+  const card = document.createElement('div');
+  card.style.cssText = 'max-width:min(96vw,560px);width:100%;max-height:88vh;display:flex;flex-direction:column;padding:16px;border-radius:16px;background:rgba(14,20,38,.98);border:1px solid rgba(120,200,255,.4);box-shadow:0 10px 40px rgba(0,0,0,.55)';
+  const kb = (testo.length / 1024).toFixed(1);
+  const testa = document.createElement('div');
+  testa.style.cssText = 'font-size:12px;opacity:.85;margin-bottom:8px';
+  testa.innerHTML = (scaricato ? 'File scaricato: ' : '⚠ Il download automatico non è partito. ')
+    + `<b>${nomeFile}</b> · ${kb} KB.<br>Se non lo trovi, copia tutto qui sotto e incollamelo.`;
+  const titolo = document.createElement('div');
+  titolo.style.cssText = 'font-size:16px;margin-bottom:6px';
+  titolo.textContent = '📊 Diagnostica pronta';
+  const ta = document.createElement('textarea');
+  ta.readOnly = true; ta.value = testo;
+  ta.style.cssText = 'flex:1;min-height:120px;width:100%;box-sizing:border-box;resize:vertical;font:500 11px/1.4 ui-monospace,Menlo,Consolas,monospace;background:rgba(0,0,0,.35);color:#cfe6ff;border:1px solid rgba(120,200,255,.25);border-radius:10px;padding:8px;white-space:pre;overflow:auto';
+  const riga = document.createElement('div');
+  riga.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px';
+  const mkBtn = (txt) => {
+    const b = document.createElement('button');
+    b.textContent = txt;
+    b.style.cssText = 'flex:1;min-width:120px;min-height:46px;padding:10px 14px;border-radius:12px;border:1px solid rgba(120,200,255,.4);background:rgba(90,170,255,.18);color:#eaf3ff;font:700 14px system-ui;cursor:pointer';
+    return b;
+  };
+  const bCopia = mkBtn('📋 Copia negli appunti');
+  bCopia.addEventListener('click', async () => {
+    let ok = false;
+    try { if (navigator.clipboard) { await navigator.clipboard.writeText(testo); ok = true; } } catch { /* fallback sotto */ }
+    if (!ok) { try { ta.focus(); ta.select(); ok = document.execCommand('copy'); } catch { ok = false; } }
+    bCopia.textContent = ok ? '✅ Copiato!' : '⚠ Seleziona sopra e copia a mano';
+  });
+  riga.appendChild(bCopia);
+  // condivisione del FILE (iOS/Android): il canale più affidabile se il download è ignorato
+  try {
+    const file = new File([testo], nomeFile, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      const bShare = mkBtn('📤 Condividi file');
+      bShare.addEventListener('click', async () => { try { await navigator.share({ files: [file], title: nomeFile }); } catch { /* annullato */ } });
+      riga.appendChild(bShare);
+    }
+  } catch { /* niente Web Share coi file qui */ }
+  const bChiudi = mkBtn('✕ Chiudi');
+  bChiudi.style.flex = '0 0 auto'; bChiudi.style.minWidth = '84px';
+  bChiudi.addEventListener('click', () => back.remove());
+  riga.appendChild(bChiudi);
+  card.appendChild(titolo); card.appendChild(testa); card.appendChild(ta); card.appendChild(riga);
+  back.appendChild(card); document.body.appendChild(back);
+  setTimeout(() => { try { ta.focus(); ta.select(); } catch { /* pazienza */ } }, 60);
+}
+
+/**
+ * LA ROUTINE: batteria di benchmark sul mondo ATTUALE, con progresso a schermo,
+ * poi scarica il file. Salva lo stato prima e lo RIPRISTINA nel finally (ora,
+ * tempo, e lo stato di rendering derivato dalle opzioni via applicaQualita).
+ */
+async function eseguiDiagnostica() {
+  if (_diagInCorso) return;
+  _diagInCorso = true;
+  const prog = _diagCreaProgresso();
+  const t0 = Date.now();
+  const heapPrima = (performance.memory && performance.memory.usedJSHeapSize) || null;
+
+  // stato da ripristinare. NON tocco opzioni/mesher, quindi contaBlocchi resta.
+  const snap = { cicloT: ciclo.t, cicloAuto: ciclo.auto, perfAttivo: perf.attivo, contaBlocchi: mondo.contaBlocchi };
+  const uni = uniformiCondivise();
+  // leve di rendering CORRENTI, per tenerle ferme mentre se ne muove UNA alla volta
+  const base = {
+    scala: Math.max(0.1, rig.renderer.getPixelRatio() / Math.max(0.001, Math.min(devicePixelRatio, rig.dprMax))),
+    rifl: !!riflesso.attivo,
+    tiltQ: rig.tiltShift ? (opzioni.tiltQ || 2.2) : 0,
+    occ: uni.uOcclusione.value > 0.5,
+  };
+  const note = [];
+  const sweep = {};
+  let baseline = null;
+
+  try {
+    perf.imposta(true);
+    // in AR il render passa per il contesto di MindAR: lega lì le timer query
+    try {
+      const glOra = (modalitaAR.attiva && modalitaAR.mindar) ? modalitaAR.mindar.renderer.getContext() : rig.renderer.getContext();
+      perf.usaContesto(glOra);
+      if (perf.attivo === false && perf.disponibile) perf.imposta(true);
+    } catch { /* resta col contesto di partenza */ }
+    if (!perf.disponibile) note.push('gpu_timer: non disponibile (manca EXT_disjoint_timer_query_webgl2): misure solo CPU/fps.');
+    ciclo.auto = false;   // congela l'ora: notte/giorno non devono derivare durante la misura
+
+    const scenari = [
+      ['baseline', 'baseline (impostazioni attuali)', () => _diagApplica(base)],
+      ['riflesso_on', 'riflesso ACCESO', () => _diagApplica({ ...base, rifl: true })],
+      ['riflesso_off', 'riflesso SPENTO', () => _diagApplica({ ...base, rifl: false })],
+      ['ombre_on', 'ombre voxel ACCESE', () => _diagApplica({ ...base, occ: true })],
+      ['ombre_off', 'ombre voxel SPENTE', () => _diagApplica({ ...base, occ: false })],
+      ['tilt_on', 'tilt-shift ACCESO', () => _diagApplica({ ...base, tiltQ: opzioni.tiltQ || 2.2 })],
+      ['tilt_off', 'tilt-shift SPENTO', () => _diagApplica({ ...base, tiltQ: 0 })],
+      ['scala_1.00', 'scala render 1.00', () => _diagApplica({ ...base, scala: 1 })],
+      ['scala_0.85', 'scala render 0.85', () => _diagApplica({ ...base, scala: 0.85 })],
+      ['scala_0.66', 'scala render 0.66', () => _diagApplica({ ...base, scala: 0.66 })],
+      ['scala_0.50', 'scala render 0.50', () => _diagApplica({ ...base, scala: 0.5 })],
+      ['notte_ombre', 'notte con ombre (caso peggiore)', () => { ciclo.t = 0.0; ciclo.aggiorna(0); _diagApplica({ ...base, occ: true }); }],
+      ['giorno', 'giorno pieno', () => { ciclo.t = 0.5; ciclo.aggiorna(0); _diagApplica({ ...base, occ: true }); }],
+      ['preset_bassa', 'preset «bassa»', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 0.66, rifl: false, tiltQ: 0, occ: false }); }],
+      ['preset_alta', 'preset «alta»', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 1, rifl: true, tiltQ: 2.2, occ: true }); }],
+    ];
+    const N = scenari.length + 2;   // +raccolta info +assemblaggio
+
+    prog.passo(1, N, 'raccolgo info dispositivo/GL/scena');
+    const dispositivo = _diagDispositivo();
+    const gl = _diagInfoGL();
+    const scena = _diagScena();
+    if (modalitaAR.attiva || modalitaXR.attiva) note.push('AR/XR attiva durante la misura: riflesso e schiuma sono spenti per costruzione.');
+    note.push('Riflesso e schiuma girano SOLO se un piano d\'acqua è in vista: se leggono 0 ms, non c\'era acqua inquadrata.');
+    note.push('Preset misurati a livello di rendering (scala/riflesso/tilt/ombre); il diorama NON viene rifatto.');
+
+    let i = 0;
+    for (const [chiave, etichetta, applica] of scenari) {
+      prog.passo(2 + i, N, etichetta);
+      applica();
+      const m = await _diagMisura();
+      sweep[chiave] = m;
+      if (chiave === 'baseline') baseline = m;
+      i++;
+    }
+
+    prog.passo(N, N, 'assemblo e scarico il file');
+    const heapDopo = (performance.memory && performance.memory.usedJSHeapSize) || null;
+    const memoria = {
+      heapPrimaMB: heapPrima != null ? round2(heapPrima / 1048576) : null,
+      heapDopoMB: heapDopo != null ? round2(heapDopo / 1048576) : null,
+      cresciutaMB: (heapPrima != null && heapDopo != null) ? round2((heapDopo - heapPrima) / 1048576) : null,
+      limiteMB: (performance.memory && performance.memory.jsHeapSizeLimit) ? round2(performance.memory.jsHeapSizeLimit / 1048576) : null,
+      nota: performance.memory ? null : 'performance.memory non disponibile su questo browser',
+    };
+
+    const report = componiDiagnostica(
+      { dispositivo, gl, impostazioni: _diagImpostazioni(), scena, baseline, sweep, memoria, note },
+      { quando: t0 },
+    );
+    const testo = JSON.stringify(report, null, 2);
+    _diagConsegna(report.nomeFile, testo);
+    prog.fatto();
+    if (typeof hud !== 'undefined' && hud) hud.toast('📊 Diagnostica pronta — file scaricato', 3200);
+  } catch (e) {
+    console.error('[diagnostica] errore', e);
+    prog.errore(e);
+  } finally {
+    // RIPRISTINO: ora, tempo e lo stato di rendering derivato dalle opzioni
+    // (mai toccate) via applicaQualita — nessun remesh, diorama intatto.
+    _diagCpu = null;
+    ciclo.t = snap.cicloT; ciclo.auto = snap.cicloAuto; ciclo.aggiorna(0);
+    if (typeof applicaQualita === 'function') applicaQualita();
+    perf.imposta(snap.perfAttivo);
+    if (mondo.contaBlocchi !== snap.contaBlocchi) console.warn('[diagnostica] contaBlocchi cambiato!', snap.contaBlocchi, '→', mondo.contaBlocchi);
+    _diagInCorso = false;
+  }
+}
+
 // in AR i click mirano con la camera del telefono, e il raggio va riportato
 // nello spazio celle (il mondo sta su un pivot scalato sul marker)
 function raggioGioco(sx, sy) {
@@ -1613,6 +1974,7 @@ const menuDebug = new MenuDebug({
   azioni: {
     respawn: () => { respawn(); hud.toast('🏠 A casa'); },
     perf: (on) => impostaPerf(on),
+    diagnostica: () => eseguiDiagnostica(),
     stagione: (chiave) => cambiaStagione(chiave),
     snapshot: () => salvaSnapshot(),
     ripristina: () => ripristinaSnapshot(),
@@ -1888,7 +2250,7 @@ async function avvia() {
   applicaOpzioni(false);     // fog/distanza/effetti salvati dall'utente (⚙️)
 
   // debug in console
-  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf };
+  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf, diagnostica: eseguiDiagnostica };
 
   // accelerazione hardware: avvisa se il WebView disegna in SOFTWARE (fps bassi)
   if (rig.software) {
@@ -2646,7 +3008,12 @@ function passo(adesso, frameXR) {
 
   // ms CPU del frame, mediati dolcemente: costa un performance.now() anche da
   // overlay spento, trascurabile, e così il numero è già pronto quando si accende
-  _cpuMsMedio += ((performance.now() - _cpuInizio) - _cpuMsMedio) * 0.1;
+  const _cpuMs = performance.now() - _cpuInizio;
+  _cpuMsMedio += (_cpuMs - _cpuMsMedio) * 0.1;
+  // gancio della DIAGNOSTICA: un contatore di frame VERI (rispetta la cadenza) e
+  // un raccoglitore di ms CPU per-frame, attivi solo mentre la batteria gira.
+  _diagFrames++;
+  if (_diagCpu) _diagCpu(_cpuMs);
 
   // da OSPITE niente autosave: in RAM c'è il diorama dell'host, non il tuo
   if (salvataggioSporco && !modalitaOspite && adesso - ultimoSalvataggio > 3000) {
