@@ -111,12 +111,20 @@ const uniformi = {
   uProfondita: { value: null },                  // depth della scena senza acqua
   uProfInfo: { value: new THREE.Vector4(0.1, 700, 1, 1) },   // near, far, 1/w, 1/h
   uOmbraCottaForza: { value: 1 },                // ombre cotte nella mesh (0 = spente)
-  uSchiumaRiva: { value: 0.66 },                 // soglia banda di riva: più bassa = più larga
+  uLuceCottaForza: { value: 1 },                 // luce a voxel (0 = spenta)
+  uOraLuce: { value: 1 },                        // 0 notte fonda … 1 pieno giorno
+  uGradini: { value: 4 },                        // scalini del cel shading
+  uLuceMin: { value: 0.34 },                     // luminosità residua al buio
+  uLumeColore: { value: new THREE.Color(1.0, 0.86, 0.62) },   // caldo di lanterna
+  uSchiumaRiva: { value: 0.62 },                 // quanto la banda di riva entra al largo (0..1)
   // in AR il mondo vive dentro un pivot ruoto-scalato: questa è la sua INVERSA,
   // così vPosMondo resta in coordinate MONDO e luci/ombre/schiuma funzionano
   // anche sul diorama in AR (identità quando l'AR è spenta)
   uMondoInv: { value: new THREE.Matrix4() },
 };
+
+/** Le uniform condivise, per ispezionarle e regolarle dal vivo (debug/opzioni). */
+export function uniformiCondivise() { return uniformi; }
 
 /** Matrice mondo→pivot inversa (AR). Passare null per tornare all'identità. */
 export function impostaMondoInv(matrice) {
@@ -188,11 +196,41 @@ const GLSL_VERTEX = /* glsl */`
   // "nessuna ombra", ed è esattamente quello che serve.
   attribute float aOmbra;
   varying float vOmbra;
+  // Luce cotta a voxel. aCieloMan = quanto cielo MANCA (0 = pieno sole), aLume
+  // = luce artificiale. Il verso di aCieloMan serve a far leggere "cielo pieno"
+  // alle geometrie che non hanno l'attributo (gatto, mobili).
+  attribute float aCieloMan;
+  attribute float aLume;
+  varying float vCieloMan;
+  varying float vLume;
 `;
 const GLSL_FRAGMENT = /* glsl */`
   varying vec3 vPosMondo;
   varying float vOmbra;
+  varying float vCieloMan;
+  varying float vLume;
   uniform float uOmbraCottaForza;   // 0 = spenta (opzione grafica)
+  uniform float uLuceCottaForza;
+  uniform float uOraLuce;           // 0 = notte fonda, 1 = pieno giorno
+  uniform float uGradini;           // quanti scalini ha il cel shading
+  uniform float uLuceMin;           // quanto resta al buio (mai 0: niente macchie nere)
+  uniform vec3  uLumeColore;        // tinta della luce artificiale
+
+  // IL CEL SHADING. I due canali si combinano prendendo il massimo: una stanza
+  // chiusa e illuminata resta illuminata anche a mezzogiorno, e di notte —
+  // quando uOraLuce scende — sopravvive solo ciò che le lanterne raggiungono.
+  // Il risultato si QUANTIZZA a pochi gradini: le fasce nette non sono un
+  // effetto aggiunto sopra, sono la luce stessa arrotondata.
+  vec3 luceCotta() {
+    float cielo = (1.0 - vCieloMan) * uOraLuce;
+    float lume = vLume;
+    float grezzo = max(cielo, lume);
+    float scalino = floor(grezzo * uGradini + 0.5) / uGradini;
+    float f = uLuceMin + (1.0 - uLuceMin) * scalino;
+    // dove domina la luce artificiale la tinta vira sul caldo della lanterna
+    float quota = clamp(lume - cielo, 0.0, 1.0);
+    return vec3(f) * mix(vec3(1.0), uLumeColore, quota * 0.75);
+  }
   uniform float uSchiumaRiva;       // soglia della banda di schiuma sulla riva
   uniform vec4 uLuciPosRaggio[${LUCI_MAX}];
   uniform vec4 uLuciColore[${LUCI_MAX}];
@@ -288,11 +326,12 @@ function iniettaLanterna(shader) {
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\n' + GLSL_VERTEX)
     .replace('#include <begin_vertex>',
-      '#include <begin_vertex>\nvPosMondo = (uMondoInv * modelMatrix * vec4(transformed, 1.0)).xyz;\nvOmbra = aOmbra;');
+      '#include <begin_vertex>\nvPosMondo = (uMondoInv * modelMatrix * vec4(transformed, 1.0)).xyz;\n'
+      + 'vOmbra = aOmbra;\nvCieloMan = aCieloMan;\nvLume = aLume;');
   shader.fragmentShader = shader.fragmentShader
     .replace('#include <common>', '#include <common>\n' + GLSL_FRAGMENT)
     .replace('#include <opaque_fragment>',
-      'outgoingLight = outgoingLight * (uAmbiente + lanternaAccumulo()) * lanternaOmbra() * ombraPg() * (1.0 - vOmbra * uOmbraCottaForza);\n#include <opaque_fragment>');
+      'outgoingLight = outgoingLight * (uAmbiente + lanternaAccumulo()) * lanternaOmbra() * ombraPg() * (1.0 - vOmbra * uOmbraCottaForza) * mix(vec3(1.0), luceCotta(), uLuceCottaForza);\n#include <opaque_fragment>');
 }
 
 export function patchLuci(materiale) {
@@ -418,18 +457,19 @@ const GLSL_ACQUA_COLORE = /* glsl */`
     vec2 uvS = (vPosMondo.xz - uCieloInfo.xy) * uCieloInfo.z;
     float maschera = step(0.5, texture2D(uSchiuma, uvS).r);   // impatti cascate
     float vivo = lanternaRumore(vPosMondo.xz * 4.6 + uTempo * vec2(1.2, 0.9));
-    // riva: SEMPRE chiazze spezzate dal noise, MAI una lastra piena — nei
-    // canali stretti aRiva è ~0 ovunque (sponde su entrambi i lati) e i fiumi
-    // diventavano fogli TUTTI BIANCHI; così al massimo è schiuma viva ~50%
-    // La soglia decide la LARGHEZZA della banda di riva: più è bassa, più la
-    // schiuma entra verso il largo. Ora è una uniform regolabile invece di un
-    // numero murato, perché il punto giusto dipende dal diorama.
-    // ATTENZIONE al limite strutturale: aRiva è per-angolo e vale 0 o 1, quindi
-    // la banda è larga UNA cella e basta. Nei canali stretti aRiva è ~0 su
-    // tutti e quattro gli angoli, e abbassando troppo la soglia il fiume torna
-    // un foglio bianco — è per quello che era stata alzata a 0.72. Allargarla
-    // davvero vuol dire far calcolare al mesher una distanza vera dalla riva.
-    float schiumaRiva = step(uSchiumaRiva, bordoRiva * (0.45 + 0.55 * frasta));
+    // SCHIUMA DI RIVA, rifatta. Adesso aRiva è una DISTANZA vera dalla sponda
+    // (0 = addosso, 1 = a RIVA_PORTATA celle di distanza), non più un sì/no:
+    // per questo la banda può finalmente essere larga più di una cella.
+    //
+    // La forma è una CRESTA, non una soglia secca: massima appena staccata
+    // dalla riva, poi si dirada verso il largo. Questo è anche ciò che salva i
+    // canali stretti che una volta diventavano fogli bianchi — lì l'acqua sta
+    // tutta a ridosso delle sponde, cioè nella parte iniziale della cresta, e
+    // non nel suo massimo. uSchiumaRiva regola quanto la banda entra al largo.
+    float dist = clamp(vRiva / max(uSchiumaRiva, 0.001), 0.0, 1.0);
+    float cresta = smoothstep(0.0, 0.22, dist) * (1.0 - smoothstep(0.55, 1.0, dist));
+    // il noise la sfrangia: bordo vivo e irregolare, mai una lastra geometrica
+    float schiumaRiva = smoothstep(0.34, 0.62, cresta * (0.55 + 0.75 * frasta));
     // silhouette e SCIA (il RT sfuma la storia): chiazze che vivono col tempo
     float schiumaSag = step(0.62, sagoma * (0.55 + 0.55 * vivo));
     float schiuma = max(max(schiumaRiva, maschera), schiumaSag);
@@ -497,6 +537,16 @@ vRiflessoUv = uRiflessoMat * vec4((modelMatrix * vec4(transformed, 1.0)).xyz, 1.
 
 export function impostaAmbiente(colore) {
   uniformi.uAmbiente.value.copy(colore);
+  // IL CICLO GIORNO/NOTTE DELLE OMBRE nasce qui, e non serve altro: il ciclo
+  // chiama questa funzione a ogni frame con il colore d'ambiente, e la sua
+  // luminosità diventa uOraLuce, cioè quanto conta il canale CIELO della luce
+  // cotta. Al calare della sera il cielo si spegne, le zone che vedevano solo
+  // il sole scivolano in ombra e restano illuminate solo quelle raggiunte
+  // dalle lanterne — che non dipendono dall'ora. La mesh non si ricostruisce
+  // mai: cambia un solo numero.
+  const l = colore.r * 0.299 + colore.g * 0.587 + colore.b * 0.114;
+  // la notte non va a zero: resterebbe un buio illeggibile invece di una notte
+  uniformi.uOraLuce.value = Math.max(0.18, Math.min(1, l));
 }
 
 /** Il colore ambiente corrente (per chi si tinge a mano, es. le nuvole). */
