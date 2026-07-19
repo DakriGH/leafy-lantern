@@ -11,7 +11,7 @@
 // Fra un campione e l'altro c'è sempre una cella vuota: niente culling fra
 // vicini, ogni pezzo si vede per intero da tutti i lati.
 
-import { BLOCCHI, registraBlocco } from './blocks.js?v=mrsenxmm';
+import { BLOCCHI, registraBlocco } from './blocks.js?v=mrsf4ny9';
 
 const PASSO = 3;          // distanza fra un campione e il successivo
 const FILA = 4;           // distanza fra una fila e l'altra

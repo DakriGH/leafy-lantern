@@ -1,57 +1,57 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrsenxmm';
-import { Rig } from './engine/renderer.js?v=mrsenxmm';
-import { Input } from './engine/input.js?v=mrsenxmm';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrsenxmm';
-import { Cadenza } from './engine/cadenza.js?v=mrsenxmm';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=mrsenxmm';
-import { componiDiagnostica } from './engine/diagnostica.js?v=mrsenxmm';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrsenxmm';
-import { Mondo } from './world/world.js?v=mrsenxmm';
-import { SimAcqua } from './world/acqua.js?v=mrsenxmm';
-import { Lobby } from './net/lobby.js?v=mrsenxmm';
-import { Segnalatore } from './net/segnalatore.js?v=mrsenxmm';
-import { Ruota } from './ui/ruota.js?v=mrsenxmm';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrsenxmm';
-import { Zaino } from './ui/zaino.js?v=mrsenxmm';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mrsenxmm';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrsenxmm';
-import { generaMostra } from './world/mostra.js?v=mrsenxmm';
-import { generaCollaudo } from './world/collaudo.js?v=mrsenxmm';
-import { generaTestLuci } from './world/testLuci.js?v=mrsenxmm';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mrsenxmm';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrsenxmm';
-import { Meteo } from './fx/meteo.js?v=mrsenxmm';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrsenxmm';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrsenxmm';
-import { CicloGiorno } from './fx/daynight.js?v=mrsenxmm';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrsenxmm';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrsenxmm';
-import { ModalitaAR } from './ar/ar.js?v=mrsenxmm';
-import { Nuvole } from './fx/nuvole.js?v=mrsenxmm';
-import { SegnaPercorso } from './fx/percorso.js?v=mrsenxmm';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mrsenxmm';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mrsenxmm';
-import { Pioggia } from './fx/pioggia.js?v=mrsenxmm';
-import { Particelle } from './fx/particelle.js?v=mrsenxmm';
-import { Audio } from './fx/audio.js?v=mrsenxmm';
-import { Creature } from './gioco/creature.js?v=mrsenxmm';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrsenxmm';
-import { Palla } from './gioco/palla.js?v=mrsenxmm';
-import { Gatto } from './player/player.js?v=mrsenxmm';
-import { ManoStrumento } from './player/mano.js?v=mrsenxmm';
-import { dropDi } from './gioco/drop.js?v=mrsenxmm';
-import { Controller } from './player/controller.js?v=mrsenxmm';
-import { FURNI, centroide } from './furniture/registry.js?v=mrsenxmm';
-import { caricaModelli } from './furniture/loader.js?v=mrsenxmm';
-import { Arredo } from './furniture/furniture.js?v=mrsenxmm';
-import { HUD } from './ui/hud.js?v=mrsenxmm';
-import { MenuDebug } from './ui/debug.js?v=mrsenxmm';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrsenxmm';
-import { ModalitaXR } from './ar/ar-xr.js?v=mrsenxmm';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrsenxmm';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrsf4ny9';
+import { Rig } from './engine/renderer.js?v=mrsf4ny9';
+import { Input } from './engine/input.js?v=mrsf4ny9';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrsf4ny9';
+import { Cadenza } from './engine/cadenza.js?v=mrsf4ny9';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=mrsf4ny9';
+import { componiDiagnostica } from './engine/diagnostica.js?v=mrsf4ny9';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrsf4ny9';
+import { Mondo } from './world/world.js?v=mrsf4ny9';
+import { SimAcqua } from './world/acqua.js?v=mrsf4ny9';
+import { Lobby } from './net/lobby.js?v=mrsf4ny9';
+import { Segnalatore } from './net/segnalatore.js?v=mrsf4ny9';
+import { Ruota } from './ui/ruota.js?v=mrsf4ny9';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrsf4ny9';
+import { Zaino } from './ui/zaino.js?v=mrsf4ny9';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mrsf4ny9';
+import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrsf4ny9';
+import { generaMostra } from './world/mostra.js?v=mrsf4ny9';
+import { generaCollaudo } from './world/collaudo.js?v=mrsf4ny9';
+import { generaTestLuci } from './world/testLuci.js?v=mrsf4ny9';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mrsf4ny9';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrsf4ny9';
+import { Meteo } from './fx/meteo.js?v=mrsf4ny9';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrsf4ny9';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrsf4ny9';
+import { CicloGiorno } from './fx/daynight.js?v=mrsf4ny9';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrsf4ny9';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrsf4ny9';
+import { ModalitaAR } from './ar/ar.js?v=mrsf4ny9';
+import { Nuvole } from './fx/nuvole.js?v=mrsf4ny9';
+import { SegnaPercorso } from './fx/percorso.js?v=mrsf4ny9';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mrsf4ny9';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mrsf4ny9';
+import { Pioggia } from './fx/pioggia.js?v=mrsf4ny9';
+import { Particelle } from './fx/particelle.js?v=mrsf4ny9';
+import { Audio } from './fx/audio.js?v=mrsf4ny9';
+import { Creature } from './gioco/creature.js?v=mrsf4ny9';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrsf4ny9';
+import { Palla } from './gioco/palla.js?v=mrsf4ny9';
+import { Gatto } from './player/player.js?v=mrsf4ny9';
+import { ManoStrumento } from './player/mano.js?v=mrsf4ny9';
+import { dropDi } from './gioco/drop.js?v=mrsf4ny9';
+import { Controller } from './player/controller.js?v=mrsf4ny9';
+import { FURNI, centroide } from './furniture/registry.js?v=mrsf4ny9';
+import { caricaModelli } from './furniture/loader.js?v=mrsf4ny9';
+import { Arredo } from './furniture/furniture.js?v=mrsf4ny9';
+import { HUD } from './ui/hud.js?v=mrsf4ny9';
+import { MenuDebug } from './ui/debug.js?v=mrsf4ny9';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrsf4ny9';
+import { ModalitaXR } from './ar/ar-xr.js?v=mrsf4ny9';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrsf4ny9';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -1448,7 +1448,31 @@ document.getElementById('btnChiudiZaino').addEventListener('click', () => { audi
 
 let salvataggioSporco = false;
 let ultimoSalvataggio = 0;
-function segnaSalvataggio() { salvataggioSporco = true; }
+let _ultimaModifica = 0;     // quando è stata toccata l'ultima cosa da salvare
+let _salvInCoda = false;     // un salvataggio è già pianificato per l'idle
+function segnaSalvataggio() { salvataggioSporco = true; _ultimaModifica = performance.now(); }
+
+/**
+ * Salva DAVVERO, ma FUORI dal frame di rendering. serializza() dell'intero
+ * diorama (100k blocchi → ~2MB JSON) costa ~150ms su desktop e ~600ms su
+ * mobile: dentro il ciclo era un FREEZE a ogni salvataggio, ogni 3s. Qui la
+ * scrittura vera va in requestIdleCallback — il browser la esegue quando ha
+ * tempo libero tra un frame e l'altro, non mentre disegna il movimento. Il
+ * ripiego setTimeout copre chi non ha requestIdleCallback (Safari iOS).
+ */
+function _salvaOra() {
+  _salvInCoda = false;
+  if (!salvataggioSporco || modalitaOspite) return;
+  salvaLocale(serializza(mondo, arredo, ciclo, inventario, { hotbar: hotbarIds }));
+  salvataggioSporco = false;
+  ultimoSalvataggio = performance.now();
+}
+function pianificaSalvataggio() {
+  if (_salvInCoda) return;
+  _salvInCoda = true;
+  if (window.requestIdleCallback) requestIdleCallback(_salvaOra, { timeout: 3000 });
+  else setTimeout(_salvaOra, 0);
+}
 
 // ---- eventi locali: salvataggio + debug + sim acqua + rete ---------------------
 
@@ -2382,7 +2406,10 @@ const _posaRemotaV = new THREE.Vector3();
 // cose piu' care: il riflesso (secondo render della scena) e le ombre voxel.
 // Spente, le luci-sfera restano identiche, solo senza occlusione dei muri.
 const LIVELLI_Q = rig.mobile ? [
-  { tilt: 0, rifl: false, ombre: true, scala: 1 },
+  // su mobile le ombre voxel sono SEMPRE off (misurato: ~30% di fps su Mali-G68).
+  // Chi le vuole le accende a mano dalle Impostazioni; la scala auto non le
+  // riaccende mai da sola.
+  { tilt: 0, rifl: false, ombre: false, scala: 1 },
   { tilt: 0, rifl: false, ombre: false, scala: 0.82 },
   { tilt: 0, rifl: false, ombre: false, scala: 0.66 },
 ] : [
@@ -2397,7 +2424,13 @@ let riflessiUtente = true;
 
 // ---- Impostazioni utente (⚙️): persistenti, applicate subito -------------------
 const OPZ_CHIAVE = 'lantern.opzioni.v1';
-const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, tilt: !rig.mobile, autoQ: true, luceCotta: true, cameraFantasma: false, scala: 1, riflForza: 1, tiltQ: 2.2, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.mobile, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale' };
+// luceCotta (ombre voxel) OFF di default su MOBILE, come già riflessi e tilt.
+// Misurato sul dispositivo del committente (Mali-G68): le ombre sono il singolo
+// costo per-pixel più alto e su questi chip fill-starved fanno cadere gli fps
+// del ~30%. Restano un opt-in per chi vuole e può permettersele; su desktop
+// restano accese. Chi ha un salvataggio vecchio con le ombre on: glielo dico,
+// oppure «Ripristina» le riporta al default giusto per il suo dispositivo.
+const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, tilt: !rig.mobile, autoQ: true, luceCotta: !rig.mobile, cameraFantasma: false, scala: 1, riflForza: 1, tiltQ: 2.2, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.mobile, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale' };
 const opzioni = Object.assign({}, OPZ_DEFAULT, JSON.parse(localStorage.getItem(OPZ_CHIAVE) || '{}'));
 
 // preset grafici: un tocco e la macchina va — comodi per testare
@@ -3018,11 +3051,14 @@ function passo(adesso, frameXR) {
   _diagFrames++;
   if (_diagCpu) _diagCpu(_cpuMs);
 
-  // da OSPITE niente autosave: in RAM c'è il diorama dell'host, non il tuo
-  if (salvataggioSporco && !modalitaOspite && adesso - ultimoSalvataggio > 3000) {
-    salvaLocale(serializza(mondo, arredo, ciclo, inventario, { hotbar: hotbarIds }));
-    salvataggioSporco = false;
-    ultimoSalvataggio = adesso;
+  // AUTOSALVATAGGIO deboundato e FUORI dal frame (vedi pianificaSalvataggio).
+  // Da OSPITE niente autosave: in RAM c'è il diorama dell'host, non il tuo.
+  // Aspetta che le modifiche si ASSESTINO (2s dall'ultima) così costruire di
+  // fila non fa partire un salvataggio a ogni blocco; ma se si continua a
+  // modificare senza pause, un tetto a 15s garantisce che nulla vada perso.
+  if (salvataggioSporco && !modalitaOspite && !_salvInCoda
+      && (adesso - _ultimaModifica > 2000 || adesso - ultimoSalvataggio > 15000)) {
+    pianificaSalvataggio();
   }
 }
 
