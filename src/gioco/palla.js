@@ -4,8 +4,8 @@
 // (o cade nel vuoto) sparisce e rinasce lì sopra.
 
 import * as THREE from 'three';
-import { defDi, livelloAcqua } from '../world/blocks.js';
-import { patchLuci } from '../fx/materials.js';
+import { defDi, livelloAcqua } from '../world/blocks.js?v=mrs9orgs';
+import { patchLuci } from '../fx/materials.js?v=mrs9orgs';
 
 const RAGGIO = 0.3;
 const GRAVITA = 26;
