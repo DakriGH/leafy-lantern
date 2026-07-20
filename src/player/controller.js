@@ -2,9 +2,9 @@
 // WASD/salto manuale e click-to-move che consuma il percorso dell'A*.
 
 import * as THREE from 'three';
-import { FISICA } from '../config.js?v=mrsf4ny9';
-import { defDi, livelloAcqua } from '../world/blocks.js?v=mrsf4ny9';
-import { trovaPercorso } from './pathfind.js?v=mrsf4ny9';
+import { FISICA } from '../config.js?v=mrsh3dhg';
+import { defDi, livelloAcqua } from '../world/blocks.js?v=mrsh3dhg';
+import { trovaPercorso } from './pathfind.js?v=mrsh3dhg';
 
 const EPS = 0.001;
 

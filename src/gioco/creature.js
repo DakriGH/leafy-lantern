@@ -6,7 +6,7 @@
 // solido, muoiono quando ti allontani. Unlit come tutto il resto.
 
 import * as THREE from 'three';
-import { patchLuci } from '../fx/materials.js?v=mrsf4ny9';
+import { patchLuci } from '../fx/materials.js?v=mrsh3dhg';
 
 const RAGGIO = 22;                 // entro quanto vivono attorno al gatto
 const COLORI_FARFALLA = [0xffd36e, 0xff8fb3, 0x8fd0ff, 0xc79bff, 0xa6ff9b];
