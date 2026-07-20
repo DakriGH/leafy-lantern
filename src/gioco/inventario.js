@@ -15,7 +15,7 @@ const DOTAZIONE = {
   pietra: 64, mattoni: 64, legno: 64, tronco: 64, asse: 64,
   lanaBianca: 64, lanaRossa: 64, lanaBlu: 64, lanaGialla: 64, lanaVerde: 64,
   acqua: 64,
-  albero: 10, panchina: 10, lampione: 10, generatore: 5,
+  albero: 10, panchina: 10, lampione: 10, generatore: 5, scintillatore: 5,
   secchio: 1, vanga: 1, piccone: 1, ascia: 1,
 };
 

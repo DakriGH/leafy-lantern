@@ -5,8 +5,8 @@
 
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { MEZZO_SUPER } from '../config.js?v=mrsi80i0';
-import { convertiUnlit, patchLuci } from '../fx/materials.js?v=mrsi80i0';
+import { MEZZO_SUPER } from '../config.js?v=mrsjdrr0';
+import { convertiUnlit, patchLuci } from '../fx/materials.js?v=mrsjdrr0';
 
 const fbx = new FBXLoader();
 
@@ -181,6 +181,16 @@ function fallback(defId) {
     anello.rotation.x = Math.PI / 2;
     anello.position.y = 0.66;
     g.add(base, bordo, anello);
+  } else if (defId === 'scintillatore') {
+    // colonnina scura con un orb azzurro in cima: la macchina-demo pulsa e
+    // sputa scintille da lì (il comportamento è nel def, vedi registry.js)
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.5), mat(0x2b2f45));
+    base.position.y = 0.3;
+    const stelo = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.5, 8), mat(0x3a4a6b));
+    stelo.position.y = 0.8;
+    const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 0), mat(0x9fe8ff));
+    orb.position.y = 1.15;
+    g.add(base, stelo, orb);
   } else {
     const seduta = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 0.5), mat(0xc98a4b));
     seduta.position.y = 0.42;
