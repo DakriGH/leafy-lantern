@@ -1,64 +1,67 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrt4nxiv';
-import { Rig } from './engine/renderer.js?v=mrt4nxiv';
-import { Input } from './engine/input.js?v=mrt4nxiv';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrt4nxiv';
-import { Cadenza } from './engine/cadenza.js?v=mrt4nxiv';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=mrt4nxiv';
-import { componiDiagnostica } from './engine/diagnostica.js?v=mrt4nxiv';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrt4nxiv';
-import { Mondo } from './world/world.js?v=mrt4nxiv';
-import { SimAcqua } from './world/acqua.js?v=mrt4nxiv';
-import { Lobby } from './net/lobby.js?v=mrt4nxiv';
-import { Segnalatore } from './net/segnalatore.js?v=mrt4nxiv';
-import { Ruota } from './ui/ruota.js?v=mrt4nxiv';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrt4nxiv';
-import { Zaino } from './ui/zaino.js?v=mrt4nxiv';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mrt4nxiv';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrt4nxiv';
-import { generaMostra } from './world/mostra.js?v=mrt4nxiv';
-import { generaCollaudo } from './world/collaudo.js?v=mrt4nxiv';
-import { generaTestLuci } from './world/testLuci.js?v=mrt4nxiv';
-import { generaTestMacchine } from './world/testMacchine.js?v=mrt4nxiv';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mrt4nxiv';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrt4nxiv';
-import { Meteo } from './fx/meteo.js?v=mrt4nxiv';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrt4nxiv';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrt4nxiv';
-import { CicloGiorno } from './fx/daynight.js?v=mrt4nxiv';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrt4nxiv';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrt4nxiv';
-import { ModalitaAR } from './ar/ar.js?v=mrt4nxiv';
-import { Nuvole } from './fx/nuvole.js?v=mrt4nxiv';
-import { SegnaPercorso } from './fx/percorso.js?v=mrt4nxiv';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mrt4nxiv';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mrt4nxiv';
-import { Pioggia } from './fx/pioggia.js?v=mrt4nxiv';
-import { Particelle } from './fx/particelle.js?v=mrt4nxiv';
-import { Audio } from './fx/audio.js?v=mrt4nxiv';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mrt4nxiv';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrt4nxiv';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mrt4nxiv';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=mrt4nxiv';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mrt4nxiv';
-import { Registro } from './ecs/registro.js?v=mrt4nxiv';
-import { Orologio, Rng } from './ecs/orologio.js?v=mrt4nxiv';
-import { Sistemi } from './ecs/sistemi.js?v=mrt4nxiv';
-import { Agenda } from './ecs/agenda.js?v=mrt4nxiv';
-import { Gatto } from './player/player.js?v=mrt4nxiv';
-import { ManoStrumento } from './player/mano.js?v=mrt4nxiv';
-import { dropDi } from './gioco/drop.js?v=mrt4nxiv';
-import { Controller } from './player/controller.js?v=mrt4nxiv';
-import { FURNI, centroide } from './furniture/registry.js?v=mrt4nxiv';
-import { caricaModelli } from './furniture/loader.js?v=mrt4nxiv';
-import { Arredo } from './furniture/furniture.js?v=mrt4nxiv';
-import { HUD } from './ui/hud.js?v=mrt4nxiv';
-import { MenuDebug } from './ui/debug.js?v=mrt4nxiv';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrt4nxiv';
-import { ModalitaXR } from './ar/ar-xr.js?v=mrt4nxiv';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrt4nxiv';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrt9jcee';
+import { Rig } from './engine/renderer.js?v=mrt9jcee';
+import { Input } from './engine/input.js?v=mrt9jcee';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrt9jcee';
+import { Cadenza } from './engine/cadenza.js?v=mrt9jcee';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=mrt9jcee';
+import { componiDiagnostica } from './engine/diagnostica.js?v=mrt9jcee';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrt9jcee';
+import { Mondo } from './world/world.js?v=mrt9jcee';
+import { SimAcqua } from './world/acqua.js?v=mrt9jcee';
+import { Lobby } from './net/lobby.js?v=mrt9jcee';
+import { Segnalatore } from './net/segnalatore.js?v=mrt9jcee';
+import { Bolla } from './ui/bolla.js?v=mrt9jcee';
+import { Scelta } from './ui/scelta.js?v=mrt9jcee';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrt9jcee';
+import { Zaino } from './ui/zaino.js?v=mrt9jcee';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mrt9jcee';
+import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrt9jcee';
+import { generaMostra } from './world/mostra.js?v=mrt9jcee';
+import { generaCollaudo } from './world/collaudo.js?v=mrt9jcee';
+import { generaTestLuci } from './world/testLuci.js?v=mrt9jcee';
+import { generaTestMacchine } from './world/testMacchine.js?v=mrt9jcee';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mrt9jcee';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrt9jcee';
+import { Meteo } from './fx/meteo.js?v=mrt9jcee';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrt9jcee';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mrt9jcee';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=mrt9jcee';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrt9jcee';
+import { CicloGiorno } from './fx/daynight.js?v=mrt9jcee';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrt9jcee';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrt9jcee';
+import { ModalitaAR } from './ar/ar.js?v=mrt9jcee';
+import { Nuvole } from './fx/nuvole.js?v=mrt9jcee';
+import { SegnaPercorso } from './fx/percorso.js?v=mrt9jcee';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mrt9jcee';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mrt9jcee';
+import { Pioggia } from './fx/pioggia.js?v=mrt9jcee';
+import { Particelle } from './fx/particelle.js?v=mrt9jcee';
+import { Audio } from './fx/audio.js?v=mrt9jcee';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mrt9jcee';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrt9jcee';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mrt9jcee';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=mrt9jcee';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mrt9jcee';
+import { Registro } from './ecs/registro.js?v=mrt9jcee';
+import { Orologio, Rng } from './ecs/orologio.js?v=mrt9jcee';
+import { Sistemi } from './ecs/sistemi.js?v=mrt9jcee';
+import { Agenda } from './ecs/agenda.js?v=mrt9jcee';
+import { Gatto } from './player/player.js?v=mrt9jcee';
+import { ManoStrumento } from './player/mano.js?v=mrt9jcee';
+import { dropDi } from './gioco/drop.js?v=mrt9jcee';
+import { Controller } from './player/controller.js?v=mrt9jcee';
+import { FURNI, centroide } from './furniture/registry.js?v=mrt9jcee';
+import { caricaModelli } from './furniture/loader.js?v=mrt9jcee';
+import { Arredo } from './furniture/furniture.js?v=mrt9jcee';
+import { HUD } from './ui/hud.js?v=mrt9jcee';
+import { MenuDebug } from './ui/debug.js?v=mrt9jcee';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrt9jcee';
+import { ModalitaXR } from './ar/ar-xr.js?v=mrt9jcee';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrt9jcee';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -652,57 +655,74 @@ const scavo = new Scavo(rig.scena);
 const sim = new SimAcqua(mondo);
 const lobby = new Lobby();
 
-const badge = (id) => (id === 'secchio' ? (inventario.secchioPieno ? '💧' : '') : inventario.quanti(id));
+const badge = (id) => {
+  // la zampa non è una cosa che si possiede: sono le mani vuote, e un "0"
+  // stampato sopra la farebbe sembrare finita
+  if (id === ZAMPA) return '';
+  if (id === 'secchio') return inventario.secchioPieno ? '💧' : '';
+  return inventario.quanti(id);
+};
 // dichiarato QUI (non dove viene creato) perche' onCambio puo' scattare
 // durante l'avvio: un const dichiarato piu' sotto sarebbe in temporal dead
 // zone e persino `zaino &&` lancerebbe ReferenceError.
 let zaino = null;
 inventario.onCambio = () => {
-  hud.aggiornaConteggi(badge);
-  ruota.aggiornaConteggi(badge);
+  if (strisca) strisca.aggiorna();
   if (zaino && zaino.aperto) datiZaino();   // conteggi vivi anche a zaino aperto
 };
 
-// RUOTA degli strumenti: unico comando per scegliere cosa hai in mano. Scegliere
-// un oggetto entra in costruzione, scegliere «Esplora» torna in esplorazione —
-// così la modalità non è più un pulsante a parte.
-/** Dove sta il gatto sullo schermo, in pixel: la ruota si apre LÌ. */
-const _proj = new THREE.Vector3();
-function ancoraGatto() {
-  const cam = modalitaXR.attiva ? modalitaXR.camera : (modalitaAR.attiva ? modalitaAR.camera : rig.camera);
-  _proj.set(controller.pos.x, controller.pos.y + 0.9, controller.pos.z).project(cam);
-  return { x: (_proj.x * 0.5 + 0.5) * innerWidth, y: (-_proj.y * 0.5 + 0.5) * innerHeight };
-}
-
-const ruota = new Ruota({
-  onScegli: (i) => { impostaSelezione(i); if (!costruisci) impostaModo(true); audio.sfx('ui'); },
-  onEsplora: () => { impostaModo(false); audio.sfx('ui'); },
+// LA BOLLA: il tasto grosso sotto il pollice. Fa una cosa sola — usa quello che
+// hai in mano — e tenendolo premuto la ripete. NON serve più a scegliere: la
+// scelta si fa toccando la tavolozza, che ormai sta sempre a schermo.
+const bolla = new Bolla({
   onUsa: () => usaStrumento(),
-  ancora: ancoraGatto,
+  // il tieni-premuto ripete solo quando si costruisce: ripetere «interagisci»
+  // accenderebbe e spegnerebbe la stessa lampada cinque volte al secondo
+  ripetibile: () => costruisci,
 });
 
-/** Il tocco sulla bolla: fa quello che ha senso per ciò che hai in mano.
- *  zampa → interagisci · blocco/mobile → piazza · attrezzo → rompe ·
- *  secchio → raccoglie o versa. Niente più tasti separati. */
+/**
+ * Il tocco sulla bolla: fa quello che ha senso per ciò che hai in mano.
+ * zampa → interagisci · blocco/mobile → piazza · attrezzo → rompe ·
+ * secchio → raccoglie o versa. Niente più tasti separati.
+ *
+ * RENDE `false` SE NON È SUCCESSO NIENTE, e serve al tieni-premuto della bolla
+ * per fermarsi da solo: fermi sul posto si posa un blocco e poi la cella è
+ * occupata, quindi senza questa risposta il gioco sputerebbe «lì è già
+ * occupato» a raffica. Non si controlla l'esito delle singole funzioni (sono
+ * dieci strade diverse che escono a metà): si guarda se il mondo è cambiato.
+ */
 function usaStrumento() {
-  if (!costruisci) { interagisci(); return; }
-  const voce = VOCI[selezione];
+  const prima = _ultimaModifica;
+  if (!costruisci) { interagisci(); return true; }
+  const voce = voceInMano();
   const cella = cellaBersaglio();
   if (voce && voce.id === 'secchio') {
     // il secchio agisce sulla cella bersaglio: normale verso l'alto, come se
     // ci si versasse sopra
     usaSecchio({ cella, normale: [0, 1, 0] });
-    return;
+  } else {
+    costruisciSuCella(cella, !voce || voce.genere === 'attrezzo');
   }
-  costruisciSuCella(cella, !voce || voce.genere === 'attrezzo');
+  return _ultimaModifica !== prima;
 }
 
-// Seconda bolla: DOVE costruire rispetto al gatto. Solo icone, nessuna scritta.
-const ruotaPosa = new Ruota({ id: 'btnPosa', conEsplora: false });
+// Seconda bolla: DOVE costruire rispetto al gatto. Era una ruota anche questa;
+// adesso è un elenchino, perché una scelta che si fa due volte in una partita
+// non fa in tempo a diventare memoria muscolare — cioè l'unica cosa per cui un
+// radiale varrebbe la fatica.
+const scelta = new Scelta();
+const btnPosa = document.getElementById('btnPosa');
+btnPosa.addEventListener('click', () => {
+  if (scelta.aperta) return scelta.chiudi();
+  audio.sfx('apri');
+  scelta.apri(btnPosa, POSE.map((p) => ({ id: p.id, emoji: p.icona, nome: p.nome })), opzioni.posa || 'davanti',
+    (id) => { impostaPosa(id); audio.sfx('ui'); });
+});
 function impostaPosa(id) {
   opzioni.posa = id;
   bersaglio.posa = id;
-  ruotaPosa.mostraIcona(posaCorrente().icona);
+  btnPosa.textContent = posaCorrente().icona;
   applicaOpzioni();
   aggiornaGhost();
 }
@@ -718,35 +738,65 @@ ciclo.onFase = (eNotte) => arredo.aggiornaNotte(eNotte);
 // interruttore i muri non li sposta: accendere un lampione costa la scrittura di
 // una uniform, esattamente come per una luce leggera qualsiasi.
 
-// ---- hotbar e selezione ------------------------------------------------------
+// ---- LA TAVOLOZZA: cosa hai in mano ------------------------------------------
+//
+// Il modello sta in gioco/tavolozza.js — otto posti, la zampa come oggetto fra
+// gli altri, e la promessa che niente sparisce in silenzio. Qui c'è solo il
+// cablaggio, ed è volutamente sottile: le viste (la striscia in fondo, il
+// catalogo dello zaino, la faccia sulla bolla) leggono lo stesso identico
+// oggetto, quindi non possono raccontare storie diverse. Prima ce n'erano due
+// che si contraddicevano e una terza, invisibile, che decideva davvero.
 
 function voceDa(id) {
+  // le mani libere sono una voce come le altre: da qui in giù nessuno sa che
+  // «Esplora» sia una modalità, e infatti non lo è più
+  if (id === ZAMPA) return { genere: 'zampa', id, nome: 'Esplora', emoji: '🐾' };
   if (BLOCCHI[id]) return { genere: 'blocco', id, nome: BLOCCHI[id].nome, cima: BLOCCHI[id].cima, lato: BLOCCHI[id].lato };
   if (FURNI[id]) return { genere: 'furni', id, nome: FURNI[id].nome, emoji: FURNI[id].icona };
   if (ATTREZZI[id]) return { genere: 'attrezzo', id, nome: ATTREZZI[id].nome, emoji: ATTREZZI[id].emoji };
   return null;
 }
 
-let hotbarIds = ['erba', 'terra', 'sabbia', 'roccia', 'legno', 'acqua', 'albero', 'panchina', 'lampione'];
-let VOCI = [];
+const tavolozza = new Tavolozza();
+let strisca = null;          // creata più sotto, col resto della GUI
 
-function ricostruisciHotbar() {
-  VOCI = hotbarIds.map(voceDa).filter(Boolean);
-  hud.costruisciHotbar(VOCI);       // la hotbar resta nel DOM (nascosta): la ruota la rispecchia
-  hud.aggiornaConteggi(badge);
-  hud.seleziona(selezione);
-  // nella ruota solo ciò che si usa GIOCANDO: lo Zaino sì, l'Officina no
-  // (è un editor, vive nel menu ⚙️ — nella ruota era fuori posto)
-  ruota.imposta(VOCI, badge, [
-    { emoji: '🎒', nome: 'Zaino', fn: () => { audio.sfx('apri'); apriZaino(true); } },
-  ]);
-  ruota.segnaAttivo(costruisci ? selezione : -1);
-  if (zaino.aperto) datiZaino();          // lo zaino aperto resta in pari
+/** Cosa si ha DAVVERO in mano: null a mani libere. Ha preso il posto del vecchio
+ *  `VOCI[selezione]`, che leggeva un array parallelo tenuto in pari a mano.
+ *
+ *  IL VALORE È TENUTO DA PARTE e non ricalcolato a ogni chiamata: `voceDa()`
+ *  costruisce un oggetto nuovo, e questa la leggono anche il ciclo di rendering
+ *  (la zampa del gatto) e quello di rete (60 volte al secondo). Ricalcolare
+ *  vorrebbe dire due oggetti al frame buttati via, cioè lavoro per il
+ *  raccoglitore di rifiuti proprio mentre si cerca di tenere i frame. */
+let _inMano = null;
+function voceInMano() { return _inMano; }
+function _ricalcolaMano() {
+  const id = tavolozza.inMano();
+  _inMano = !id || id === ZAMPA ? null : voceDa(id);
 }
 
-let selezione = 0;
+function rinfrescaTavolozza() {
+  bolla.mostra(voceInMano());
+  if (strisca) strisca.aggiorna();
+  if (zaino && zaino.aperto) datiZaino();
+}
+
+/** Tiene in pari tutto ciò che dipende da COSA hai in mano. `costruisci` non è
+ *  più uno stato a sé che si può disallineare: è solo «non sei a mani libere». */
+function sincronizzaMano() {
+  _ricalcolaMano();
+  costruisci = !tavolozza.aManiLibere();
+  hud.setModo(costruisci);
+  document.getElementById('barraCostruisci').classList.toggle('visibile', costruisci);
+  document.body.classList.toggle('mostra-posa', !!opzioni.comandiTouch && costruisci);
+  rinfrescaTavolozza();
+  if (costruisci) aggiornaGhost(); else nascondiGhost();
+}
+
+tavolozza.onCambio = () => { sincronizzaMano(); segnaSalvataggio(); };
+
 let rotSel = 0;
-let costruisci = false;
+let costruisci = false;      // = non sei a mani libere (lo tiene vero sincronizzaMano)
 let modalitaRompi = false;
 
 // ---- ghost di anteprima ------------------------------------------------------
@@ -837,7 +887,7 @@ function puntaFurni(sx, sy) {
  *  Serve anche per rompere: prima non si vedeva su cosa si stesse agendo. */
 function ghostSuBersaglio() {
   const [x, y, z] = cellaBersaglio();
-  const voce = VOCI[selezione];
+  const voce = voceInMano();
   const rompendo = modalitaRompi || !voce || voce.genere === 'attrezzo';
   if (!rompendo && voce.genere === 'furni') {
     const g = ghostPerFurni(voce.id);
@@ -870,7 +920,7 @@ function aggiornaGhost() {
   // col tocco il bersaglio è relativo al gatto: si vede SEMPRE dove si agirà
   if (opzioni.comandiTouch) { ghostSuBersaglio(); return; }
   if (modalitaRompi) { nascondiGhost(); return; }
-  const voce = VOCI[selezione];
+  const voce = voceInMano();
   if (!voce || voce.genere === 'attrezzo') { nascondiGhost(); return; }
   const colpo = puntaGriglia(mira.x, mira.y);
   if (!colpo) { nascondiGhost(); return; }
@@ -1094,7 +1144,7 @@ function usaSecchio(colpo) {
 }
 
 function attrezzoAttuale() {
-  const v = VOCI[selezione];
+  const v = voceInMano();
   return v && v.genere === 'attrezzo' && ATTREZZI[v.id] && ATTREZZI[v.id].famiglia ? v.id : null;
 }
 
@@ -1162,7 +1212,7 @@ function costruisciSuCella(cella, rompi) {
     rompiBlocco([x, y, z]);
     return;
   }
-  const voce = VOCI[selezione];
+  const voce = voceInMano();
   if (!voce || voce.genere === 'attrezzo') { hud.toast('Scegli un blocco dalla bolla 🫧'); return; }
   if (voce.genere === 'blocco') {
     const tIn = mondo.tipo(x, y, z);
@@ -1185,7 +1235,8 @@ function costruisciSuCella(cella, rompi) {
 }
 
 function clickCostruisci(sx, sy, destro) {
-  if (!destro && VOCI[selezione] && VOCI[selezione].genere === 'attrezzo' && VOCI[selezione].id === 'secchio') {
+  const inMano = voceInMano();
+  if (!destro && inMano && inMano.genere === 'attrezzo' && inMano.id === 'secchio') {
     usaSecchio(puntaGrigliaSecchio(sx, sy));
     return;
   }
@@ -1204,7 +1255,7 @@ function clickCostruisci(sx, sy, destro) {
     return;
   }
 
-  const voce = VOCI[selezione];
+  const voce = inMano;
   const colpo = puntaGriglia(sx, sy);
   if (!colpo) return;
 
@@ -1235,10 +1286,27 @@ function clickCostruisci(sx, sy, destro) {
   }
 }
 
+/**
+ * «DAMMI QUELLO CHE STO GUARDANDO» — il gesto migliore di Minecraft, e uno dei
+ * pochi che nessuno insegna eppure tutti finiscono per usare. Guardi un muro di
+ * mattoni, premi il tasto centrale, e hai i mattoni in mano: niente giro dallo
+ * zaino, niente cercare fra otto posti. Costruire vuol dire soprattutto
+ * continuare quello che c'è già, e questo lo rende un gesto solo.
+ */
+function copiaCosaGuardo(sx, sy) {
+  const furni = puntaFurni(sx, sy);
+  const blocco = puntaGriglia(sx, sy);
+  let id = null;
+  if (furni && (!blocco || furni.dist < blocco.dist)) id = furni.istanza.defId;
+  else if (blocco) id = tipoBase(mondo.tipo(...blocco.cella));
+  if (!id || !voceDa(id)) { hud.toast('Qui non c\'è niente da copiare 🐾'); return; }
+  raccontaPresa(id, tavolozza.prendi(id));
+}
+
 input.onClick = (sx, sy, bottone) => {
   // in AR avanzata il PRIMO tocco appoggia il diorama sulla superficie puntata
   if (modalitaXR.attiva && !modalitaXR.piazzato) { modalitaXR.piazzaAlReticolo(); return; }
-  if (bottone === 1) return;
+  if (bottone === 1) { copiaCosaGuardo(sx, sy); return; }
   if (costruisci) clickCostruisci(sx, sy, bottone === 2 || modalitaRompi);
   else if (bottone === 0) clickEsplora(sx, sy);
 };
@@ -1289,26 +1357,34 @@ input.onTasto = (codice, e) => {
       officina.apri(apre);
     }
   }
-  else if (/^Digit[1-9]$/.test(codice)) {
-    const i = Number(codice.slice(5)) - 1;
-    if (i < VOCI.length) impostaSelezione(i);
-  }
+  else if (/^Digit[1-8]$/.test(codice)) tavolozza.seleziona(Number(codice.slice(5)) - 1);
   if (codice === 'Space') e.preventDefault();
 };
 
+// LA ROTELLINA scorre la tavolozza, come in ogni gioco a blocchi da quindici
+// anni a questa parte. È l'unico gesto che non va insegnato a nessuno.
+addEventListener('wheel', (e) => {
+  if (document.querySelector('.hud.aperto, #opzioni.aperto')) return;   // un pannello aperto scorre per conto suo
+  if (e.deltaY === 0) return;
+  tavolozza.scorri(e.deltaY > 0 ? 1 : -1);
+}, { passive: true });
+
+/** Il tasto B e la pillola: entra o esce dalla costruzione. Adesso è solo un
+ *  modo veloce di prendere in mano la zampa (o di riprendere l'ultimo attrezzo
+ *  usato), perché la modalità NON è più uno stato a sé. */
+let _ultimoOggetto = 1;
 function impostaModo(attivo) {
-  costruisci = attivo;
-  hud.setModo(attivo);
-  document.getElementById('barraCostruisci').classList.toggle('visibile', attivo);
-  ruota.segnaAttivo(attivo ? selezione : -1);   // il pulsante mostra cosa hai in mano
-  document.body.classList.toggle('mostra-posa', !!opzioni.comandiTouch && attivo);
-  if (!attivo) nascondiGhost(); else aggiornaGhost();
-}
-function impostaSelezione(i) {
-  selezione = i;
-  hud.seleziona(i);
-  if (costruisci) ruota.segnaAttivo(i);
-  aggiornaGhost();
+  if (attivo === costruisci) return;
+  if (!attivo) {
+    _ultimoOggetto = tavolozza.attivo;
+    tavolozza.seleziona(tavolozza.postoDi(ZAMPA));
+  } else {
+    // torna dove eri; se lì non c'è più niente, il primo posto con qualcosa
+    let i = tavolozza.id(_ultimoOggetto) && _ultimoOggetto !== tavolozza.postoDi(ZAMPA) ? _ultimoOggetto : -1;
+    if (i < 0) i = tavolozza.elenco().findIndex((id) => id && id !== ZAMPA);
+    if (i < 0) { hud.toast('La tavolozza è vuota: apri lo zaino 🎒'); return; }
+    tavolozza.seleziona(i);
+  }
 }
 function impostaRompi(attivo) {
   modalitaRompi = attivo;
@@ -1465,45 +1541,89 @@ document.getElementById('copiaRisposta').addEventListener('click', () => {
   copiaTesto(ta.value, document.getElementById('okRisposta'));
 });
 
-hud.onSeleziona = impostaSelezione;
 hud.onModo = () => impostaModo(!costruisci);
 hud.onTempo = (t) => impostaTempoGioco(t);
 document.getElementById('btnPiazza').addEventListener('click', () => impostaRompi(false));
 document.getElementById('btnRompi').addEventListener('click', () => impostaRompi(true));
 document.getElementById('btnRuota').addEventListener('click', () => { rotSel = (rotSel + 1) % 4; aggiornaGhost(); });
 
-// ---- zaino: assegna oggetti allo slot selezionato -----------------------------
+// ---- le tre viste della tavolozza --------------------------------------------
+
+/** LA FRASE CHE MANCAVA. Prendere una cosa può spostarne un'altra fuori dalla
+ *  tavolozza, e prima succedeva in silenzio: la barra cambiava contenuto e non
+ *  si capiva perché. Adesso lo si dice — e si dice anche che non è persa, che è
+ *  il vero motivo per cui la cosa non deve preoccupare. */
+function raccontaPresa(id, esito) {
+  const nome = (voceDa(id) || { nome: id }).nome;
+  if (esito.pieno) {
+    audio.sfx('errore');
+    hud.toast('Tutti gli otto posti sono fissati 📌 — liberane uno per prendere altro', 3400);
+    return false;
+  }
+  audio.sfx('raccogli');
+  if (esito.spiazzato) {
+    const via = (voceDa(esito.spiazzato) || { nome: esito.spiazzato }).nome;
+    hud.toast(`✋ ${nome} · ${via} è tornata nello zaino 🎒`, 3000);
+  } else {
+    hud.toast(`✋ ${nome}`);
+  }
+  if (strisca) strisca.lampeggia(esito.posto);
+  return true;
+}
+
+// La striscia della barra bassa: quella che si vede giocando.
+strisca = new StriscaTavolozza({
+  tavolozza,
+  voceDa,
+  quanti: badge,
+  onScegli: (i) => { if (tavolozza.id(i)) { tavolozza.seleziona(i); audio.sfx('ui'); } },
+  onCambio: () => { rinfrescaTavolozza(); segnaSalvataggio(); },
+  toast: (m) => hud.toast(m),
+});
 
 // L'inventario vive in ui/zaino.js: qui gli si passano solo i DATI freschi e i
 // callback. Nessuna logica di interfaccia in main.
 zaino = new Zaino({
   voceDa,
   quanti: badge,
-  // UN tocco = ce l'hai in mano. Gli slot restano un dettaglio interno: se
-  // l'oggetto è già nella ruota lo si seleziona, altrimenti entra nel primo
-  // posto libero (o al posto di quello che avevi in mano). L'utente non deve
-  // sapere che esistono degli slot.
+  strisca: null,          // la seconda striscia nasce sotto: il suo DOM è di Zaino
+  // UN TOCCO = ce l'hai in mano. Il posto lo sceglie la tavolozza da sola, e se
+  // per farci stare la cosa nuova ne ha spostata un'altra lo dice a voce alta.
   onPrendi: (id) => {
-    let i = hotbarIds.indexOf(id);
-    if (i < 0) {
-      i = hotbarIds.findIndex((x) => !x);
-      if (i < 0) i = selezione;
-      impostaSlot(i, id);
-    }
-    impostaSelezione(i);
-    if (!costruisci) impostaModo(true);
-    audio.sfx('raccogli');
-    hud.toast(`✋ ${voceDa(id).nome}`);
+    const esito = tavolozza.prendi(id);
+    if (!raccontaPresa(id, esito)) return;
     apriZaino(false);                       // preso: si torna a giocare
+  },
+  // …oppure lo si decide: trascinare la carta in un posto preciso.
+  onMetti: (posto, id) => {
+    tavolozza.metti(posto, id);
+    tavolozza.seleziona(posto);
+    audio.sfx('ui');
+    strisca.lampeggia(posto);
   },
   puoiCraftare: (r) => puoiCraftare(r, (id) => inventario.quanti(id)),
   onCraft: (ricetta) => {
     if (!crafta(ricetta, inventario)) { audio.sfx('errore'); hud.toast('Ti mancano i materiali 🤏'); return; }
     audio.sfx('crea');
-    ricostruisciHotbar();
+    rinfrescaTavolozza();
     datiZaino();
     hud.toast(`🔨 ${(voceDa(ricetta.out) || { nome: ricetta.out }).nome} ×${ricetta.n}`);
   },
+});
+
+// LA SECONDA STRISCIA vive in fondo allo zaino: stesso modello, stessa classe,
+// così i posti si sistemano dove si guarda il catalogo invece che a memoria.
+// Nasce QUI e non prima perché il suo elemento lo costruisce lo Zaino: crearla
+// col DOM ancora vuoto le farebbe agguantare per ripiego la striscia della
+// barra bassa, cancellandola.
+zaino.ctx.strisca = new StriscaTavolozza({
+  el: document.getElementById('tavolozzaZaino'),
+  tavolozza,
+  voceDa,
+  quanti: badge,
+  onScegli: (i) => { if (tavolozza.id(i)) { tavolozza.seleziona(i); audio.sfx('ui'); } },
+  onCambio: () => { rinfrescaTavolozza(); segnaSalvataggio(); },
+  toast: (m) => hud.toast(m),
 });
 
 // LA REGOLA TOCCO-VS-PANNELLO (il perché sta in ui/pannelloMacchina.js):
@@ -1546,23 +1666,29 @@ function macchinaVicina() {
   return vicino;
 }
 
-/** Rinfresca lo zaino con lo stato attuale (posseduti, ricette, ruota). */
+/**
+ * Il CATALOGO per lo zaino, ricavato dai dati invece che scritto a mano: le
+ * categorie dei blocchi sono già in world/blocks.js, e i mobili si dividono da
+ * soli in "arredo" e "macchine" a seconda che abbiano delle manopole
+ * (`haPannello`). Aggiungere un macchinario nuovo lo fa comparire nella scheda
+ * giusta senza toccare una riga qui — è la stessa promessa del pannello delle
+ * manopole, applicata all'inventario.
+ */
 function datiZaino() {
-  const tuttiId = [
-    ...CATEGORIE_BLOCCHI.flatMap((c) => c.blocchi),
-    ...Object.keys(FURNI),
-    ...Object.keys(ATTREZZI),
-  ];
-  const posseduti = tuttiId.filter((id) => {
-    const n = badge(id);
-    return n === Infinity || typeof n === 'string' || n > 0;
-  }).map(voceDa).filter(Boolean);
+  const eMacchina = (id) => haPannello(FURNI[id]);
+  const voci = (ids) => ids.map(voceDa).filter(Boolean);
+  const sezioni = [
+    ...CATEGORIE_BLOCCHI.map((c) => ({ id: c.id, nome: c.nome, emoji: c.emoji, voci: voci(c.blocchi) })),
+    { id: 'mobili', nome: 'Mobili', emoji: '🪑', voci: voci(Object.keys(FURNI).filter((id) => !eMacchina(id))) },
+    { id: 'macchine', nome: 'Macchine', emoji: '⚙️', voci: voci(Object.keys(FURNI).filter(eMacchina)) },
+    { id: 'attrezzi', nome: 'Attrezzi', emoji: '🧰', voci: voci(Object.keys(ATTREZZI)) },
+  ].filter((s) => s.voci.length);      // una categoria vuota è solo una scheda da saltare
   const ricette = RICETTE.map((r) => ({
     ricetta: r, n: r.n,
     voce: voceDa(r.out) || { id: r.out, nome: r.nome },
     ingredienti: r.in.map((m) => `${m.q} ${(voceDa(m.id) || { nome: m.id }).nome}`).join(' + '),
   }));
-  zaino.imposta({ posseduti, ricette, inMano: hotbarIds[selezione] || null });
+  zaino.imposta({ sezioni, ricette });
 }
 
 function apriZaino(apri) {
@@ -1570,11 +1696,20 @@ function apriZaino(apri) {
   if (mostra) { chiudiPannelli('zaino'); datiZaino(); }
   zaino.apri(mostra);
 }
-// assegna/sposta/svuota uno slot della ruota
-function impostaSlot(slot, id) {
-  hotbarIds[slot] = id || null;
-  ricostruisciHotbar();
-  segnaSalvataggio();
+/**
+ * Rilegge la tavolozza da un salvataggio. Regge DUE formati, e non per pigrizia:
+ * la chiave `tavolozza` è quella nuova (otto posti, i 📌, quale hai in mano) e
+ * `hotbar` è l'array di nove id che sta in tutte le partite già salvate. La
+ * conversione la fa il modello (gioco/tavolozza.js, `applica`).
+ *
+ * TOGLIE ANCHE I FANTASMI: un blocco inventato con l'Officina e poi cancellato
+ * resterebbe come un posto che punta a un id inesistente — si vedrebbe un
+ * riquadro vuoto che non si può né prendere né togliere.
+ */
+function applicaTavolozza(dati) {
+  tavolozza.applica(dati && dati.tavolozza ? dati.tavolozza : (dati && dati.hotbar));
+  for (const id of tavolozza.elenco()) if (id && !voceDa(id)) tavolozza.dimentica(id);
+  sincronizzaMano();
 }
 document.getElementById('btnZaino').addEventListener('click', () => { audio.sfx('apri'); apriZaino(); });
 document.getElementById('btnChiudiZaino').addEventListener('click', () => { audio.sfx('chiudi'); apriZaino(false); });
@@ -1598,7 +1733,7 @@ function segnaSalvataggio() { salvataggioSporco = true; _ultimaModifica = perfor
 function _salvaOra() {
   _salvInCoda = false;
   if (!salvataggioSporco || modalitaOspite) return;
-  salvaLocale(serializza(mondo, arredo, ciclo, inventario, { hotbar: hotbarIds }));
+  salvaLocale(serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() }));
   salvataggioSporco = false;
   ultimoSalvataggio = performance.now();
 }
@@ -1959,7 +2094,7 @@ document.getElementById('chatTesto').addEventListener('keydown', (e) => {
 });
 
 document.getElementById('btnEsporta').addEventListener('click', () => {
-  esportaFile(serializza(mondo, arredo, ciclo, inventario, { hotbar: hotbarIds }));
+  esportaFile(serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() }));
   hud.toast('Diorama esportato 💾');
 });
 const fileImporta = document.getElementById('fileImporta');
@@ -1970,7 +2105,7 @@ fileImporta.addEventListener('change', async () => {
   try {
     const dati = JSON.parse(await file.text());
     applica(dati, mondo, arredo, ciclo, inventario);
-    if (Array.isArray(dati.hotbar)) { hotbarIds = dati.hotbar; ricostruisciHotbar(); }
+    applicaTavolozza(dati);
     mesher.ricostruisciTutto(mondo);
     ricostruisciLuciBlocchi();
     ricostruisciBlocchiSpeciali();
@@ -1995,7 +2130,7 @@ document.getElementById('btnReset').addEventListener('click', () => {
 
 // ---- SLOT di salvataggio (partite nominabili) -----------------------------------
 function datiAttuali(nome) {
-  return { ...serializza(mondo, arredo, ciclo, inventario, { hotbar: hotbarIds }), nome };
+  return { ...serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() }), nome };
 }
 function disegnaSlot() {
   const lista = document.getElementById('slotLista');
@@ -2038,7 +2173,7 @@ function caricaPartita(id, nome) {
   if (!dati) { hud.toast('Partita non trovata 😿'); return; }
   try {
     applica(dati, mondo, arredo, ciclo, inventario);
-    if (Array.isArray(dati.hotbar)) { hotbarIds = dati.hotbar; ricostruisciHotbar(); }
+    applicaTavolozza(dati);
     mesher.ricostruisciTutto(mondo);
     ricostruisciLuciBlocchi();
     ricostruisciBlocchiSpeciali();
@@ -2083,7 +2218,7 @@ function salvaSnapshot(conToast = true) {
   const attuale = localStorage.getItem(CHIAVE_SNAPSHOT);
   if (attuale) localStorage.setItem(CHIAVE_SNAPSHOT_PREC, attuale);
   try {
-    localStorage.setItem(CHIAVE_SNAPSHOT, JSON.stringify(serializza(mondo, arredo, ciclo, inventario, { hotbar: hotbarIds })));
+    localStorage.setItem(CHIAVE_SNAPSHOT, JSON.stringify(serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() })));
     if (conToast) hud.toast('📸 Snapshot salvato');
   } catch {
     hud.toast('Snapshot troppo grande 😿');
@@ -2096,7 +2231,7 @@ function ripristinaSnapshot() {
   try {
     const dati = JSON.parse(raw);
     applica(dati, mondo, arredo, ciclo, inventario);
-    if (Array.isArray(dati.hotbar)) { hotbarIds = dati.hotbar; ricostruisciHotbar(); }
+    applicaTavolozza(dati);
   } catch {
     hud.toast('Snapshot corrotto 😿');
     return;
@@ -2393,7 +2528,7 @@ async function avvia() {
     dati: datiOfficina,
     toast: (m) => hud.toast(m),
     onCambio: (remesh = false) => {
-      ricostruisciHotbar();
+      rinfrescaTavolozza();
       svuotaGhostBlocchi();
       if (remesh) {                       // colori/luci baked: si rifà il mondo LIVE
         conCaricamento('🛠 Applico le modifiche…', () => {
@@ -2411,7 +2546,7 @@ async function avvia() {
   if (salvato) {
     try {
       applica(salvato, mondo, arredo, ciclo, inventario);
-      if (Array.isArray(salvato.hotbar)) hotbarIds = salvato.hotbar;
+      applicaTavolozza(salvato);
       arredo.aggiornaNotte(ciclo.eNotte);
       respawn();
       caricatoOk = true;
@@ -2427,13 +2562,11 @@ async function avvia() {
   sim.bonifica();   // via l'acqua caduta nel vuoto nei vecchi salvataggi
   gestoreMacchine.sincronizza(ecs, servizi, arredo.istanze);   // macchine dai furni (ex sincronizzaPalle)
 
-  ricostruisciHotbar();
-  impostaSelezione(0);
-  impostaModo(false);
+  sincronizzaMano();
   applicaOpzioni(false);     // fog/distanza/effetti salvati dall'utente (⚙️)
 
   // debug in console
-  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, generaTestMacchine, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, gestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, pannelloMacchina, apriPannelloMacchina, ecs, orologioSim, passo, sistemiSim, sistemiResa, rngSim, servizi, agenda, creature, sistemaCreature, pensaCreatura, calciaPalla, sistemaPalle, sistemaResaPalle, creaEntitaPalla, distruggiPalla, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf, diagnostica: eseguiDiagnostica };
+  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, generaTestMacchine, inventario, tavolozza, strisca, zaino, bolla, scelta, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, gestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, pannelloMacchina, apriPannelloMacchina, ecs, orologioSim, passo, sistemiSim, sistemiResa, rngSim, servizi, agenda, creature, sistemaCreature, pensaCreatura, calciaPalla, sistemaPalle, sistemaResaPalle, creaEntitaPalla, distruggiPalla, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf, diagnostica: eseguiDiagnostica };
 
   // accelerazione hardware: avvisa se il WebView disegna in SOFTWARE (fps bassi)
   if (rig.software) {
@@ -2631,18 +2764,17 @@ function applicaOpzioni(salva = true) {
   meteo.attivaAuto(opzioni.meteoAuto !== false);
   comandiTouch.mostra(!!opzioni.comandiTouch);
   document.body.classList.toggle('comandi-touch', !!opzioni.comandiTouch);  // sposta la GUI per non sovrapporsi
+  // il numero del tasto sui posti serve solo a chi una tastiera ce l'ha
+  // i comandi a schermo accesi vogliono dire «sto giocando col dito» a
+  // prescindere da cosa dice il browser (che in anteprima mente, e sugli ibridi
+  // dice entrambe le cose)
+  const conTastiera = matchMedia('(pointer: fine)').matches && !opzioni.comandiTouch;
+  strisca.mostraNumeri(conTastiera);
+  zaino.conTastiera = conTastiera;
   audio.setVolume(opzioni.vol ?? 0.6);
   audio.muto(!!opzioni.muto);
-  // bolla del bersaglio: riempita una volta sola (POSE vive più in alto, e qui
-  // `opzioni` esiste di sicuro), poi tenuta in pari con la posa scelta
-  if (!ruotaPosa._riempita) {
-    ruotaPosa.imposta([], null, POSE.map((p) => ({
-      emoji: p.icona, nome: p.nome, fn: () => { impostaPosa(p.id); audio.sfx('ui'); },
-    })));
-    ruotaPosa._riempita = true;
-  }
   bersaglio.posa = opzioni.posa || 'davanti';
-  ruotaPosa.mostraIcona(posaCorrente().icona);
+  btnPosa.textContent = posaCorrente().icona;
   scavo.impostaDurezza(opzioni.durezza || 'normale');
   // si mostra solo quando serve: in Costruisci e coi comandi a schermo
   document.body.classList.toggle('mostra-posa', !!opzioni.comandiTouch && costruisci);
@@ -3124,7 +3256,7 @@ function passo(adesso, frameXR) {
     posaTimer += dt * 1000;
     if (posaTimer >= NET.posaMs) {
       posaTimer = 0;
-      const m = { t: 'posa', p: [controller.pos.x, controller.pos.y, controller.pos.z], vx: controller.vel.x, vz: controller.vel.z, aTerra: controller.aTerra, att: (VOCI[selezione] && VOCI[selezione].genere === 'attrezzo') ? VOCI[selezione].id : null, uso: _usoContatore };
+      const m = { t: 'posa', p: [controller.pos.x, controller.pos.y, controller.pos.z], vx: controller.vel.x, vz: controller.vel.z, aTerra: controller.aTerra, att: (_inMano && _inMano.genere === 'attrezzo') ? _inMano.id : null, uso: _usoContatore };
       if (lobby.ruolo === 'host') { m.tempo = ciclo.t; m.id = 'h'; }
       lobby.invia(m);
     }
@@ -3159,7 +3291,7 @@ function passo(adesso, frameXR) {
 
   // COSA HA IN MANO: attrezzo, mini-blocco coi suoi colori, o mobile —
   // ma solo in Costruisci: esplorando il gatto ha le zampe libere
-  mano.mostra(costruisci ? VOCI[selezione] : null);
+  mano.mostra(voceInMano());
   mano.aggiorna(dt);
   for (const g of gattiRemoti.values()) if (g.mano) g.mano.aggiorna(dt);
 
@@ -3239,7 +3371,7 @@ function passo(adesso, frameXR) {
 }
 
 addEventListener('beforeunload', () => {
-  if (salvataggioSporco && !modalitaOspite) salvaLocale(serializza(mondo, arredo, ciclo, inventario, { hotbar: hotbarIds }));
+  if (salvataggioSporco && !modalitaOspite) salvaLocale(serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() }));
 });
 
 avvia().catch((e) => {

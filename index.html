@@ -53,7 +53,7 @@
      Era attivo solo su .hud e #comandiTouch, quindi pannelli, ruota,
      inventario e officina restavano scoperti. Sotto c'è l'elenco (corto) dei
      punti dove scrivere e copiare serve davvero. */
-  body, button, .pannello, .ruota, .zaino, .officina {
+  body, button, .pannello, .zaino, .officina {
     user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   }
   input, textarea, [contenteditable], code, #rcCodice, .selezionabile {
@@ -83,7 +83,7 @@
   }
 
   /* ---- bottoni: UNA base per tutti — vetro scuro, testo chiaro ---- */
-  .stanza-big, .opz-tgl, .zaino-tab, #barraCostruisci button,
+  .stanza-big, .opz-tgl, #barraCostruisci button,
   #aiuto .azioni button, #debug button, #pillaModo, #btnZaino, .ico {
     background: linear-gradient(180deg, rgba(74,92,132,.55), rgba(28,38,62,.62));
     color: var(--testo); border: 1px solid rgba(255,255,255,.16);
@@ -91,17 +91,17 @@
     box-shadow: 0 4px 12px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.22);
     transition: transform .18s var(--molla), border-color .14s, background .14s, box-shadow .14s;
   }
-  .stanza-big:hover, .opz-tgl:hover, .zaino-tab:hover, #barraCostruisci button:hover,
+  .stanza-big:hover, .opz-tgl:hover, #barraCostruisci button:hover,
   #aiuto .azioni button:hover, #debug button:hover, #pillaModo:hover, #btnZaino:hover, .ico:hover {
     border-color: rgba(120,230,255,.55);
     box-shadow: 0 4px 16px rgba(69,216,255,.28), inset 0 1px 0 rgba(255,255,255,.3);
   }
-  .stanza-big:active, .opz-tgl:active, .zaino-tab:active, #barraCostruisci button:active,
+  .stanza-big:active, .opz-tgl:active, #barraCostruisci button:active,
   #aiuto .azioni button:active, #debug button:active, #pillaModo:active, #btnZaino:active, .ico:active {
     transform: scale(.94);
   }
   /* stato "attivo/acceso": gel aqua con testo scuro — identico ovunque */
-  .opz-tgl.attivo, .zaino-tab.attivo, #barraCostruisci button.attivo,
+  .opz-tgl.attivo, #barraCostruisci button.attivo,
   #debug button.attivo, #pillaModo.costruisci {
     background: linear-gradient(180deg, #7eeaff, #1f9ad6);
     color: #04202e; border-color: rgba(255,255,255,.45);
@@ -109,11 +109,11 @@
     text-shadow: none;
   }
   /* bottoni ✕ "fantasma" (chiusura pannelli) */
-  #opzioniChiudi, #stanzaChiudi, .zaino-chiudi, .stanza-indietro, #debug .dbg-testa button {
+  #opzioniChiudi, #stanzaChiudi, .zn-chiudi, .stanza-indietro, #debug .dbg-testa button {
     background: none; border: none; color: var(--testo); cursor: pointer;
     opacity: .6; box-shadow: none; transition: opacity .12s;
   }
-  #opzioniChiudi:hover, #stanzaChiudi:hover, .zaino-chiudi:hover,
+  #opzioniChiudi:hover, #stanzaChiudi:hover, .zn-chiudi:hover,
   .stanza-indietro:hover, #debug .dbg-testa button:hover { opacity: 1; }
 
   /* ---- slider: manopola ambra su binario scavato, ovunque uguali ---- */
@@ -144,7 +144,7 @@
   }
 
   /* ---- teste dei pannelli: riga con titolo + azioni, riga calda sotto ---- */
-  .stanza-testa, .zaino-testa {
+  .stanza-testa, .zn-testa {
     display: flex; align-items: center; gap: 8px;
     padding-bottom: 8px; margin-bottom: 8px;
     border-bottom: 1px solid rgba(255,255,255,0.18);
@@ -324,15 +324,30 @@
   .chat-riga-invio { display: flex; gap: 6px; }
   .chat-riga-invio input { flex: 1; padding: 8px 10px; font-size: 13px; }
 
-  /* ---- BARRA BASSA: una colonna sola (comandi sopra, poi utility + hotbar).
+  /* ---- BARRA BASSA: una colonna sola (comandi sopra, poi utility + tavolozza).
      Tutto vive dentro #hudBasso: impossibile che si sovrapponga. ---- */
   #hudBasso {
     left: 0; right: 0; bottom: 0; pointer-events: none;
-    padding: 0 10px calc(12px + env(safe-area-inset-bottom));
+    /* IL FONDO È RISERVATO ALLA BOLLA. Finché quaggiù c'era solo la barra
+       Costruisci non dava fastidio a nessuno, ma la tavolozza è larga quanto lo
+       schermo e ci finiva sotto — su desktop come su telefono. La bolla sta a
+       18px dal fondo ed è alta 62: 90 le lasciano il posto con un dito di aria.
+       Quando i comandi a schermo sono accesi la bolla si sposta in basso a
+       destra e questo spazio non serve più (vedi le regole di comandi-touch). */
+    padding: 0 10px calc(90px + env(safe-area-inset-bottom));
     display: flex; flex-direction: column; align-items: center; gap: 8px;
   }
+  body.comandi-touch #hudBasso { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  /* COI COMANDI A SCHERMO la tavolozza si piega in 4×2 e si stringe sul lato
+     del pollice. Distesa su tutta la larghezza i posti lontani cadevano fuori
+     dall'arco che il pollice copre senza cambiare presa — cioè il difetto per
+     cui la vecchia ruota era stata inventata, ricomparso in altra forma.
+     Piegata, il blocco intero sta nella metà dove la mano già vive. */
+  body.comandi-touch #rigaBasso { justify-content: flex-end; }
+  body.comandi-touch #tavolozza { flex-wrap: wrap; max-width: 224px; }
+  body.comandi-touch .tv-posto { flex: 1 1 46px; }
   #hudBasso > *, #rigaBasso > *, #utilBtn > * { pointer-events: auto; }
-  /* utility + hotbar sulla stessa riga: la hotbar scorre, i tasti restano fissi */
+  /* utility + tavolozza sulla stessa riga: gli otto posti si stringono, i tasti no */
   #rigaBasso {
     display: flex; align-items: flex-end; gap: 8px;
     width: 100%; max-width: 860px; justify-content: center;
@@ -357,41 +372,107 @@
   #barraCostruisci button { padding: 8px 14px; border-radius: 999px; font-size: 13px; box-shadow: none; }
   #barraCostruisci button:active { transform: none; }
 
-  /* ---- hotbar: scorre in orizzontale quando non ci sta, senza mai tagliare ---- */
-  #hotbar {
-    display: flex; gap: 7px; padding: 8px; overflow-x: auto; scrollbar-width: none;
-    min-width: 0; flex: 0 1 auto;
-    scroll-snap-type: x proximity; overscroll-behavior-x: contain; touch-action: pan-x;
+  /* ---- LA TAVOLOZZA: gli otto posti, sempre a vista -----------------------
+     Sta in fondo allo schermo perché sul touch il bordo BASSO è l'unico che
+     conviene: cade nell'arco naturale del pollice. Gli altri tre bordi, al
+     contrario di quel che si crede (il cursore del mouse ci si ferma, il dito
+     no), sono i punti più difficili da centrare. */
+  .tv-striscia {
+    display: flex; gap: 6px; padding: 7px; border-radius: 18px;
+    background: linear-gradient(180deg, rgba(24,32,54,.82), rgba(10,15,29,.88));
+    border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 10px 26px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.16);
+    /* la striscia PRENDE lo spazio che resta accanto ai due tasti utility, fino
+       a un tetto: senza il `1 1 auto` i posti collassavano a 14px l'uno, cioè
+       sotto ogni soglia in cui un dito ci azzecca */
+    flex: 1 1 300px; min-width: 0; max-width: 560px;
   }
-  #hotbar .slot { scroll-snap-align: center; }
-  #hotbar::-webkit-scrollbar { display: none; }
-  .slot {
-    position: relative;
-    width: 56px; height: 60px; border-radius: 13px; border: 2px solid rgba(255,255,255,0.15);
-    background: linear-gradient(180deg, rgba(74,92,132,.5), rgba(28,38,62,.58));
-    cursor: pointer; flex: 0 0 auto;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.31);
-    transition: transform .12s, border-color .12s, box-shadow .12s;
+  #tavolozza { transition: opacity .28s ease, transform .28s var(--molla); }
+  #tavolozza.spenta { display: none; }
+  /* modo "a comparsa": si mostra quando qualcosa cambia e poi sfuma */
+  #tavolozza.transitoria { opacity: 0; transform: translateY(10px); pointer-events: none; }
+  #tavolozza.transitoria.viva { opacity: 1; transform: none; pointer-events: auto; }
+
+  .tv-posto {
+    position: relative; flex: 1 1 0; min-width: 30px;
+    aspect-ratio: 1; max-width: 58px; border-radius: 13px;
+    border: 2px dashed rgba(255,255,255,.14); background: rgba(255,255,255,.035);
+    display: grid; place-items: center; cursor: pointer; touch-action: none;
+    transition: transform .16s var(--molla), border-color .14s, box-shadow .14s, background .14s;
   }
-  .slot:hover { transform: translateY(-3px); border-color: var(--bordo-vivo); }
-  .slot.attivo {
-    border-color: var(--accento); background: rgba(247,169,59,.20);
-    transform: translateY(-4px);
-    box-shadow: 0 0 12px rgba(247,169,59,.55), var(--dura-mini);
+  .tv-posto.pieno {
+    border-style: solid; border-color: rgba(255,255,255,.2);
+    background: linear-gradient(180deg, rgba(74,92,132,.55), rgba(28,38,62,.62));
+    box-shadow: inset 0 2px 5px rgba(0,0,0,.3);
   }
-  .slot .icona { width: 26px; height: 26px; border-radius: 7px; font-size: 21px; line-height: 26px; text-align: center; }
-  .slot .nome {
-    font-size: 9px; opacity: .8; white-space: nowrap;
-    max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: 0 3px;
+  .tv-posto:hover { border-color: rgba(120,230,255,.55); }
+  .tv-posto.attivo {
+    border-color: #45d8ff; transform: translateY(-5px);
+    box-shadow: 0 0 0 2px rgba(69,216,255,.3), 0 8px 18px rgba(69,216,255,.35);
   }
-  .slot .tasto { position: absolute; top: 3px; left: 6px; font-size: 9px; opacity: .45; font-weight: 800; }
-  .slot .conta {
-    position: absolute; bottom: 2px; right: 4px; font-size: 9px; font-weight: 800;
-    padding: 0 4px; border-radius: 999px; background: rgba(0,0,0,0.42);
+  .tv-posto:active { transform: scale(.93); }
+  .tv-posto.esaurito .tv-icona { opacity: .34; }
+  .tv-posto.esaurito .tv-conta { color: var(--rosso); }
+  .tv-posto.in-viaggio { opacity: .35; }
+  .tv-posto.bersaglio { border-color: #7ee08a; background: rgba(99,175,86,.28); }
+
+  .tv-icona { font-size: 25px; line-height: 1; display: grid; place-items: center; }
+  .tv-icona.cubo {
+    width: 27px; height: 27px; border-radius: 7px;
+    border: 1px solid rgba(255,255,255,.32); box-shadow: inset 0 2px 5px rgba(255,255,255,.25);
   }
-  .slot.esaurito { opacity: .45; }
-  .slot.esaurito .conta { color: var(--rosso); }
+  /* IL SEGNO IN ALTO A SINISTRA INSEGNA LA RUOTA. Con la tastiera è il numero
+     del tasto; col dito è la DIREZIONE in cui frustare per prendere quel posto.
+     È la stessa mappa vista due volte — usando il comando che si vede si impara
+     senza accorgersene quello che si fa a occhi chiusi, che è esattamente il
+     meccanismo su cui campano i marking menu. */
+  .tv-tasto {
+    position: absolute; top: 2px; left: 5px; font-size: 9px; font-weight: 800;
+    opacity: .5; letter-spacing: -.5px; pointer-events: none;
+  }
+  .tv-striscia:not(.con-numeri) .tv-tasto { font-size: 11px; opacity: .42; }
+  .tv-conta {
+    position: absolute; bottom: 1px; right: 3px; font-size: 9px; font-weight: 800;
+    padding: 0 4px; border-radius: 999px; background: rgba(0,0,0,.45); pointer-events: none;
+  }
+  .tv-spillo {
+    position: absolute; top: -5px; right: -4px; font-size: 10px; display: none;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,.6));
+  }
+  .tv-posto.fissato .tv-spillo { display: block; }
+  /* il lampo dice «la cosa che hai preso è finita QUI», senza scrivere una frase */
+  .tv-posto.lampo { animation: tvLampo .62s ease-out; }
+  @keyframes tvLampo {
+    0%   { box-shadow: 0 0 0 0 rgba(126,234,255,.9); }
+    100% { box-shadow: 0 0 0 16px rgba(126,234,255,0); }
+  }
+  .tv-fantasma {
+    position: fixed; z-index: 95; width: 44px; height: 44px; border-radius: 12px;
+    transform: translate(-50%, -50%); display: grid; place-items: center;
+    font-size: 26px; background: rgba(24,32,54,.96); border: 2px solid #45d8ff;
+    box-shadow: 0 8px 18px rgba(0,0,0,.55); pointer-events: none;
+  }
+  /* foglietto del posto: le azioni che non entrano in un gesto */
+  .tv-foglietto {
+    position: fixed; z-index: 96; width: 210px; padding: 10px; border-radius: 16px;
+    background: linear-gradient(165deg, rgba(34,44,70,.98), rgba(14,20,38,.99));
+    border: 1px solid rgba(255,255,255,.16); box-shadow: 0 16px 40px rgba(0,0,0,.6);
+    animation: entra .18s var(--molla);
+  }
+  .tv-f-nome { font-size: 12.5px; font-weight: 800; margin-bottom: 8px; text-align: center; }
+  .tv-f-sposta {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+    font-size: 10.5px; color: var(--muto); font-weight: 700;
+  }
+  .tv-f-sposta span { flex: 1; text-align: center; }
+  .tv-f-sposta .tv-f-az { flex: 0 0 46px; margin: 0; padding: 9px 0; font-size: 13px; }
+  .tv-f-az {
+    display: block; width: 100%; margin-top: 5px; padding: 10px; border-radius: 12px;
+    font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--testo);
+    border: 1px solid rgba(255,255,255,.16);
+    background: linear-gradient(180deg, rgba(74,92,132,.6), rgba(28,38,62,.65));
+  }
+  .tv-f-az:active { transform: scale(.96); }
 
   /* scorciatoie da tastiera: solo dove una tastiera c'è DAVVERO */
   #suggerimento {
@@ -407,68 +488,14 @@
   }
   #btnZaino:hover, #btnOfficina:hover { transform: translateY(-2px); }
 
-  /* ---- zaino (modale) ---- */
+  /* ---- zaino (modale) — il guscio; il resto lo veste ui/zaino.js ---- */
   #zaino { inset: 0; display: none; place-items: center; background: rgba(4,8,18,.55); z-index: 22; }
   #zaino.aperto { display: grid; }
-  #zaino .scheda { width: min(560px, 96vw); max-height: 84vh; overflow-y: auto; padding: 16px 18px; }
-  /* banco = la tua barra dentro lo zaino: bersaglio del trascinamento */
-  .zaino-banco-tit { font-size: 11px; font-weight: 800; color: var(--muto); letter-spacing: .3px; margin: 14px 0 6px; }
-  .zaino-banco { display: flex; gap: 7px; flex-wrap: wrap; }
-  .zaino-bslot {
-    position: relative; width: 56px; height: 60px; border-radius: 12px; flex: 0 0 auto;
-    border: 2px dashed rgba(255,255,255,0.21); background: rgba(255,255,255,.04);
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    cursor: grab; touch-action: none;
+  #zaino .scheda {
+    width: min(620px, 96vw); max-height: 86vh; padding: 14px 16px 12px;
+    display: flex; flex-direction: column; gap: 0;
   }
-  .zaino-bslot.pieno { border-style: solid; border-color: rgba(255,255,255,0.32); background: linear-gradient(180deg, rgba(74,92,132,.5), rgba(28,38,62,.58)); }
-  .zaino-bslot.attivo { border-color: var(--accento); box-shadow: 0 0 10px rgba(247,169,59,.55); }
-  .zaino-bslot.drop-qui { border-color: #3f9e57; background: rgba(99,175,86,.26); }
-  .zaino-bslot .icona { width: 26px; height: 26px; border-radius: 7px; font-size: 21px; line-height: 26px; text-align: center; }
-  .zaino-bslot .tasto { position: absolute; top: 3px; left: 5px; font-size: 9px; opacity: .5; font-weight: 800; }
-  .zaino-bslot .conta { position: absolute; bottom: 2px; right: 4px; font-size: 9px; font-weight: 800; padding: 0 3px; border-radius: 99px; background: rgba(0,0,0,0.42); }
   #zaino h2 { font-size: 16px; letter-spacing: .3px; }
-  #zaino .zaino-testa { justify-content: space-between; }
-  #zaino .zaino-slot {
-    font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
-    background: var(--incasso); border: 1px solid rgba(255,255,255,0.18); color: var(--accento);
-  }
-  #zaino .zaino-chiudi { font-size: 18px; }
-  #zaino .zaino-tabs { display: flex; gap: 5px; flex-wrap: wrap; margin: 10px 0 8px; }
-  #zaino .zaino-tab { padding: 6px 11px; border-radius: 999px; font-size: 11px; box-shadow: none; }
-  #zaino .zaino-tab:active { transform: none; }
-  #zaino .zaino-filtro { width: 100%; padding: 7px 10px; font-size: 12px; margin-bottom: 8px; }
-  #zaino .zaino-tit { font-size: 11px; font-weight: 800; color: var(--muto); letter-spacing: .4px; margin: 12px 0 6px; }
-  #zaino .zaino-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
-  #zaino .zaino-carta {
-    position: relative; border: 2px solid rgba(255,255,255,0.15); border-radius: 13px;
-    background: linear-gradient(180deg, rgba(74,92,132,.5), rgba(28,38,62,.58));
-    padding: 10px 6px 8px; text-align: center; cursor: grab; touch-action: none;
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-    min-height: 74px; box-shadow: var(--dura-mini);
-    transition: transform .1s, border-color .12s, box-shadow .1s;
-  }
-  #zaino .zaino-carta:hover { border-color: var(--accento); transform: translateY(-2px); }
-  #zaino .zaino-carta:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0,0,0,0.40); }
-  #zaino .zaino-carta .icona { width: 32px; height: 32px; border-radius: 8px; font-size: 26px; line-height: 32px; }
-  /* slot PIENO vs VUOTO: differenza netta a colpo d'occhio */
-  #zaino .zaino-carta { border-color: rgba(255,255,255,0.29); }
-  #zaino .zaino-carta.esaurito { opacity: .38; border-color: rgba(255,255,255,0.15); box-shadow: none; }
-  #zaino .zaino-vuota {
-    border: 2px dashed rgba(255,255,255,0.25); background: rgba(255,255,255,0.03);
-    box-shadow: none; cursor: default; pointer-events: none; justify-content: center;
-  }
-  #zaino .zaino-vuota-eti { font-size: 9px; color: rgba(122,100,78,.8); font-weight: 700; letter-spacing: .5px; }
-  /* trascinamento: chip che segue il dito + slot bersaglio evidenziato */
-  .drag-ghost {
-    position: fixed; z-index: 95; width: 44px; height: 44px; border-radius: 12px;
-    transform: translate(-50%, -50%); display: grid; place-items: center;
-    font-size: 26px; background: rgba(255,253,247,.97); border: 2px solid var(--accento);
-    box-shadow: 0 6px 14px rgba(0,0,0,.5); pointer-events: none;
-  }
-  .slot.drop-qui { border-color: #3f9e57; background: rgba(99,175,86,.26); transform: translateY(-6px); }
-  #zaino .zaino-carta .nome { font-size: 10px; opacity: .85; }
-  #zaino .zaino-carta .conta { font-size: 9px; font-weight: 800; color: var(--muto); }
-  #zaino .zaino-ingr { font-size: 8.5px; color: var(--muto); line-height: 1.2; }
 
   /* ---- Officina: l'editor dei contenuti (modale a due colonne) ---- */
   #officina { position: fixed; inset: 0; display: none; place-items: center; background: rgba(4,8,18,.55); z-index: 24; }
@@ -627,7 +654,7 @@
 
   /* ---- touch: bersagli più grandi, pannelli scorrevoli col dito ---- */
   @media (pointer: coarse) {
-    .slot { width: 56px; height: 60px; }
+    .tv-posto { max-width: 62px; }
     .ico { width: 44px; height: 44px; }
     #opzioni, #stanza, #zaino .scheda, #aiuto .scheda, #officina .scheda, #debug {
       touch-action: pan-y;                /* html ha touch-action:none: senza, niente scroll */
@@ -642,7 +669,13 @@
      VERTICALE: i tasti prendono tutta la fascia → la colonna sale.
      ORIZZONTALE: c'è spazio ai lati → basta rientrare ai bordi. */
   @media (orientation: portrait) {
-    body.comandi-touch #hudBasso { padding-bottom: calc(212px + env(safe-area-inset-bottom)); }
+    /* 212 servivano quando quaggiù c'era roba larga quanto lo schermo, che
+       doveva scavalcare il joystick (120px + base). Adesso la tavolozza sta
+       piegata SULLA DESTRA e il joystick sta a sinistra: non si incontrano, e
+       tenerla alta la allontanava soltanto dal pollice. 176 la portano appena
+       sopra il tasto della posa, che è il primo ostacolo vero su quella
+       colonna (18 + bolla 84 + 14 + posa 52 = 168). */
+    body.comandi-touch #hudBasso { padding-bottom: calc(176px + env(safe-area-inset-bottom)); }
   }
   @media (orientation: landscape) {
     body.comandi-touch #hudBasso {
@@ -679,7 +712,7 @@
   /* sfocatura VERA solo sui pannelli che si aprono (non sull'HUD sempre a
      schermo): lì il costo non si nota perché il gioco è coperto comunque */
   #opzioni.aperto, #stanza.aperto, #zaino .scheda, #officina .scheda,
-  #aiuto .scheda, #debug, .ruota-velo {
+  #aiuto .scheda, #debug {
     -webkit-backdrop-filter: blur(18px) saturate(1.6);
     backdrop-filter: blur(18px) saturate(1.6);
   }
@@ -725,81 +758,56 @@
   }
   .ico:hover { box-shadow: 0 6px 20px rgba(69,216,255,.4), inset 0 1px 0 rgba(255,255,255,.35); }
 
-  /* niente più pillola modalità e hotbar: ci pensa la ruota */
-  #pillaModo, #hotbar, #suggerimento { display: none !important; }
+  /* niente pillola modalità né suggerimenti: ci pensano la ruota e la tavolozza */
+  #pillaModo, #suggerimento { display: none !important; }
   /* su touch il diamante ha già rompi/piazza: la barra doppia sparisce */
   body.comandi-touch #barraCostruisci { display: none !important; }
   #barraCostruisci { border-radius: 999px; padding: 5px 6px; }
 
-  /* ---- RUOTA degli strumenti ---- */
+  /* ---- LA BOLLA: il tasto grosso, e fa una cosa sola ----
+     Tocco = usa · tieni premuto = ripete. Niente più trascinamento: scegliere
+     si fa toccando la tavolozza, che ormai è sempre a schermo. */
   #btnStrumenti {
-    position: fixed; z-index: 18; left: 50%; transform: translateX(-50%);
+    position: fixed; z-index: 18; left: 50%; margin-left: -31px;
     bottom: calc(18px + env(safe-area-inset-bottom));
     width: 62px; height: 62px; border-radius: 50%;
     --c1:#7eeaff; --c2:#1f9ad6; --glow: rgba(69,216,255,.55);
     display: grid; place-items: center;
   }
-  #btnStrumenti:active { transform: translateX(-50%) scale(.9); }
-  .ruota-icona { font-size: 30px; line-height: 1; display: grid; place-items: center; }
-  .ruota-icona.rv-cubo, .rv-icona.rv-cubo {
+  #btnStrumenti:active, #btnStrumenti.giu { transform: scale(.9); }
+  .bolla-icona { font-size: 30px; line-height: 1; display: grid; place-items: center; }
+  .bolla-icona.cubo {
     width: 30px; height: 30px; border-radius: 8px;
     border: 1px solid rgba(255,255,255,.4); box-shadow: inset 0 2px 6px rgba(255,255,255,.3);
   }
-  .ruota { position: fixed; inset: 0; z-index: 46; display: none; }
-  .ruota.aperta { display: block; }
-  .ruota-velo { position: absolute; inset: 0; background: rgba(4,8,18,.42); }
-  .ruota-perno { position: absolute; width: 0; height: 0; }
-  .ruota-centro {
-    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    min-width: 74px; padding: 9px 14px; border-radius: 999px; text-align: center;
-    font-size: 12px; font-weight: 800; color: var(--testo);
-    background: linear-gradient(180deg, rgba(40,52,82,.94), rgba(14,20,38,.96));
-    border: 1px solid rgba(255,255,255,.16);
-    box-shadow: 0 8px 22px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.22);
+  /* mentre ripete, il tasto PULSA: si vede che sta lavorando da solo e non si
+     resta col dubbio di star tenendo premuto per niente */
+  #btnStrumenti.ripete { animation: bollaPulsa .35s ease-in-out infinite alternate; }
+  @keyframes bollaPulsa {
+    from { box-shadow: 0 3px 10px var(--glow), inset 0 2px 0 rgba(255,255,255,.4); }
+    to   { box-shadow: 0 0 0 10px rgba(126,234,255,.16), 0 3px 10px var(--glow), inset 0 2px 0 rgba(255,255,255,.4); }
   }
-  .ruota-voce {
-    position: absolute; left: 50%; top: 50%;
-    width: 62px; height: 62px; margin: -31px 0 0 -31px; border-radius: 50%;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-    background: linear-gradient(180deg, rgba(56,70,104,.95), rgba(18,26,46,.96));
-    border: 1px solid rgba(255,255,255,.16);
-    box-shadow: 0 8px 20px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.24);
-    /* chiusa: tutte accatastate al centro, invisibili */
-    transform: translate(0, 0) scale(.2); opacity: 0;
-    transition: transform .32s var(--molla), opacity .22s, box-shadow .2s;
-    cursor: pointer;
-  }
-  .ruota.aperta .ruota-voce { transform: translate(var(--x), var(--y)) scale(1); opacity: 1; }
-  .ruota-voce.e-esplora { background: linear-gradient(180deg, #c8f877, #4fae2a); }
-  /* ✕ per svuotare uno slot della barra (prima non c'era modo di togliere) */
-  .bslot-via {
-    position: absolute; top: -6px; right: -6px; width: 20px; height: 20px;
-    border-radius: 50%; border: 1px solid rgba(255,255,255,.35); cursor: pointer;
-    background: linear-gradient(180deg, #ff9ab0, #d8324f); color: #fff;
-    font-size: 11px; font-weight: 800; line-height: 1; display: grid; place-items: center;
-    box-shadow: 0 3px 10px rgba(216,50,79,.5); opacity: 0; transition: opacity .16s, transform .16s var(--molla);
-  }
-  .zaino-bslot:hover .bslot-via, .zaino-bslot.attivo .bslot-via { opacity: 1; }
-  @media (pointer: coarse) { .bslot-via { opacity: 1; } }   /* col dito niente hover */
-  .bslot-via:active { transform: scale(.85); }
 
-  .ruota-voce.e-azione { background: linear-gradient(180deg, #c9b0ff, #6f47d6); }
-  .ruota-voce.e-azione .rv-nome { color: #f0e8ff; }
-  .ruota-voce.in-mano { border-color: rgba(120,230,255,.75); }
-  .ruota.aperta .ruota-voce.mirata {
-    transform: translate(var(--x), var(--y)) scale(1.28);
-    box-shadow: 0 0 0 3px rgba(120,230,255,.85), 0 10px 28px rgba(69,216,255,.6);
-    z-index: 2;
+  /* ---- SCELTA: elenchino ancorato a un pulsante (la posa) ---- */
+  .scelta {
+    position: fixed; z-index: 47; padding: 6px; border-radius: 16px; min-width: 168px;
+    background: linear-gradient(165deg, rgba(34,44,70,.98), rgba(14,20,38,.99));
+    border: 1px solid rgba(255,255,255,.16); box-shadow: 0 16px 40px rgba(0,0,0,.6);
+    animation: entra .18s var(--molla);
   }
-  .ruota-voce.vuoto { opacity: .42; }
-  .ruota.aperta .ruota-voce.vuoto { opacity: .42; }
-  .rv-icona { font-size: 25px; line-height: 1; }
-  .rv-nome {
-    font-size: 8px; font-weight: 800; color: rgba(230,242,255,.8);
-    max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  .scelta-voce {
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px;
+    border-radius: 12px; font: inherit; font-size: 12.5px; font-weight: 700;
+    color: var(--testo); cursor: pointer; text-align: left;
+    background: none; border: 1px solid transparent; box-shadow: none;
   }
-  .rv-conta { position: absolute; bottom: 2px; right: 6px; font-size: 9px; font-weight: 800; color: #9ff0ff; }
-  .ruota-voce.e-esplora .rv-nome { color: #12330a; }
+  .scelta-voce:hover { background: rgba(255,255,255,.07); }
+  .scelta-voce:active { transform: scale(.97); }
+  .scelta-voce.attivo {
+    border-color: rgba(126,234,255,.5); color: #d6f7ff;
+    background: linear-gradient(180deg, rgba(69,216,255,.22), rgba(31,154,214,.16));
+  }
+  .scelta-ico { font-size: 19px; width: 24px; text-align: center; }
 
   /* ---- comandi touch: joystick di vetro + diamante di gel ---- */
   /* joystick = anello di vetro: quasi trasparente al centro (si vede il gioco),
@@ -832,7 +840,7 @@
     background: rgba(3,6,14,.5); color: var(--testo);
     border: 1px solid rgba(255,255,255,.12); border-radius: 12px;
   }
-  .opz-tgl.attivo, .zaino-tab.attivo, .opz-scheda.attivo,
+  .opz-tgl.attivo, .opz-scheda.attivo,
   #barraCostruisci button.attivo, #debug button.attivo, .officina-tipo.attivo {
     background: linear-gradient(180deg, #7eeaff, #1f9ad6) !important;
     color: #04202e !important; border-color: rgba(255,255,255,.4) !important;
@@ -840,15 +848,13 @@
     text-shadow: none;
   }
   /* carte dello zaino: vetrini con puntinato */
-  #zaino .zaino-carta, .zaino-bslot, .officina-riga {
+  .zn-carta, .tv-posto.pieno, .officina-riga {
     background: linear-gradient(180deg, rgba(52,66,98,.7), rgba(16,23,42,.75));
     border-color: rgba(255,255,255,.14);
   }
-  #zaino .zaino-carta:hover { border-color: rgba(120,230,255,.7); box-shadow: 0 8px 20px rgba(69,216,255,.28); }
-  #zaino .zaino-vuota { background: rgba(255,255,255,.03); border: 2px dashed rgba(255,255,255,.16); }
-  #zaino .zaino-vuota-eti { color: rgba(200,220,240,.4); }
-  .drag-ghost { background: linear-gradient(180deg, rgba(52,66,98,.96), rgba(16,23,42,.97)); border-color: rgba(120,230,255,.8); }
-  .slot.drop-qui, .zaino-bslot.drop-qui { border-color: #8ef04b; background: rgba(142,240,75,.2); }
+  .zn-carta:hover { border-color: rgba(120,230,255,.7); box-shadow: 0 8px 20px rgba(69,216,255,.28); }
+  .tv-fantasma { background: linear-gradient(180deg, rgba(52,66,98,.96), rgba(16,23,42,.97)); border-color: rgba(120,230,255,.8); }
+  .tv-posto.bersaglio { border-color: #8ef04b; background: rgba(142,240,75,.2); }
 
   /* ---- schermate di avvio: notte aero con bolle ---- */
   #caricamento, #loading {
@@ -865,30 +871,54 @@
   @keyframes entra { from { opacity: 0; transform: translateY(14px) scale(.97); } }
   #toast { animation: entra .22s var(--molla); }
 
-  /* ---- ZAINO stile Animal Crossing: tocchi e scegli, niente trascinamenti ---- */
-  .zn-tit { font-size: 11px; font-weight: 800; color: var(--muto); margin: 10px 0 6px; letter-spacing: .3px; }
-  .zn-ruota { display: grid; grid-template-columns: repeat(9, 1fr); gap: 5px; }
-  .zn-slot {
-    position: relative; aspect-ratio: 1; border-radius: 12px; cursor: pointer;
-    display: grid; place-items: center;
-    border: 2px dashed rgba(255,255,255,.18); background: rgba(255,255,255,.04);
-    transition: transform .18s var(--molla), border-color .16s, box-shadow .16s;
+  /* ---- ZAINO: il CATALOGO. Schede scorrevoli, ricerca, e in fondo la
+     tavolozza dove si decide cosa tenere fuori. Il pannello è una colonna:
+     testa e piede stanno fermi, solo la griglia scorre — così la tavolozza
+     resta raggiungibile col pollice anche in mezzo a un elenco lungo. ---- */
+  .zn-testa { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; }
+  .zn-chiudi {
+    font-size: 18px; width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center; box-shadow: none;
   }
-  .zn-slot.pieno { border-style: solid; border-color: rgba(255,255,255,.22); background: linear-gradient(180deg, rgba(74,92,132,.55), rgba(28,38,62,.6)); }
-  .zn-slot.attivo { border-color: #45d8ff; box-shadow: 0 0 0 2px rgba(69,216,255,.35), 0 6px 16px rgba(69,216,255,.3); transform: translateY(-2px); }
-  .zn-slot:active { transform: scale(.93); }
-  .zn-via {
-    position: absolute; top: -5px; right: -5px; width: 16px; height: 16px; border-radius: 50%;
-    border: 1px solid rgba(255,255,255,.4); cursor: pointer; padding: 0;
-    background: linear-gradient(180deg, #ff9ab0, #d8324f); color: #fff;
-    font-size: 9px; font-weight: 800; line-height: 1; display: grid; place-items: center;
-    box-shadow: 0 2px 7px rgba(216,50,79,.55);
+  .zn-cerca-riga {
+    display: flex; align-items: center; gap: 6px; margin: 10px 0 8px; flex: 0 0 auto;
+    padding: 0 10px; border-radius: 999px;
+    background: var(--incasso); border: 1px solid rgba(255,255,255,.14);
   }
-  .zn-via:active { transform: scale(.85); }
+  .zn-lente { font-size: 13px; opacity: .6; }
+  .zn-cerca {
+    flex: 1; min-width: 0; padding: 9px 0; font: inherit; font-size: 13px;
+    background: none; border: none; color: var(--testo); outline: none;
+  }
+  .zn-cerca::-webkit-search-cancel-button { display: none; }
+  .zn-pulisci {
+    background: none; border: none; color: var(--muto); font-size: 17px;
+    cursor: pointer; padding: 0 2px; box-shadow: none;
+  }
 
-  .zn-tabs { display: flex; gap: 6px; margin: 14px 0 8px; }
-  .zn-tabs .zaino-tab { flex: 1; padding: 8px 6px; border-radius: 999px; font-size: 12px; }
+  /* CHIP e non "segmented control": quelli reggono fino a cinque voci, qui le
+     categorie sono una decina e cresceranno con l'Officina. Scorrono in
+     orizzontale invece di andare a capo, così la testa non cambia altezza. */
+  .zn-chips {
+    display: flex; gap: 6px; flex: 0 0 auto; margin-bottom: 9px;
+    overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain;
+    padding-bottom: 2px;
+  }
+  .zn-chips::-webkit-scrollbar { display: none; }
+  .zn-chip {
+    flex: 0 0 auto; padding: 7px 13px; border-radius: 999px; font-size: 11.5px;
+    font-weight: 700; cursor: pointer; white-space: nowrap; color: var(--testo);
+    border: 1px solid rgba(255,255,255,.14); box-shadow: none;
+    background: linear-gradient(180deg, rgba(74,92,132,.42), rgba(28,38,62,.5));
+    transition: border-color .14s, background .14s;
+  }
+  .zn-chip:active { transform: scale(.95); }
+  .zn-chip.attivo {
+    border-color: #45d8ff; color: #d6f7ff;
+    background: linear-gradient(180deg, rgba(69,216,255,.28), rgba(31,154,214,.22));
+  }
 
+  .zn-corpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
   .zn-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
   .zn-carta {
     position: relative; border-radius: 14px; cursor: pointer; padding: 10px 6px 8px;
@@ -896,16 +926,21 @@
     border: 1px solid rgba(255,255,255,.14); color: var(--testo); font: inherit;
     background: linear-gradient(180deg, rgba(74,92,132,.5), rgba(28,38,62,.58));
     box-shadow: 0 4px 12px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.2);
+    touch-action: none;
     transition: transform .18s var(--molla), border-color .16s, box-shadow .16s;
   }
   .zn-carta:hover { border-color: rgba(120,230,255,.6); box-shadow: 0 6px 18px rgba(69,216,255,.28); }
   .zn-carta:active { transform: scale(.94); }
-  .zn-carta.in-mano { border-color: rgba(120,230,255,.7); }
-  .zn-carta.spenta { opacity: .42; }
+  /* SPENTA = esiste ma non ce l'hai. Nel catalogo è un invito, non un errore:
+     per questo resta leggibile invece di sparire. */
+  .zn-carta.spenta { opacity: .4; cursor: default; }
+  .zn-carta.fuori { border-color: rgba(126,234,255,.45); }
   .zn-nome { font-size: 10.5px; font-weight: 700; line-height: 1.15; text-align: center; }
   .zn-q { font-size: 10px; font-weight: 800; color: #9ff0ff; }
+  .zn-carta.spenta .zn-q { color: var(--muto); font-weight: 700; }
   .zn-ingr { font-size: 8.5px; color: var(--muto); line-height: 1.2; text-align: center; }
-  .zn-bollino {
+  /* il numero del posto: «questa ce l'hai già fuori, è la terza» */
+  .zn-posto {
     position: absolute; top: -6px; left: -6px; min-width: 20px; height: 20px; border-radius: 999px;
     background: linear-gradient(180deg, #7eeaff, #1f9ad6); color: #04202e;
     font-size: 11px; font-weight: 800; display: grid; place-items: center;
@@ -915,26 +950,15 @@
   .zn-icona.cubo { border-radius: 7px; border: 1px solid rgba(255,255,255,.3); box-shadow: inset 0 2px 5px rgba(255,255,255,.25); }
   .zn-vuoto { text-align: center; font-size: 12.5px; color: var(--muto); line-height: 1.7; padding: 26px 10px; }
 
-  /* foglietto delle azioni: appare sopra lo zaino, azioni grandi e leggibili */
-  .zn-foglio { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(4,8,18,.5); }
-  .zn-foglio[hidden] { display: none; }
-  .zn-foglio-carta {
-    width: min(300px, 86vw); padding: 14px; border-radius: 20px;
-    background: linear-gradient(165deg, rgba(34,44,70,.98), rgba(14,20,38,.99));
-    border: 1px solid rgba(255,255,255,.16); box-shadow: 0 20px 50px rgba(0,0,0,.6);
-    animation: entra .2s var(--molla);
+  .zn-piede {
+    flex: 0 0 auto; margin-top: 10px; padding-top: 9px;
+    border-top: 1px solid rgba(255,255,255,.1);
   }
-  .zn-foglio-tit { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; font-size: 14px; }
-  .zn-azione {
-    display: block; width: 100%; margin-top: 7px; padding: 12px; border-radius: 13px;
-    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; color: var(--testo);
-    border: 1px solid rgba(255,255,255,.16);
-    background: linear-gradient(180deg, rgba(74,92,132,.6), rgba(28,38,62,.65));
-    transition: transform .16s var(--molla), border-color .14s;
+  .zn-piede-tit {
+    font-size: 10px; font-weight: 700; color: var(--muto);
+    letter-spacing: .2px; margin-bottom: 6px; text-align: center;
   }
-  .zn-azione:active { transform: scale(.96); }
-  .zn-azione.rossa { background: linear-gradient(180deg, rgba(150,50,70,.7), rgba(90,25,40,.75)); border-color: rgba(255,140,160,.35); }
-  .zn-annulla { background: none; border-color: rgba(255,255,255,.12); color: var(--muto); }
+  #tavolozzaZaino { background: none; border: none; box-shadow: none; padding: 0; }
 
   /* ==================================================================
      PANNELLO DELLE MACCHINE (ui/pannelloMacchina.js) — FOGLIO IN BASSO.
@@ -1045,12 +1069,19 @@
   .pm-aziona[hidden] { display: none; }
   .pm-vuoto { font-size: 12px; color: var(--muto); line-height: 1.6; }
 
-  /* ---- collocazione finale dei pochi comandi rimasti ----
-     Sparita la hotbar, la barra bassa serve solo alla barra Costruisci del
-     desktop; zaino e officina diventano due tondi fissi a sinistra. */
-  #rigaBasso { display: contents; }
-  /* zaino e officina ora vivono DENTRO la ruota: niente tondi flottanti */
-  #utilBtn { display: none; }
+  /* ---- collocazione finale della barra bassa ----
+     TORNANO VISIBILI zaino e officina, e non è un ripensamento estetico: con
+     otto posti la ruota è tutta tavolozza e non ha più uno spicchio da regalare
+     alle scorciatoie. Finché ce l'aveva questi due tondi stavano nascosti
+     (#utilBtn display:none) — toglierli dalla ruota senza rimetterli qui
+     avrebbe lasciato lo Zaino IRRAGGIUNGIBILE col dito.
+     La riga va a capo quando non ci sta: su schermo stretto la tavolozza si
+     prende una riga tutta sua, contro il bordo basso, dove il pollice arriva. */
+  #rigaBasso {
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end;
+    gap: 8px; width: 100%; max-width: 860px;
+  }
+  #utilBtn { display: flex; flex-direction: row; gap: 8px; flex: 0 0 auto; }
   #btnZaino, #btnOfficina {
     width: 44px; height: 44px; border-radius: 50%; font-size: 19px;
     background: linear-gradient(180deg, rgba(52,66,98,.92), rgba(20,28,48,.94));
@@ -1080,18 +1111,17 @@
     width: var(--ct-stick); height: var(--ct-stick);
   }
   /* LA BOLLA è il tasto principale: sta sotto il pollice DESTRO, grande.
-     Tocco = usa quello che hai in mano · trascini = si apre la ruota. */
+     Tocco = usa quello che hai in mano · tienila premuta e lo ripete. */
   body.comandi-touch #btnStrumenti {
-    left: auto;
+    left: auto; margin-left: 0;
     right: calc(var(--ct-lato) + env(safe-area-inset-right));
     bottom: calc(var(--ct-giu) + env(safe-area-inset-bottom));
     width: 84px; height: 84px;
-    transform: none;
   }
   body.comandi-touch #btnStrumenti:active,
   body.comandi-touch #btnStrumenti.giu { transform: scale(.92); }
-  body.comandi-touch #btnStrumenti .ruota-icona { font-size: 38px; }
-  body.comandi-touch #btnStrumenti .ruota-icona.rv-cubo { width: 38px; height: 38px; }
+  body.comandi-touch #btnStrumenti .bolla-icona { font-size: 38px; }
+  body.comandi-touch #btnStrumenti .bolla-icona.cubo { width: 38px; height: 38px; }
 
   /* SALTO: unico altro tasto, accanto alla bolla sulla stessa base */
   .ct-salto {
@@ -1115,7 +1145,7 @@
   }
   body.mostra-posa #btnPosa { display: grid; }
   #btnPosa:active { transform: scale(.9); }
-  #btnPosa .ruota-icona { font-size: 23px; }
+  #btnPosa { font-size: 23px; }
 
   /* schermi molto stretti: anche il diamante si stringe */
   @media (max-width: 380px) {
@@ -1161,7 +1191,7 @@
     .officina-tipi { flex-direction: row; flex-wrap: wrap; flex: 0 0 auto; }
     .officina-tipo { flex: 1 1 auto; text-align: center; }
   }
-  .zn-bollino { font-size: 11px; }
+  .zn-posto { font-size: 11px; }
 </style>
 <script type="importmap">
 {
@@ -1373,8 +1403,8 @@
     </div>
   </div>
 
-  <!-- BARRA BASSA: colonna unica (modalità sopra, poi zaino/officina + hotbar).
-       Un solo contenitore = niente più sovrapposizioni con la hotbar. -->
+  <!-- BARRA BASSA: colonna unica (modalità sopra, poi zaino/officina + tavolozza).
+       Un solo contenitore = niente più sovrapposizioni. -->
   <div id="hudBasso" class="hud">
     <div id="comandi">
       <div id="pillaModo" class="pannello">🐾 ESPLORA</div>
@@ -1389,24 +1419,18 @@
         <div id="btnOfficina" class="pannello" title="Officina: definisci i tuoi blocchi (U)">🛠️</div>
         <div id="btnZaino" class="pannello" title="Zaino (I)">🎒</div>
       </div>
-      <div id="hotbar" class="pannello"></div>
+      <!-- gli otto posti: li riempie ui/tavolozza.js -->
+      <div id="tavolozza" class="tv-striscia"></div>
     </div>
   </div>
 
+  <!-- Lo Zaino si costruisce da solo (ui/zaino.js): qui c'è solo il guscio. -->
+  <!-- DOVE costruire rispetto al gatto: solo in Costruisci, coi comandi a schermo.
+       La bolla principale (#btnStrumenti) se la crea da sola ui/bolla.js. -->
+  <button id="btnPosa" class="gel" title="Dove costruire">🧱</button>
+
   <div id="zaino" class="hud">
-    <div class="scheda pannello">
-      <div class="zaino-testa">
-        <h2>🎒 Zaino</h2>
-        <span class="zaino-slot"></span>
-        <button class="zaino-chiudi" id="btnChiudiZaino">×</button>
-      </div>
-      <div style="font-size:11px;opacity:.65">Tocca per assegnare, o TIENI PREMUTO e trascina un oggetto sugli slot in basso.</div>
-      <div class="zaino-tabs"></div>
-      <input class="zaino-filtro" type="text" placeholder="🔎 cerca…">
-      <div class="zaino-corpo"></div>
-      <div class="zaino-banco-tit">La tua barra — trascina qui, o tra gli slot per riordinare</div>
-      <div class="zaino-banco"></div>
-    </div>
+    <div class="scheda pannello"></div>
   </div>
   <div id="suggerimento" class="hud pannello">B costruisci · H aiuto</div>
   <div id="toast" class="hud pannello"></div>
@@ -1418,8 +1442,11 @@
         <tr><td>Click sul terreno</td><td>il gatto ci va da solo (sale i gradini col salto)</td></tr>
         <tr><td>WASD + Spazio</td><td>movimento manuale e salto</td></tr>
         <tr><td>Trascina / Rotella</td><td>orbita la camera / zoom</td></tr>
-        <tr><td>B</td><td>passa tra Esplora e Costruisci</td></tr>
-        <tr><td>1–9</td><td>scegli blocco o furni</td></tr>
+        <tr><td>Tavolozza</td><td><b>tocca un posto</b> per averlo in mano (o 1–8 e la rotella, con la tastiera)</td></tr>
+        <tr><td>Bolla 🫧</td><td>usa quel che hai in mano · <b>tienila premuta</b> e lo ripete (muri e scavi senza martellare il dito)</td></tr>
+        <tr><td>Tasto centrale</td><td>ti mette in mano quello che stai guardando</td></tr>
+        <tr><td>Tavolozza</td><td>trascina un posto su un altro per riordinare · <b>tieni premuto</b> per fissarlo 📌 o svuotarlo</td></tr>
+        <tr><td>B</td><td>passa tra Esplora e Costruisci (cioè: prendi o lasci la zampa 🐾)</td></tr>
         <tr><td>R</td><td>ruota il furni prima di piazzare</td></tr>
         <tr><td>Click destro</td><td>(in Costruisci) rimuovi blocco o furni</td></tr>
         <tr><td>Click sul lampione</td><td>(in Esplora) accendi / spegni</td></tr>
@@ -1428,7 +1455,7 @@
         <tr><td>Tieni premuto ⚙️</td><td>(in Esplora) apre le MANOPOLE del macchinario — o Maiusc+E per quello più vicino</td></tr>
         <tr><td>Raccolta</td><td>rompere rimette nell'inventario, piazzare consuma (∞ nel debug)</td></tr>
         <tr><td>T</td><td>manda avanti il tempo</td></tr>
-        <tr><td>I (o 🎒)</td><td>zaino: assegna blocchi, furni e attrezzi agli slot</td></tr>
+        <tr><td>I (o 🎒)</td><td>zaino: tutto quello che esiste, per categoria o cercandolo. Un tocco te lo mette in mano — <b>dallo zaino non si perde mai niente</b>, la tavolozza è solo ciò che tieni fuori</td></tr>
         <tr><td>🪣 Secchio</td><td>(in Costruisci) raccoglie una sorgente / la versa — 2 sorgenti vicine = acqua infinita</td></tr>
         <tr><td>F3</td><td>menu di debug (stats, arcipelago, overlay, P2P di prova)</td></tr>
         <tr><td>V</td><td>volo libero (Spazio sali · Shift scendi)</td></tr>
@@ -1451,6 +1478,6 @@
   <div id="loading"><div><span class="lanterna">🏮</span><span id="loadingTxt">Un momento…</span></div></div>
 
   <input id="fileImporta" type="file" accept="application/json" style="display:none">
-  <script type="module" src="./src/main.js?v=mrt4nxiv"></script>
+  <script type="module" src="./src/main.js?v=mrt9jcee"></script>
 </body>
 </html>
