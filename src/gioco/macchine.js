@@ -54,6 +54,25 @@
 
 const PRIORITA_MACCHINA = 0;   // stesso rango dei pensieri creatura: tie-break per seq (deterministico)
 
+// QUARANTENA. Un def-macchina è codice di CONTENUTO (registry.js, un domani
+// l'Officina): può contenere un baco. Se `aggiorna` lancia, l'eccezione risalirebbe
+// per agenda.scarica → orologio.passi → passo(): un macchinario storto ucciderebbe
+// il LOOP, cioè tutto il gioco. Perciò ogni chiamata al def passa da qui: al primo
+// errore la macchina viene marchiata `rotta`, esclusa da agenda e risvegli, e
+// l'errore viene URLATO in console (regola della casa: mai inghiottire — ma il
+// resto del diorama continua a girare). `rotta` è per-ISTANZA, non per-def: le
+// altre copie dello stesso macchinario restano vive finché non incappano anche loro.
+function chiamaDef(m, nomeGancio, servizi, ...extra) {
+  try {
+    return { ok: true, valore: m.def[nomeGancio](m, servizi, ...extra) };
+  } catch (e) {
+    m.rotta = true;
+    m.dormiente = true;
+    console.error(`[lantern] macchina "${m.defId}" disattivata: ${nomeGancio} ha lanciato`, e);
+    return { ok: false, valore: null };
+  }
+}
+
 /** True se questo def FURNI porta un comportamento → merita una macchina ECS. */
 export function eMacchina(def) {
   return !!def && (typeof def.aggiorna === 'function' || typeof def.onInteragisci === 'function');
@@ -89,10 +108,11 @@ export function creaEntitaMacchina(ecs, servizi, istanza) {
     stato: {},                                   // sacco libero del def (contatori, id figli, fase…)
     rng: servizi.rng.diramazione(e),             // sotto-Rng deterministico per-macchina
     dormiente: true,
+    rotta: false,                                // messa in quarantena da un'eccezione del def
   };
   ecs.aggiungi(e, 'macchina', m);
-  if (typeof def.avvia === 'function') def.avvia(m, servizi);
-  if (typeof def.aggiorna === 'function') {
+  if (typeof def.avvia === 'function') chiamaDef(m, 'avvia', servizi);
+  if (typeof def.aggiorna === 'function' && !m.rotta) {
     const primo = Number.isFinite(def.avviaTraTick) ? def.avviaTraTick : 1;
     servizi.agenda.programma(Math.max(0, primo | 0), PRIORITA_MACCHINA, e);
     m.dormiente = false;
@@ -111,15 +131,31 @@ export function guidaMacchina(id, servizi) {
   const ecs = servizi.ecs;
   if (!ecs.vivo(id)) return;                     // furni rimosso: fine della voce
   const m = ecs.leggi(id, 'macchina');
-  if (!m) return;
+  if (!m || m.rotta) return;                     // in quarantena: la voce si esaurisce qui
   const def = m.def;
-  const prossimo = (typeof def.aggiorna === 'function') ? def.aggiorna(m, servizi) : null;
+  if (typeof def.aggiorna !== 'function') { m.dormiente = true; return; }
+
+  // L'INVARIANTE VA RIMESSA A POSTO *PRIMA* DELL'AGGIORNA. La voce è già stata
+  // estratta dall'agenda: in questo istante la macchina NON ha prenotazioni
+  // pendenti, quindi è a tutti gli effetti dormiente. Se lasciassimo il flag a
+  // false, una `svegliaMacchina` arrivata DURANTE l'aggiorna (una macchina che
+  // ne sveglia un'altra — la catena trasmettitore→ripetitore) la vedrebbe
+  // "già attiva" e verrebbe scartata come doppio-booking: risveglio PERSO, e se
+  // poi l'aggiorna ritorna falsy la macchina si addormenta ignorando la chiamata.
+  m.dormiente = true;
+  const esito = chiamaDef(m, 'aggiorna', servizi);
+  if (!esito.ok) return;                         // ha lanciato: già messa in quarantena
+  if (!ecs.vivo(id)) return;                     // si è auto-distrutta durante l'aggiorna
+  const prossimo = esito.valore;
   if (typeof prossimo === 'number' && prossimo > 0) {
-    servizi.agenda.programma(prossimo | 0, PRIORITA_MACCHINA, id);
-    m.dormiente = false;
-  } else {
-    m.dormiente = true;                          // dorme: nessuna voce → costo ZERO
+    // Se durante l'aggiorna qualcuno l'ha GIÀ risvegliata, la sua prenotazione
+    // vale: riprogrammare qui creerebbe la seconda voce (doppio-booking).
+    if (m.dormiente) {
+      servizi.agenda.programma(prossimo | 0, PRIORITA_MACCHINA, id);
+      m.dormiente = false;
+    }
   }
+  // altrimenti resta dormiente: nessuna voce → costo ZERO
 }
 
 /**
@@ -129,10 +165,27 @@ export function guidaMacchina(id, servizi) {
  * dentro `onInteragisci` per far ripartire una macchina che si era addormentata.
  */
 export function svegliaMacchina(servizi, m, traTick = 1) {
-  if (!m || !m.dormiente) return false;
+  if (!m || m.rotta || !m.dormiente) return false;
+  if (!servizi.ecs.vivo(m.id)) return false;     // handle stantìo: il furni non c'è più
   servizi.agenda.programma(Math.max(0, traTick | 0), PRIORITA_MACCHINA, m.id);
   m.dormiente = false;
   return true;
+}
+
+/**
+ * IL TOCCO, con la stessa quarantena dell'aggiorna. Trova la macchina che
+ * rispecchia quell'istanza di furni e le passa l'interazione; torna true se il
+ * def l'ha GESTITA (il chiamante si ferma e non prosegue col legacy).
+ * Sta qui e non in main perché è l'altra metà del contratto: un `onInteragisci`
+ * che lancia non deve buttare giù il gestore dei click.
+ */
+export function toccaMacchina(gestore, servizi, istanza) {
+  if (!istanza || typeof istanza.def.onInteragisci !== 'function') return false;
+  const id = gestore.perFurni(istanza);
+  if (id == null) return false;                  // reconcile non ancora passato
+  const m = servizi.ecs.leggi(id, 'macchina');
+  if (!m || m.rotta) return false;
+  return !!chiamaDef(m, 'onInteragisci', servizi).valore;
 }
 
 /**
@@ -143,7 +196,10 @@ export function svegliaMacchina(servizi, m, traTick = 1) {
 export function distruggiEntitaMacchina(ecs, servizi, id) {
   if (!ecs.vivo(id)) return;
   const m = ecs.leggi(id, 'macchina');
-  if (m && typeof m.def.rimuovi === 'function') m.def.rimuovi(m, servizi);
+  // la pulizia del def NON deve poter impedire la distruzione dell'entità: se
+  // lancia, la quarantena la assorbe e si libera comunque lo slot (altrimenti
+  // un def storto farebbe accumulare entità-zombie a ogni furni rimosso).
+  if (m && !m.rotta && typeof m.def.rimuovi === 'function') chiamaDef(m, 'rimuovi', servizi);
   ecs.distruggi(id);
 }
 

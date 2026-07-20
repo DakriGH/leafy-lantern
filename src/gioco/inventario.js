@@ -16,6 +16,8 @@ const DOTAZIONE = {
   lanaBianca: 64, lanaRossa: 64, lanaBlu: 64, lanaGialla: 64, lanaVerde: 64,
   acqua: 64,
   albero: 10, panchina: 10, lampione: 10, generatore: 5, scintillatore: 5,
+  // le quattro macchine del collaudo (registry.js): produzione, mondo, giocatore, catena
+  coltivatore: 8, idrovora: 8, campanello: 8, trasmettitore: 4, ripetitore: 12,
   secchio: 1, vanga: 1, piccone: 1, ascia: 1,
 };
 

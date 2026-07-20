@@ -5,8 +5,8 @@
 
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { MEZZO_SUPER } from '../config.js?v=mrsjdrr0';
-import { convertiUnlit, patchLuci } from '../fx/materials.js?v=mrsjdrr0';
+import { MEZZO_SUPER } from '../config.js?v=mrt21mqg';
+import { convertiUnlit, patchLuci } from '../fx/materials.js?v=mrt21mqg';
 
 const fbx = new FBXLoader();
 
@@ -191,6 +191,81 @@ function fallback(defId) {
     const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 0), mat(0x9fe8ff));
     orb.position.y = 1.15;
     g.add(base, stelo, orb);
+  } else if (defId === 'coltivatore') {
+    // cassone di legno con 4 germogli: i frutti nascono INVISIBILI e li accende
+    // il def-macchina uno alla volta (name='frutto' → li ritrova con pezzi()).
+    // Visuale a blocchi e colori piatti come tutto il resto: nessuna texture.
+    const cassa = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.34, 0.86), mat(0x8a6234));
+    cassa.position.y = 0.17;
+    const terra = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.72), mat(0x5a4028));
+    terra.position.y = 0.36;
+    g.add(cassa, terra);
+    for (const [fx, fz] of [[-0.19, -0.19], [0.19, -0.19], [-0.19, 0.19], [0.19, 0.19]]) {
+      const gambo = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.05), mat(0x3f7a3a));
+      const bacca = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), mat(0x8fd45a));
+      gambo.position.set(fx, 0.48, fz);
+      bacca.position.set(fx, 0.64, fz);
+      const frutto = new THREE.Group();
+      frutto.name = 'frutto';        // il gancio del def: pezzi(m,'frutto')
+      frutto.add(gambo, bacca);
+      frutto.visible = false;
+      g.add(frutto);
+    }
+  } else if (defId === 'idrovora') {
+    // pompa: basamento, tubo, becco laterale e un GETTO azzurro che il def alza
+    // solo quando trova acqua nei paraggi (name='getto').
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.28, 0.7), mat(0x46506b));
+    base.position.y = 0.14;
+    const tubo = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.9, 0.22), mat(0x5d7391));
+    tubo.position.y = 0.73;
+    const becco = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.14, 0.14), mat(0x5d7391));
+    becco.position.set(0.24, 1.06, 0);
+    const getto = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 0.12), mat(0x74c8f0));
+    getto.name = 'getto';
+    getto.position.set(0.38, 0.84, 0);
+    getto.visible = false;
+    g.add(base, tubo, becco, getto);
+  } else if (defId === 'campanello') {
+    // colonnina + campana d'ottone: la campana DONDOLA (rotation.z per-istanza)
+    // quando il gatto si avvicina.
+    const piede = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.2, 0.44), mat(0x3a3f52));
+    piede.position.y = 0.1;
+    const palo = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.7, 0.1), mat(0x555c74));
+    palo.position.y = 0.55;
+    // la campana sta in un GRUPPO col perno in alto: ruotando il gruppo su Z
+    // dondola attorno all'attacco, non attorno al proprio centro.
+    const campana = new THREE.Group();
+    campana.name = 'campana';
+    campana.position.set(0, 0.92, 0);
+    const cupola = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.22, 0.28, 6), mat(0xe0b45c));
+    cupola.position.y = -0.16;
+    const battaglio = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.08), mat(0x8a6a2c));
+    battaglio.position.y = -0.34;
+    campana.add(cupola, battaglio);
+    g.add(piede, palo, campana);
+  } else if (defId === 'trasmettitore') {
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.24, 0.6), mat(0x3d3350));
+    base.position.y = 0.12;
+    const asta = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 0.08), mat(0x6b5b8f));
+    asta.position.y = 0.79;
+    const piatto = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.24, 6, 1, true), mat(0xc0a6f0));
+    piatto.position.y = 1.42;
+    piatto.rotation.x = Math.PI;
+    g.add(base, asta, piatto);
+  } else if (defId === 'ripetitore') {
+    // due cubetti sovrapposti allo STESSO posto: 'spento' grigio e 'acceso'
+    // giallo. Il def scambia le visibilità → cambio di colore per-istanza senza
+    // toccare i materiali condivisi (che sono di tutte le copie).
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.3, 0.56), mat(0x33384a));
+    base.position.y = 0.15;
+    const spento = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.34), mat(0x5a6070));
+    spento.name = 'spento';
+    spento.position.y = 0.5;
+    const acceso = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), mat(0xffe27a));
+    acceso.name = 'acceso';
+    acceso.position.y = 0.5;
+    acceso.visible = false;
+    g.add(base, spento, acceso);
   } else {
     const seduta = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 0.5), mat(0xc98a4b));
     seduta.position.y = 0.42;
