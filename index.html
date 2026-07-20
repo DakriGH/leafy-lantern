@@ -936,6 +936,115 @@
   .zn-azione.rossa { background: linear-gradient(180deg, rgba(150,50,70,.7), rgba(90,25,40,.75)); border-color: rgba(255,140,160,.35); }
   .zn-annulla { background: none; border-color: rgba(255,255,255,.12); color: var(--muto); }
 
+  /* ==================================================================
+     PANNELLO DELLE MACCHINE (ui/pannelloMacchina.js) — FOGLIO IN BASSO.
+     Non è un modale come zaino e officina, e non per capriccio: qui si
+     gira una manopola per GUARDARE la macchina reagire, quindi la scena
+     deve restare visibile. Il contenitore non intercetta i tocchi
+     (pointer-events:none) — li riprende solo il foglio — così la metà
+     alta dello schermo continua a orbitare la camera mentre si regola.
+     ================================================================== */
+  #pannelloMacchina {
+    left: 0; right: 0; bottom: 0; z-index: 26;
+    display: none; justify-content: center;
+    padding: 0 max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom));
+    pointer-events: none;
+  }
+  #pannelloMacchina.aperto { display: flex; }
+  /* col foglio aperto il joystick resterebbe SOTTO, visibile e impremibile:
+     meglio toglierlo di mezzo (si chiude il pannello e torna) */
+  body.macchina-aperta #comandiTouch { display: none; }
+  .pm-foglio {
+    pointer-events: auto;
+    width: min(520px, 100%);
+    max-height: min(58vh, 460px);
+    overflow-y: auto;
+    /* html ha touch-action:none: senza pan-y questo foglio NON scrolla col dito
+       (gotcha di casa, vale per ogni pannello scrollabile) */
+    touch-action: pan-y;
+    padding: 12px 14px 14px;
+    border-radius: 20px;
+    animation: entra .22s var(--molla);
+  }
+  .pm-testa { display: flex; align-items: center; gap: 10px; }
+  .pm-icona {
+    width: 40px; height: 40px; flex: 0 0 auto; border-radius: 12px;
+    display: grid; place-items: center; font-size: 23px; line-height: 1;
+    background: linear-gradient(180deg, rgba(74,92,132,.55), rgba(28,38,62,.62));
+    border: 1px solid rgba(255,255,255,.16);
+  }
+  .pm-nomi { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .pm-nomi b { font-size: 15px; letter-spacing: .3px; }
+  .pm-vita { font-size: 10.5px; font-weight: 800; color: #9ff0ff; letter-spacing: .3px; }
+  .pm-vita.dorme { color: var(--muto); }
+  .pm-chiudi { font-size: 24px; width: 44px; height: 44px; flex: 0 0 auto; }
+  /* la riga che dice COSA STA FACENDO: è il motivo per cui il pannello esiste,
+     quindi si legge per prima — incassata, come una targhetta di strumento */
+  .pm-riepilogo {
+    margin: 10px 0 12px; padding: 10px 12px; border-radius: 12px;
+    background: var(--incasso); border: 1px solid rgba(255,255,255,.1);
+    font-size: 12.5px; line-height: 1.5; color: var(--testo); min-height: 42px;
+  }
+  .pm-manopole { display: flex; flex-direction: column; gap: 12px; }
+  .pm-riga { display: flex; flex-direction: column; gap: 7px; }
+  .pm-eti { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .pm-eti span { font-size: 11px; font-weight: 800; color: var(--muto); letter-spacing: .3px; }
+  .pm-eti em { font-style: normal; font-size: 14px; font-weight: 800; color: #9ff0ff; font-variant-numeric: tabular-nums; }
+  /* interruttore: un bersaglio grande, non una spunta da centrare col dito */
+  .pm-tgl {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    width: 100%; min-height: 48px; padding: 10px 14px; border-radius: 14px;
+    font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; color: var(--testo);
+    border: 1px solid rgba(255,255,255,.16);
+    background: linear-gradient(180deg, rgba(74,92,132,.55), rgba(28,38,62,.62));
+    box-shadow: 0 4px 12px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.22);
+    transition: transform .16s var(--molla), border-color .14s, background .14s;
+  }
+  .pm-tgl i { font-style: normal; font-size: 12px; font-weight: 800; opacity: .8; }
+  .pm-tgl:active { transform: scale(.97); }
+  .pm-tgl.attivo {
+    background: linear-gradient(180deg, #7eeaff, #1f9ad6); color: #04202e;
+    border-color: rgba(255,255,255,.45);
+    box-shadow: 0 5px 16px rgba(69,216,255,.45), inset 0 1px 0 rgba(255,255,255,.6);
+  }
+  .pm-numero { display: flex; align-items: center; gap: 10px; }
+  .pm-numero input[type="range"] { flex: 1; min-width: 0; height: 44px; }
+  .pm-passo {
+    width: 44px; height: 44px; flex: 0 0 auto; border-radius: 12px;
+    font: inherit; font-size: 20px; font-weight: 800; cursor: pointer; color: var(--testo);
+    border: 1px solid rgba(255,255,255,.16);
+    background: linear-gradient(180deg, rgba(74,92,132,.55), rgba(28,38,62,.62));
+    box-shadow: 0 4px 12px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.22);
+    transition: transform .16s var(--molla);
+  }
+  .pm-passo:active { transform: scale(.9); }
+  .pm-scelte { display: flex; gap: 7px; flex-wrap: wrap; }
+  .pm-scelta {
+    flex: 1 1 96px; min-height: 44px; padding: 8px 10px; border-radius: 999px;
+    font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--testo);
+    border: 1px solid rgba(255,255,255,.16);
+    background: linear-gradient(180deg, rgba(74,92,132,.55), rgba(28,38,62,.62));
+    box-shadow: 0 4px 12px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.22);
+    transition: transform .16s var(--molla), border-color .14s, background .14s;
+  }
+  .pm-scelta:active { transform: scale(.94); }
+  .pm-scelta.attivo {
+    background: linear-gradient(180deg, #7eeaff, #1f9ad6); color: #04202e;
+    border-color: rgba(255,255,255,.45);
+    box-shadow: 0 5px 16px rgba(69,216,255,.45), inset 0 1px 0 rgba(255,255,255,.6);
+  }
+  .pm-aziona {
+    display: block; width: 100%; margin-top: 14px; min-height: 50px; padding: 12px;
+    border-radius: 14px; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+    color: var(--testo); border: 1px solid rgba(255,255,255,.18);
+    background: linear-gradient(180deg, rgba(94,116,164,.62), rgba(34,46,76,.68));
+    box-shadow: 0 5px 14px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.24);
+    transition: transform .16s var(--molla), border-color .14s;
+  }
+  .pm-aziona:active { transform: scale(.97); }
+  .pm-aziona[hidden] { display: none; }
+  .pm-vuoto { font-size: 12px; color: var(--muto); line-height: 1.6; }
+
   /* ---- collocazione finale dei pochi comandi rimasti ----
      Sparita la hotbar, la barra bassa serve solo alla barra Costruisci del
      desktop; zaino e officina diventano due tondi fissi a sinistra. */
@@ -1315,6 +1424,8 @@
         <tr><td>Click destro</td><td>(in Costruisci) rimuovi blocco o furni</td></tr>
         <tr><td>Click sul lampione</td><td>(in Esplora) accendi / spegni</td></tr>
         <tr><td>Click sulla panchina</td><td>(in Esplora) il gatto ci va e si siede — muoviti per alzarti</td></tr>
+        <tr><td>Click su un macchinario</td><td>(in Esplora) lo AZIONA: l'onda parte, il frutto si raccoglie…</td></tr>
+        <tr><td>Tieni premuto ⚙️</td><td>(in Esplora) apre le MANOPOLE del macchinario — o Maiusc+E per quello più vicino</td></tr>
         <tr><td>Raccolta</td><td>rompere rimette nell'inventario, piazzare consuma (∞ nel debug)</td></tr>
         <tr><td>T</td><td>manda avanti il tempo</td></tr>
         <tr><td>I (o 🎒)</td><td>zaino: assegna blocchi, furni e attrezzi agli slot</td></tr>
@@ -1340,6 +1451,6 @@
   <div id="loading"><div><span class="lanterna">🏮</span><span id="loadingTxt">Un momento…</span></div></div>
 
   <input id="fileImporta" type="file" accept="application/json" style="display:none">
-  <script type="module" src="./src/main.js?v=mrt21mqg"></script>
+  <script type="module" src="./src/main.js?v=mrt4nxiv"></script>
 </body>
 </html>

@@ -4,10 +4,10 @@
 // (finta luce emessa, separata dal fake pointlight), fluttuazione di 1 px.
 
 import * as THREE from 'three';
-import { PX } from '../config.js?v=mrt21mqg';
-import { FURNI, celleOccupate, celleAppoggio, centroide } from './registry.js?v=mrt21mqg';
-import { defDi } from '../world/blocks.js?v=mrt21mqg';
-import { creaLuce, rimuoviLuce } from '../fx/materials.js?v=mrt21mqg';
+import { PX } from '../config.js?v=mrt4nxiv';
+import { FURNI, celleOccupate, celleAppoggio, centroide } from './registry.js?v=mrt4nxiv';
+import { defDi } from '../world/blocks.js?v=mrt4nxiv';
+import { creaLuce, rimuoviLuce } from '../fx/materials.js?v=mrt4nxiv';
 
 let prossimoId = 1;
 
@@ -50,7 +50,10 @@ export class Arredo {
     return { ok: true };
   }
 
-  piazza(defId, cella, rot = 0, silenzioso = false) {
+  /** @param config manopole della MACCHINA da ripristinare (solo dal caricamento:
+   *  un furni posato adesso nasce coi default). Vive sul furni e non sulla
+   *  macchina apposta — vedi gioco/macchine.js, «DOVE VIVE DAVVERO». */
+  piazza(defId, cella, rot = 0, silenzioso = false, config = null) {
     const def = FURNI[defId];
     if (!def || !def.modello3d) return null;
 
@@ -65,6 +68,10 @@ export class Arredo {
     const istanza = {
       id: prossimoId++, defId, def, cella: [...cella], rot,
       stato: 0, manuale: false, gruppo, luce: null, aloni: null, visualiStato: null,
+      // le manopole della macchina, se questo furni ne è una. Resta grezza
+      // finché il reconcile non crea l'entità: è `creaEntitaMacchina` a
+      // normalizzarla (e a metterci i default se qui è null).
+      config: config || null,
       celle: celleOccupate(def, cella, rot),
     };
 

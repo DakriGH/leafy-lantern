@@ -1,62 +1,64 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrt21mqg';
-import { Rig } from './engine/renderer.js?v=mrt21mqg';
-import { Input } from './engine/input.js?v=mrt21mqg';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrt21mqg';
-import { Cadenza } from './engine/cadenza.js?v=mrt21mqg';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=mrt21mqg';
-import { componiDiagnostica } from './engine/diagnostica.js?v=mrt21mqg';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrt21mqg';
-import { Mondo } from './world/world.js?v=mrt21mqg';
-import { SimAcqua } from './world/acqua.js?v=mrt21mqg';
-import { Lobby } from './net/lobby.js?v=mrt21mqg';
-import { Segnalatore } from './net/segnalatore.js?v=mrt21mqg';
-import { Ruota } from './ui/ruota.js?v=mrt21mqg';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrt21mqg';
-import { Zaino } from './ui/zaino.js?v=mrt21mqg';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mrt21mqg';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrt21mqg';
-import { generaMostra } from './world/mostra.js?v=mrt21mqg';
-import { generaCollaudo } from './world/collaudo.js?v=mrt21mqg';
-import { generaTestLuci } from './world/testLuci.js?v=mrt21mqg';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mrt21mqg';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrt21mqg';
-import { Meteo } from './fx/meteo.js?v=mrt21mqg';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrt21mqg';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrt21mqg';
-import { CicloGiorno } from './fx/daynight.js?v=mrt21mqg';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrt21mqg';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrt21mqg';
-import { ModalitaAR } from './ar/ar.js?v=mrt21mqg';
-import { Nuvole } from './fx/nuvole.js?v=mrt21mqg';
-import { SegnaPercorso } from './fx/percorso.js?v=mrt21mqg';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mrt21mqg';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mrt21mqg';
-import { Pioggia } from './fx/pioggia.js?v=mrt21mqg';
-import { Particelle } from './fx/particelle.js?v=mrt21mqg';
-import { Audio } from './fx/audio.js?v=mrt21mqg';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mrt21mqg';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrt21mqg';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mrt21mqg';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina } from './gioco/macchine.js?v=mrt21mqg';
-import { Registro } from './ecs/registro.js?v=mrt21mqg';
-import { Orologio, Rng } from './ecs/orologio.js?v=mrt21mqg';
-import { Sistemi } from './ecs/sistemi.js?v=mrt21mqg';
-import { Agenda } from './ecs/agenda.js?v=mrt21mqg';
-import { Gatto } from './player/player.js?v=mrt21mqg';
-import { ManoStrumento } from './player/mano.js?v=mrt21mqg';
-import { dropDi } from './gioco/drop.js?v=mrt21mqg';
-import { Controller } from './player/controller.js?v=mrt21mqg';
-import { FURNI, centroide } from './furniture/registry.js?v=mrt21mqg';
-import { caricaModelli } from './furniture/loader.js?v=mrt21mqg';
-import { Arredo } from './furniture/furniture.js?v=mrt21mqg';
-import { HUD } from './ui/hud.js?v=mrt21mqg';
-import { MenuDebug } from './ui/debug.js?v=mrt21mqg';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrt21mqg';
-import { ModalitaXR } from './ar/ar-xr.js?v=mrt21mqg';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrt21mqg';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrt4nxiv';
+import { Rig } from './engine/renderer.js?v=mrt4nxiv';
+import { Input } from './engine/input.js?v=mrt4nxiv';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrt4nxiv';
+import { Cadenza } from './engine/cadenza.js?v=mrt4nxiv';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=mrt4nxiv';
+import { componiDiagnostica } from './engine/diagnostica.js?v=mrt4nxiv';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrt4nxiv';
+import { Mondo } from './world/world.js?v=mrt4nxiv';
+import { SimAcqua } from './world/acqua.js?v=mrt4nxiv';
+import { Lobby } from './net/lobby.js?v=mrt4nxiv';
+import { Segnalatore } from './net/segnalatore.js?v=mrt4nxiv';
+import { Ruota } from './ui/ruota.js?v=mrt4nxiv';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrt4nxiv';
+import { Zaino } from './ui/zaino.js?v=mrt4nxiv';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mrt4nxiv';
+import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrt4nxiv';
+import { generaMostra } from './world/mostra.js?v=mrt4nxiv';
+import { generaCollaudo } from './world/collaudo.js?v=mrt4nxiv';
+import { generaTestLuci } from './world/testLuci.js?v=mrt4nxiv';
+import { generaTestMacchine } from './world/testMacchine.js?v=mrt4nxiv';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mrt4nxiv';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrt4nxiv';
+import { Meteo } from './fx/meteo.js?v=mrt4nxiv';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrt4nxiv';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrt4nxiv';
+import { CicloGiorno } from './fx/daynight.js?v=mrt4nxiv';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrt4nxiv';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrt4nxiv';
+import { ModalitaAR } from './ar/ar.js?v=mrt4nxiv';
+import { Nuvole } from './fx/nuvole.js?v=mrt4nxiv';
+import { SegnaPercorso } from './fx/percorso.js?v=mrt4nxiv';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mrt4nxiv';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mrt4nxiv';
+import { Pioggia } from './fx/pioggia.js?v=mrt4nxiv';
+import { Particelle } from './fx/particelle.js?v=mrt4nxiv';
+import { Audio } from './fx/audio.js?v=mrt4nxiv';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mrt4nxiv';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrt4nxiv';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mrt4nxiv';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=mrt4nxiv';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mrt4nxiv';
+import { Registro } from './ecs/registro.js?v=mrt4nxiv';
+import { Orologio, Rng } from './ecs/orologio.js?v=mrt4nxiv';
+import { Sistemi } from './ecs/sistemi.js?v=mrt4nxiv';
+import { Agenda } from './ecs/agenda.js?v=mrt4nxiv';
+import { Gatto } from './player/player.js?v=mrt4nxiv';
+import { ManoStrumento } from './player/mano.js?v=mrt4nxiv';
+import { dropDi } from './gioco/drop.js?v=mrt4nxiv';
+import { Controller } from './player/controller.js?v=mrt4nxiv';
+import { FURNI, centroide } from './furniture/registry.js?v=mrt4nxiv';
+import { caricaModelli } from './furniture/loader.js?v=mrt4nxiv';
+import { Arredo } from './furniture/furniture.js?v=mrt4nxiv';
+import { HUD } from './ui/hud.js?v=mrt4nxiv';
+import { MenuDebug } from './ui/debug.js?v=mrt4nxiv';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrt4nxiv';
+import { ModalitaXR } from './ar/ar-xr.js?v=mrt4nxiv';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrt4nxiv';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -628,6 +630,23 @@ const controller = new Controller(mondo, input);
 // il gatto (spinta di contatto / fuga delle creature) e i particellari (tuffo).
 servizi.player = controller;
 servizi.particelle = particelle;
+
+// ---- PANNELLO DELLE MACCHINE -----------------------------------------------
+// Il cruscotto dei macchinari: riepilogo vivo + manopole costruite da
+// `def.opzioni`. main NON conosce nessuna macchina né nessuna manopola — passa
+// il "cruscotto" (il componente `macchina`) e il pannello si arrangia.
+// Sta QUI, in alto, e non insieme agli altri pannelli: `chiudiPannelli()` lo
+// nomina, e un `const` più in basso sarebbe in temporal dead zone se qualcosa
+// chiudesse i pannelli durante l'avvio (è già successo con lo zaino).
+const pannelloMacchina = new PannelloMacchina({
+  servizi,
+  // il tasto AZIONA del pannello è la stessa identica strada del tocco breve
+  onAziona: (m) => {
+    if (toccaMacchina(gestoreMacchine, servizi, m.istanza)) { audio.sfx('ui'); segnaSalvataggio(); }
+  },
+  // una manopola girata è roba da salvare come lo è un blocco posato
+  onCambio: () => segnaSalvataggio(),
+});
 const inventario = new Inventario();
 const scavo = new Scavo(rig.scena);
 const sim = new SimAcqua(mondo);
@@ -944,11 +963,15 @@ function interagisci() {
     const d = (pp.x - px) ** 2 + (pp.z - pz) ** 2;
     if (d < dPalla && Math.abs(pp.y - py) < 1.6) { dPalla = d; palla = e; pallaPos = pp; }
   }
-  // furni interagibile più vicino (entro ~2.2): macchina (onInteragisci),
-  // lampione (stati) o sedia (seduta)
+  // furni interagibile più vicino (entro ~2.2): macchina (onInteragisci o anche
+  // solo MANOPOLE — il tasto E ci apre il pannello), lampione (stati) o sedia.
+  // `haPannello` in questo elenco non è un dettaglio: senza, una macchina che ha
+  // il cruscotto ma nessuna azione al tocco (Generatore, Idrovora) sarebbe
+  // raggiungibile SOLO col mouse, e da telefono — dove si gioca con la bolla —
+  // non ci si arrivava affatto.
   let furni = null, dFurni = 2.2 * 2.2;
   for (const ist of arredo.istanze) {
-    if (!ist.def.stati && !ist.def.seduta && !ist.def.onInteragisci) continue;
+    if (!ist.def.stati && !ist.def.seduta && !ist.def.onInteragisci && !haPannello(ist.def)) continue;
     let dmin = Infinity;
     for (const [cx0, , cz0] of ist.celle) {
       const d = (cx0 + 0.5 - px) ** 2 + (cz0 + 0.5 - pz) ** 2;
@@ -966,8 +989,11 @@ function interagisci() {
   }
   if (furni) {
     // MACCHINE: il gancio generico ha la precedenza sulle interazioni cablate.
-    // Se il def gestisce il tocco (onInteragisci → true), ci fermiamo qui.
-    if (toccaMacchina(gestoreMacchine, servizi, furni)) { segnaSalvataggio(); return; }
+    // Se il def gestisce il tocco (onInteragisci → true), ci fermiamo qui — ma
+    // segnaliamo (le prime volte) che tenendo premuto ci sono anche le manopole.
+    if (toccaMacchina(gestoreMacchine, servizi, furni)) { suggerisciPannello(furni); segnaSalvataggio(); return; }
+    // nessuna azione al tocco ma delle manopole sì: il tocco APRE il pannello
+    if (apriPannelloMacchina(furni)) return;
     if (furni.def.stati) {
       arredo.alterna(furni);
       hud.toast(`${furni.def.nome}: ${furni.def.stati[furni.stato].nome}`);
@@ -985,7 +1011,8 @@ function clickEsplora(sx, sy) {
   const blocco = puntaGriglia(sx, sy);
   if (furni && (!blocco || furni.dist < blocco.dist)) {
     // MACCHINE: gancio generico prima delle interazioni cablate (click in Esplora)
-    if (toccaMacchina(gestoreMacchine, servizi, furni.istanza)) { segnaSalvataggio(); return; }
+    if (toccaMacchina(gestoreMacchine, servizi, furni.istanza)) { suggerisciPannello(furni.istanza); segnaSalvataggio(); return; }
+    if (apriPannelloMacchina(furni.istanza)) return;   // niente azione, ma ha manopole: apri il cruscotto
     if (furni.istanza.def.stati) {
       arredo.alterna(furni.istanza);
       hud.toast(`${furni.istanza.def.nome}: ${furni.istanza.def.stati[furni.istanza.stato].nome}`);
@@ -1215,6 +1242,15 @@ input.onClick = (sx, sy, bottone) => {
   if (costruisci) clickCostruisci(sx, sy, bottone === 2 || modalitaRompi);
   else if (bottone === 0) clickEsplora(sx, sy);
 };
+// TOCCO LUNGO = LE MANOPOLE. Vale solo in Esplora: in Costruisci il dito sta
+// posando blocchi, e un pannello che spunta mentre si costruisce sarebbe un
+// agguato. La regola completa (e il perché) è in ui/pannelloMacchina.js.
+input.onPressione = (sx, sy) => {
+  if (costruisci || modalitaXR.attiva) return;
+  const furni = puntaFurni(sx, sy);
+  if (!furni) return;
+  if (apriPannelloMacchina(furni.istanza)) hud.toast('⚙️ Impostazioni');
+};
 input.onMuovi = (sx, sy) => { mira.x = sx; mira.y = sy; };
 
 // ---- comandi touch: joystick + tasti (salta/scendi/distruggi/piazza) ----------
@@ -1225,6 +1261,12 @@ const comandiTouch = new ComandiTouch(input, {});
 
 input.onTasto = (codice, e) => {
   if (codice === 'KeyB') impostaModo(!costruisci);
+  // Maiusc+E/F = l'equivalente da tastiera del tocco lungo: le manopole della
+  // macchina più vicina, senza doverla mirare col mouse.
+  else if ((codice === 'KeyE' || codice === 'KeyF') && e.shiftKey) {
+    const ist = macchinaVicina();
+    if (!ist || !apriPannelloMacchina(ist)) hud.toast('Nessuna macchina da regolare qui intorno 🐾');
+  }
   else if (codice === 'KeyE' || codice === 'KeyF') interagisci();
   else if (codice === 'KeyG') { impostaPerf(); hud.toast(_perfAcceso ? '⏱ Misuratore GPU acceso (G)' : 'Misuratore GPU spento'); }
   else if (codice === 'KeyH') hud.mostraAiuto();
@@ -1374,6 +1416,7 @@ function chiudiPannelli(tranne = null) {
   if (tranne !== 'zaino') zaino.apri(false);
   if (tranne !== 'officina' && officina) officina.apri(false);
   if (tranne !== 'aiuto') hud.mostraAiuto(false);
+  if (tranne !== 'macchina' && pannelloMacchina.aperto) pannelloMacchina.chiudi();
 }
 document.getElementById('btnStanza').addEventListener('click', () => {
   const apre = !elStanza.classList.contains('aperto');
@@ -1462,6 +1505,46 @@ zaino = new Zaino({
     hud.toast(`🔨 ${(voceDa(ricetta.out) || { nome: ricetta.out }).nome} ×${ricetta.n}`);
   },
 });
+
+// LA REGOLA TOCCO-VS-PANNELLO (il perché sta in ui/pannelloMacchina.js):
+//   · macchina SENZA azione al tocco → il tocco apre direttamente il pannello;
+//   · macchina CON azione            → tocco breve = azione, TOCCO LUNGO = pannello.
+// Qui c'è solo l'apertura; chi la chiama decide con quale gesto.
+function apriPannelloMacchina(istanza) {
+  if (!istanza || !haPannello(istanza.def)) return false;
+  const m = macchinaDi(gestoreMacchine, servizi, istanza);
+  if (!m) return false;
+  chiudiPannelli('macchina');
+  audio.sfx('apri');
+  pannelloMacchina.apri(m);
+  return true;
+}
+
+// SCOPERTA DEL TOCCO LUNGO. Un gesto che nessuno ti ha insegnato non esiste: le
+// prime due volte che tocchi una macchina che ha SIA un'azione SIA delle
+// manopole, il gioco lo dice. Due e non sempre — al terzo giro sarebbe rumore.
+const _suggeritoLungo = new Map();
+function suggerisciPannello(istanza) {
+  if (!istanza || !haPannello(istanza.def)) return;
+  if (typeof istanza.def.onInteragisci !== 'function') return;   // il tocco apre già il pannello
+  const n = _suggeritoLungo.get(istanza.defId) || 0;
+  if (n >= 2) return;
+  _suggeritoLungo.set(istanza.defId, n + 1);
+  hud.toast('⚙️ Tieni premuto sulla macchina per regolarla', 3200);
+}
+
+/** Il furni-macchina più vicino al gatto (stesso raggio di `interagisci`). */
+function macchinaVicina() {
+  let vicino = null, dmin = 2.2 * 2.2;
+  for (const ist of arredo.istanze) {
+    if (!haPannello(ist.def)) continue;
+    for (const [cx0, , cz0] of ist.celle) {
+      const d = (cx0 + 0.5 - controller.pos.x) ** 2 + (cz0 + 0.5 - controller.pos.z) ** 2;
+      if (d < dmin) { dmin = d; vicino = ist; }
+    }
+  }
+  return vicino;
+}
 
 /** Rinfresca lo zaino con lo stato attuale (posseduti, ricette, ruota). */
 function datiZaino() {
@@ -2117,6 +2200,30 @@ const menuDebug = new MenuDebug({
       hud.toast(`💡 Test luci: ${r.totale.toLocaleString('it')} blocchi · ${r.lampade.pesanti} lampade pesanti (tutte con ombra, nessun tetto) · ${r.lampade.leggere} leggere · griglia dei muri ${kb} KB`, 7000);
       return r;
     }),
+    // Mondo «test dei macchinari»: TUTTE le macchine già montate, ognuna col
+    // contorno che le serve per lavorare (acqua per la pompa, spiazzo per la
+    // palla, catena allineata). Unico mondo di prova che arreda: `arredo` va
+    // passato a `genera`, e non si svuota prima — se lo svuota lui.
+    testMacchine: () => conCaricamento('⚙️ Preparo il banco dei macchinari…', () => {
+      salvaSnapshot(false);
+      const r = generaTestMacchine(mondo, arredo);
+      mesher.ricostruisciTutto(mondo);
+      ricostruisciLuciBlocchi();
+      ricostruisciBlocchiSpeciali();
+      for (const c of r.acqua) sim.pianificaAttorno(c);   // assesta il pelo della pozza
+      // il reconcile SUBITO: senza, le macchine appena posate restano furni muti
+      // fino al prossimo giro del loop e la scena sembra morta per un istante.
+      gestoreMacchine.sincronizza(ecs, servizi, arredo.istanze);
+      controller.spawn(r.spawn);
+      rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
+      segnaSalvataggio();
+      menuDebug.mostraZone(r.zone, (piedi) => {
+        controller.spawn(piedi);
+        rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
+      });
+      hud.toast(`⚙️ Banco dei macchinari: ${r.macchine.length} macchine montate · tocca per usarle, TIENI PREMUTO per le manopole`, 7000);
+      return r;
+    }),
     isolaDemo: () => conCaricamento('🏝 Nuova isola…', () => {
       salvaSnapshot(false);
       menuDebug.mostraZone(null);
@@ -2326,7 +2433,7 @@ async function avvia() {
   applicaOpzioni(false);     // fog/distanza/effetti salvati dall'utente (⚙️)
 
   // debug in console
-  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, gestoreMacchine, guidaMacchina, toccaMacchina, ecs, orologioSim, passo, sistemiSim, sistemiResa, rngSim, servizi, agenda, creature, sistemaCreature, pensaCreatura, calciaPalla, sistemaPalle, sistemaResaPalle, creaEntitaPalla, distruggiPalla, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf, diagnostica: eseguiDiagnostica };
+  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, generaTestMacchine, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, gestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, pannelloMacchina, apriPannelloMacchina, ecs, orologioSim, passo, sistemiSim, sistemiResa, rngSim, servizi, agenda, creature, sistemaCreature, pensaCreatura, calciaPalla, sistemaPalle, sistemaResaPalle, creaEntitaPalla, distruggiPalla, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf, diagnostica: eseguiDiagnostica };
 
   // accelerazione hardware: avvisa se il WebView disegna in SOFTWARE (fps bassi)
   if (rig.software) {

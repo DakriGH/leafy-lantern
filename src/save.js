@@ -1,7 +1,7 @@
 // Salvataggio del diorama: localStorage + export/import JSON (SPEC §5).
 
-import { CHIAVE_SALVATAGGIO } from './config.js?v=mrt21mqg';
-import { stagioneCorrente, impostaStagione } from './world/stagioni.js?v=mrt21mqg';
+import { CHIAVE_SALVATAGGIO } from './config.js?v=mrt4nxiv';
+import { stagioneCorrente, impostaStagione } from './world/stagioni.js?v=mrt4nxiv';
 
 export function serializza(mondo, arredo, ciclo, inventario = null, extra = {}) {
   const blocchi = [];
@@ -14,7 +14,15 @@ export function serializza(mondo, arredo, ciclo, inventario = null, extra = {}) 
     inventario: inventario ? inventario.serializza() : undefined,
     ...extra,
     blocchi,
-    furni: arredo.istanze.map((i) => ({ id: i.defId, cella: i.cella, rot: i.rot, stato: i.stato })),
+    // `config` = LE MANOPOLE di un furni-macchina (gioco/macchine.js). Si salva
+    // solo se c'è davvero qualcosa dentro: la stragrande maggioranza dei furni
+    // non è una macchina, e un `"config":{}` per ognuno sarebbe peso morto in
+    // un salvataggio che sta in localStorage.
+    furni: arredo.istanze.map((i) => {
+      const f = { id: i.defId, cella: i.cella, rot: i.rot, stato: i.stato };
+      if (i.config && Object.keys(i.config).length) f.config = i.config;
+      return f;
+    }),
   };
 }
 
@@ -23,7 +31,9 @@ export function applica(dati, mondo, arredo, ciclo, inventario = null) {
   mondo.svuota();
   for (const [x, y, z, tipo] of dati.blocchi || []) mondo.metti(x, y, z, tipo, true);
   for (const f of dati.furni || []) {
-    const ist = arredo.piazza(f.id, f.cella, f.rot || 0, true);
+    // la config viaggia GREZZA fin qui: la ripulisce e la riporta nei limiti
+    // `creaEntitaMacchina`, quando il reconcile ricostruirà la macchina.
+    const ist = arredo.piazza(f.id, f.cella, f.rot || 0, true, f.config || null);
     if (ist && f.stato) arredo.setStato(ist, f.stato);
   }
   if (typeof dati.tempo === 'number') ciclo.t = dati.tempo;

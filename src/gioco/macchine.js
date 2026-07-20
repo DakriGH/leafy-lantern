@@ -51,6 +51,59 @@
 // (sono lo specchio ECS dei furni, ricostruito a ogni load dalla sincronizza),
 // quindi la riproducibilità è per-sessione. La persistenza/rete delle macchine è
 // lavoro futuro (il layer di comandi), non serve al gancio.
+//
+// ===========================================================================
+// LE MANOPOLE — `def.opzioni`, `m.config`, `def.riepilogo`
+// ===========================================================================
+//
+// IL PROBLEMA. Il gancio qui sopra sa far VIVERE una macchina, ma il giocatore
+// non poteva né configurarla né vedere cosa stesse facendo: un motore senza
+// volante. E `m.stato` era un sacco solo, in cui finivano mescolate due cose
+// molto diverse — i contatori di lavoro e le scelte di chi gioca — con la
+// conseguenza che NIENTE si salvava: configuravi, ricaricavi, perdevi tutto.
+//
+// DUE SACCHI, NON UNO. La separazione è la parte architetturale:
+//
+//   m.stato   RUNTIME EFFIMERO. Contatori, fasi, riferimenti ai mesh, cache.
+//             Ricostruibile: NON si salva, e a ogni caricamento riparte vuoto
+//             (`avvia` lo riempie). Resta il sacco libero di sempre.
+//
+//   m.config  LE MANOPOLE DEL GIOCATORE. SI SALVA col furni e sopravvive al
+//             ricaricamento. Non è libero: contiene esattamente le chiavi
+//             dichiarate in `def.opzioni`, sempre di tipo valido e nei limiti
+//             (ci pensa `normalizzaConfig`, che gira sia alla nascita sia al
+//             caricamento). Un def può leggerlo senza mai controllare niente:
+//             `m.config.raggio` è un numero valido per costruzione.
+//
+// DOVE VIVE DAVVERO. `m.config` è LO STESSO OGGETTO di `istanza.config` (il
+// furni). Non è un dettaglio: l'entità-macchina viene distrutta e ricreata dal
+// reconcile a ogni caricamento, mentre l'istanza-furni è ciò che save.js
+// serializza. Appoggiando la config al furni, la persistenza esce gratis da
+// entrambi i lati — si salva perché sta nel furni, e sopravvive al reconcile
+// perché la macchina nuova ci si riaggancia invece di ricrearla.
+//
+// IL CONTRATTO PER CHI SCRIVE UNA MACCHINA (tutto facoltativo):
+//
+//   def.opzioni = [ …manopole… ]   — dichiarative, il pannello si costruisce da
+//     solo (ui/pannelloMacchina.js): una macchina nuova ha la sua interfaccia
+//     GRATIS, senza scrivere una riga di UI. Tre tipi:
+//       {chiave:'attiva', etichetta:'Accesa', tipo:'interruttore', default:true}
+//       {chiave:'raggio', etichetta:'Raggio', tipo:'numero', min:1, max:10, passo:1, default:4}
+//       {chiave:'ritmo',  etichetta:'Ritmo',  tipo:'scelta', default:'medio',
+//        valori:[{v:'lento',testo:'🐌 Lento'}, {v:'medio',testo:'🚶 Medio'}]}
+//     Il valore vive in `m.config[chiave]`; `default` è applicato alla nascita.
+//
+//   def.riepilogo(m, servizi) -> string   — UNA riga leggibile su cosa sta
+//     facendo ADESSO ("Pieno 4/4 — dorme", "Niente acqua entro 3 celle"). È la
+//     finestra sul lavoro della macchina, e il posto giusto per esporre un
+//     NUMERO che cresce: è così che si verifica che una manopola faccia effetto
+//     davvero, invece di fidarsi dell'impressione a schermo.
+//
+//   def.onConfig(m, servizi, chiave)  — reazione immediata al giro di manopola,
+//     per ciò che non basta rileggere al prossimo tick (es. il Coltivatore che
+//     deve NASCONDERE i frutti in eccesso quando la capienza si abbassa).
+//     Non serve per far ripartire una macchina addormentata: a quello pensa già
+//     `impostaConfig`, che la sveglia da sé.
 
 const PRIORITA_MACCHINA = 0;   // stesso rango dei pensieri creatura: tie-break per seq (deterministico)
 
@@ -73,9 +126,132 @@ function chiamaDef(m, nomeGancio, servizi, ...extra) {
   }
 }
 
-/** True se questo def FURNI porta un comportamento → merita una macchina ECS. */
+/** True se questo def FURNI porta un comportamento → merita una macchina ECS.
+ *  NB: anche le sole `opzioni`/`riepilogo` bastano — un furni che si configura
+ *  ma non fa nulla da sé è comunque una macchina (nasce dormiente, costo zero),
+ *  altrimenti il pannello non avrebbe nessuna entità da cui leggere la config. */
 export function eMacchina(def) {
-  return !!def && (typeof def.aggiorna === 'function' || typeof def.onInteragisci === 'function');
+  return !!def && (typeof def.aggiorna === 'function' || typeof def.onInteragisci === 'function' || haPannello(def));
+}
+
+// ---- LE MANOPOLE: dichiarazione → valori validi ----------------------------
+
+/** Le manopole dichiarate dal def (mai null: semplifica ogni chiamante). */
+export function opzioniDi(def) {
+  return def && Array.isArray(def.opzioni) ? def.opzioni : [];
+}
+
+/** True se questa macchina ha qualcosa DA MOSTRARE in un pannello. */
+export function haPannello(def) {
+  return !!def && (opzioniDi(def).length > 0 || typeof def.riepilogo === 'function');
+}
+
+/** La manopola con quella chiave, o undefined. */
+export function opzioneDi(def, chiave) {
+  return opzioniDi(def).find((o) => o && o.chiave === chiave);
+}
+
+/**
+ * UN valore riportato dentro i limiti della sua manopola. È il guardiano che
+ * permette ai def di NON controllare mai niente: passa da qui tutto ciò che
+ * entra in `m.config`, sia il default alla nascita sia il numero che arriva da
+ * un salvataggio vecchio o da un pannello. Fuori scala → dentro i limiti;
+ * spazzatura → il default; default assurdo → un ripiego sensato.
+ */
+export function normalizzaValore(op, v) {
+  if (!op) return undefined;
+  if (op.tipo === 'interruttore') return v === undefined || v === null ? !!op.default : !!v;
+
+  if (op.tipo === 'numero') {
+    let n = Number(v);
+    if (!Number.isFinite(n)) n = Number(op.default);
+    if (!Number.isFinite(n)) n = 0;
+    const min = Number.isFinite(op.min) ? op.min : -Infinity;
+    const max = Number.isFinite(op.max) ? op.max : Infinity;
+    const passo = Number.isFinite(op.passo) && op.passo > 0 ? op.passo : 0;
+    // il passo si àncora al MINIMO, non allo zero: con min=1 passo=2 i valori
+    // leciti sono 1,3,5… (quello che si aspetta chi guarda lo slider partire da
+    // sinistra), non 0,2,4 con gli estremi fuori griglia.
+    if (passo && Number.isFinite(min)) n = min + Math.round((n - min) / passo) * passo;
+    n = Math.min(max, Math.max(min, n));
+    return Math.round(n * 1e6) / 1e6;      // via la polvere del virgola mobile
+  }
+
+  if (op.tipo === 'scelta') {
+    const valori = Array.isArray(op.valori) ? op.valori : [];
+    if (valori.some((x) => x && x.v === v)) return v;
+    if (valori.some((x) => x && x.v === op.default)) return op.default;
+    return valori.length ? valori[0].v : undefined;
+  }
+
+  // tipo sconosciuto: non si inventa niente, si tiene ciò che c'è (o il default)
+  return v === undefined ? op.default : v;
+}
+
+/**
+ * La config COMPLETA e VALIDA di un def, partendo da quella grezza (un
+ * salvataggio, o niente). Le chiavi che il def non dichiara più vengono
+ * SCARTATE: un salvataggio vecchio non trascina manopole che non esistono più.
+ */
+export function normalizzaConfig(def, grezza) {
+  const out = {};
+  const src = grezza && typeof grezza === 'object' ? grezza : {};
+  for (const op of opzioniDi(def)) {
+    if (!op || typeof op.chiave !== 'string') continue;
+    out[op.chiave] = normalizzaValore(op, src[op.chiave]);
+  }
+  return out;
+}
+
+/** La config di partenza di un def (tutti i `default`). */
+export function configDefault(def) { return normalizzaConfig(def, null); }
+
+/**
+ * GIRA UNA MANOPOLA, e fa in modo che si senta SUBITO. Tre cose in ordine:
+ * scrive il valore (normalizzato), avvisa il def se gli interessa (`onConfig`),
+ * e RISVEGLIA la macchina — perché il caso più comune è proprio quello di una
+ * macchina addormentata (il Coltivatore pieno, lo Scintillatore spento) che
+ * deve ripartire all'istante, non al prossimo evento che passa di lì.
+ * Torna true se qualcosa è davvero cambiato.
+ */
+export function impostaConfig(servizi, m, chiave, valore) {
+  if (!m || m.rotta) return false;
+  const op = opzioneDi(m.def, chiave);
+  if (!op) return false;
+  const v = normalizzaValore(op, valore);
+  if (m.config[chiave] === v) return false;
+  m.config[chiave] = v;
+  if (typeof m.def.onConfig === 'function') chiamaDef(m, 'onConfig', servizi, chiave);
+  // solo chi ha un `aggiorna` ha senso svegliarlo: per gli altri sarebbe una
+  // voce d'agenda che nasce solo per essere buttata via al primo scarico.
+  if (typeof m.def.aggiorna === 'function') svegliaMacchina(servizi, m, 1);
+  return true;
+}
+
+/**
+ * La riga di riepilogo, pronta da mostrare (mai null).
+ *
+ * QUI LA QUARANTENA È PIÙ MITE DI QUELLA DI `aggiorna`, ed è voluto: un
+ * riepilogo è un TESTO: se il suo codice lancia non c'è nessun motivo di
+ * spegnere una macchina che magari sta lavorando benissimo. Perciò l'errore si
+ * URLA in console (una volta sola: gira a ripetizione mentre il pannello è
+ * aperto, e mille righe uguali nascondono la prima) e si mostra a schermo, ma
+ * la macchina resta viva.
+ */
+export function riepilogoDi(m, servizi) {
+  if (!m) return '';
+  if (m.rotta) return '⚠ Guasta: il suo codice ha lanciato (vedi console).';
+  if (typeof m.def.riepilogo !== 'function') return '';
+  try {
+    const t = m.def.riepilogo(m, servizi);
+    return typeof t === 'string' ? t : '';
+  } catch (e) {
+    if (!m.riepilogoRotto) {
+      m.riepilogoRotto = true;
+      console.error(`[lantern] macchina "${m.defId}": riepilogo ha lanciato`, e);
+    }
+    return '⚠ Riepilogo non disponibile (il def ha lanciato: vedi console).';
+  }
 }
 
 /**
@@ -92,20 +268,27 @@ export function registraComponentiMacchine(ecs) {
 /**
  * Crea l'ENTITÀ-macchina che RISPECCHIA un'istanza di furni con comportamento.
  * Il componente `macchina` è il "cruscotto" passato a aggiorna/onInteragisci:
- *   { id, defId, def, cella, istanza, stato, rng, dormiente }
+ *   { id, defId, def, cella, istanza, stato, config, rng, dormiente }
  * Se il def ha `aggiorna`, prenota il primo risveglio in agenda (avviaTraTick);
  * altrimenti l'entità nasce DORMIENTE (reagirà solo alle interazioni). Torna l'id.
  */
 export function creaEntitaMacchina(ecs, servizi, istanza) {
   const def = istanza.def;
   const e = ecs.crea();
+  // LA CONFIG STA SUL FURNI, non sulla macchina. Il reconcile distrugge e
+  // ricrea le entità-macchina a ogni caricamento; l'istanza-furni no, ed è lei
+  // che save.js serializza. Normalizzando QUI si copre in un colpo solo il
+  // furni appena posato (config assente → tutti i default) e quello che torna
+  // da un salvataggio (config grezza → ripulita e riportata nei limiti).
+  istanza.config = normalizzaConfig(def, istanza.config);
   const m = {
     id: e,
     defId: istanza.defId,
     def,
     cella: istanza.cella,
     istanza,
-    stato: {},                                   // sacco libero del def (contatori, id figli, fase…)
+    stato: {},                                   // RUNTIME effimero: contatori, fasi, mesh… non si salva
+    config: istanza.config,                      // LE MANOPOLE: stesso oggetto del furni → si salva
     rng: servizi.rng.diramazione(e),             // sotto-Rng deterministico per-macchina
     dormiente: true,
     rotta: false,                                // messa in quarantena da un'eccezione del def
@@ -181,11 +364,23 @@ export function svegliaMacchina(servizi, m, traTick = 1) {
  */
 export function toccaMacchina(gestore, servizi, istanza) {
   if (!istanza || typeof istanza.def.onInteragisci !== 'function') return false;
-  const id = gestore.perFurni(istanza);
-  if (id == null) return false;                  // reconcile non ancora passato
-  const m = servizi.ecs.leggi(id, 'macchina');
-  if (!m || m.rotta) return false;
+  const m = macchinaDi(gestore, servizi, istanza);
+  if (!m) return false;
   return !!chiamaDef(m, 'onInteragisci', servizi).valore;
+}
+
+/**
+ * Il "cruscotto" della macchina che rispecchia quell'istanza di furni, o null
+ * (furni senza comportamento, reconcile non ancora passato, macchina in
+ * quarantena). È il punto d'ingresso di chi vuole GUARDARE una macchina invece
+ * di toccarla — il pannello delle manopole, per esempio.
+ */
+export function macchinaDi(gestore, servizi, istanza) {
+  if (!istanza) return null;
+  const id = gestore.perFurni(istanza);
+  if (id == null) return null;                   // reconcile non ancora passato
+  const m = servizi.ecs.leggi(id, 'macchina');
+  return m && !m.rotta ? m : null;
 }
 
 /**
