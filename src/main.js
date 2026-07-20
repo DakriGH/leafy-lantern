@@ -1,60 +1,61 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrsh3dhg';
-import { Rig } from './engine/renderer.js?v=mrsh3dhg';
-import { Input } from './engine/input.js?v=mrsh3dhg';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrsh3dhg';
-import { Cadenza } from './engine/cadenza.js?v=mrsh3dhg';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=mrsh3dhg';
-import { componiDiagnostica } from './engine/diagnostica.js?v=mrsh3dhg';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrsh3dhg';
-import { Mondo } from './world/world.js?v=mrsh3dhg';
-import { SimAcqua } from './world/acqua.js?v=mrsh3dhg';
-import { Lobby } from './net/lobby.js?v=mrsh3dhg';
-import { Segnalatore } from './net/segnalatore.js?v=mrsh3dhg';
-import { Ruota } from './ui/ruota.js?v=mrsh3dhg';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrsh3dhg';
-import { Zaino } from './ui/zaino.js?v=mrsh3dhg';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mrsh3dhg';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrsh3dhg';
-import { generaMostra } from './world/mostra.js?v=mrsh3dhg';
-import { generaCollaudo } from './world/collaudo.js?v=mrsh3dhg';
-import { generaTestLuci } from './world/testLuci.js?v=mrsh3dhg';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mrsh3dhg';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrsh3dhg';
-import { Meteo } from './fx/meteo.js?v=mrsh3dhg';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrsh3dhg';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrsh3dhg';
-import { CicloGiorno } from './fx/daynight.js?v=mrsh3dhg';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrsh3dhg';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrsh3dhg';
-import { ModalitaAR } from './ar/ar.js?v=mrsh3dhg';
-import { Nuvole } from './fx/nuvole.js?v=mrsh3dhg';
-import { SegnaPercorso } from './fx/percorso.js?v=mrsh3dhg';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mrsh3dhg';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mrsh3dhg';
-import { Pioggia } from './fx/pioggia.js?v=mrsh3dhg';
-import { Particelle } from './fx/particelle.js?v=mrsh3dhg';
-import { Audio } from './fx/audio.js?v=mrsh3dhg';
-import { Creature } from './gioco/creature.js?v=mrsh3dhg';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrsh3dhg';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mrsh3dhg';
-import { Registro } from './ecs/registro.js?v=mrsh3dhg';
-import { Orologio, Rng } from './ecs/orologio.js?v=mrsh3dhg';
-import { Sistemi } from './ecs/sistemi.js?v=mrsh3dhg';
-import { Gatto } from './player/player.js?v=mrsh3dhg';
-import { ManoStrumento } from './player/mano.js?v=mrsh3dhg';
-import { dropDi } from './gioco/drop.js?v=mrsh3dhg';
-import { Controller } from './player/controller.js?v=mrsh3dhg';
-import { FURNI, centroide } from './furniture/registry.js?v=mrsh3dhg';
-import { caricaModelli } from './furniture/loader.js?v=mrsh3dhg';
-import { Arredo } from './furniture/furniture.js?v=mrsh3dhg';
-import { HUD } from './ui/hud.js?v=mrsh3dhg';
-import { MenuDebug } from './ui/debug.js?v=mrsh3dhg';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrsh3dhg';
-import { ModalitaXR } from './ar/ar-xr.js?v=mrsh3dhg';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrsh3dhg';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrsi80i0';
+import { Rig } from './engine/renderer.js?v=mrsi80i0';
+import { Input } from './engine/input.js?v=mrsi80i0';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrsi80i0';
+import { Cadenza } from './engine/cadenza.js?v=mrsi80i0';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=mrsi80i0';
+import { componiDiagnostica } from './engine/diagnostica.js?v=mrsi80i0';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrsi80i0';
+import { Mondo } from './world/world.js?v=mrsi80i0';
+import { SimAcqua } from './world/acqua.js?v=mrsi80i0';
+import { Lobby } from './net/lobby.js?v=mrsi80i0';
+import { Segnalatore } from './net/segnalatore.js?v=mrsi80i0';
+import { Ruota } from './ui/ruota.js?v=mrsi80i0';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrsi80i0';
+import { Zaino } from './ui/zaino.js?v=mrsi80i0';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mrsi80i0';
+import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrsi80i0';
+import { generaMostra } from './world/mostra.js?v=mrsi80i0';
+import { generaCollaudo } from './world/collaudo.js?v=mrsi80i0';
+import { generaTestLuci } from './world/testLuci.js?v=mrsi80i0';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mrsi80i0';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrsi80i0';
+import { Meteo } from './fx/meteo.js?v=mrsi80i0';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrsi80i0';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrsi80i0';
+import { CicloGiorno } from './fx/daynight.js?v=mrsi80i0';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrsi80i0';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrsi80i0';
+import { ModalitaAR } from './ar/ar.js?v=mrsi80i0';
+import { Nuvole } from './fx/nuvole.js?v=mrsi80i0';
+import { SegnaPercorso } from './fx/percorso.js?v=mrsi80i0';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mrsi80i0';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mrsi80i0';
+import { Pioggia } from './fx/pioggia.js?v=mrsi80i0';
+import { Particelle } from './fx/particelle.js?v=mrsi80i0';
+import { Audio } from './fx/audio.js?v=mrsi80i0';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mrsi80i0';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrsi80i0';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mrsi80i0';
+import { Registro } from './ecs/registro.js?v=mrsi80i0';
+import { Orologio, Rng } from './ecs/orologio.js?v=mrsi80i0';
+import { Sistemi } from './ecs/sistemi.js?v=mrsi80i0';
+import { Agenda } from './ecs/agenda.js?v=mrsi80i0';
+import { Gatto } from './player/player.js?v=mrsi80i0';
+import { ManoStrumento } from './player/mano.js?v=mrsi80i0';
+import { dropDi } from './gioco/drop.js?v=mrsi80i0';
+import { Controller } from './player/controller.js?v=mrsi80i0';
+import { FURNI, centroide } from './furniture/registry.js?v=mrsi80i0';
+import { caricaModelli } from './furniture/loader.js?v=mrsi80i0';
+import { Arredo } from './furniture/furniture.js?v=mrsi80i0';
+import { HUD } from './ui/hud.js?v=mrsi80i0';
+import { MenuDebug } from './ui/debug.js?v=mrsi80i0';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrsi80i0';
+import { ModalitaXR } from './ar/ar-xr.js?v=mrsi80i0';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrsi80i0';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -579,21 +580,31 @@ for (const ev of ['pointerdown', 'keydown', 'touchstart']) {
 }
 const palle = new Map();          // istanza generatore → id-entità ECS della palla
 
-// ---- CUORE ECS + TICK FISSO (Fase 2 della rifondazione) --------------------
-// Una sola istanza per il gioco. Per ORA questa corsia a passo fisso possiede
-// SOLO le palle: tutto il resto resta sul percorso per-frame di sempre. La
-// fisica avanza a scatti di 1/20s indipendenti dagli fps (orologioSim), i
-// sistemi girano in ordine (sistemiSim), la resa interpola con orologioSim.alpha().
+// ---- CUORE ECS + TICK FISSO (Fasi 2-3a della rifondazione) -----------------
+// Una sola istanza per il gioco. Questa corsia a passo fisso possiede PALLE e
+// CREATURE; tutto il resto resta sul percorso per-frame di sempre. La fisica
+// avanza a scatti di 1/20s indipendenti dagli fps (orologioSim), i sistemi
+// girano in ordine (sistemiSim), l'agenda scarica i "pensieri" schedulati, e la
+// resa interpola (sistemiResa) con orologioSim.alpha().
 const ecs = new Registro();
-registraComponentiPalle(ecs);
+registraComponentiPalle(ecs);       // registra il CORE cinematico (posizione/velocita/posizionePrec/vista)
+registraComponentiCreature(ecs);    // + il componente 'creatura' (riusa quel core)
 const orologioSim = new Orologio();          // passo 1/20 s, come i game-tick di Minecraft
 const rngSim = new Rng(0x1a27ec);            // deterministico: niente Math.random nella sim
+const agenda = new Agenda();                 // tick PROGRAMMATI: qui vivono i "pensieri" delle creature
+// SISTEMI DI SIM (a passo fisso, ordinati). L'ordine è esplicito e stabile.
 const sistemiSim = new Sistemi();
 sistemiSim.aggiungiSistema('palle-fisica', sistemaPalle, 100);
-// ctx RIUSATO ogni tick (niente allocazioni nel loop): 'dt' è il passo fisso,
-// 'tick' si aggiorna a ogni scatto. player/particelle vengono agganciati sotto,
-// una volta creati (sono in temporal dead zone qui).
-const ctxSim = { ecs, mondo, player: null, particelle: null, rng: rngSim, dt: orologioSim.passoFisso, tick: 0 };
+sistemiSim.aggiungiSistema('creature-moto', sistemaCreature, 200);
+// SERVIZI: il bundle STABILE passato a tutti i sistemi di sim (niente ctx che
+// cresce con riferimenti sparsi). 'dt' è il passo fisso; 'tick'/'notte' si
+// aggiornano nel loop. player/particelle si agganciano sotto (qui sono in TDZ).
+const servizi = { ecs, mondo, player: null, particelle: null, rng: rngSim, agenda, dt: orologioSim.passoFisso, tick: 0, notte: false };
+// SISTEMI DI RESA (una volta per FRAME, interpolati). Palle e creature insieme,
+// in un registro ordinato invece che a mano nel loop.
+const sistemiResa = new Sistemi();
+sistemiResa.aggiungiSistema('palle-resa', sistemaResaPalle, 100);
+sistemiResa.aggiungiSistema('creature-resa', (ctx) => creature.resa(ctx), 200);
 
 // la camera si ferma sui BLOCCHI (non sui furni: esili, e facevano vibrare)
 rig.solido = (x, y, z) => {
@@ -605,9 +616,9 @@ const segnaPercorso = new SegnaPercorso(rig.scena);
 nuvole.intervalloOmbra = rig.mobile ? 0.066 : 0.033;   // maschera ombre: 15Hz su telefono
 const controller = new Controller(mondo, input);
 // aggancio gli ingressi della corsia ECS ora che esistono (erano in TDZ sopra):
-// il gatto (spinta di contatto) e i particellari (goccioline del tuffo).
-ctxSim.player = controller;
-ctxSim.particelle = particelle;
+// il gatto (spinta di contatto / fuga delle creature) e i particellari (tuffo).
+servizi.player = controller;
+servizi.particelle = particelle;
 const inventario = new Inventario();
 const scavo = new Scavo(rig.scena);
 const sim = new SimAcqua(mondo);
@@ -2300,7 +2311,7 @@ async function avvia() {
   applicaOpzioni(false);     // fog/distanza/effetti salvati dall'utente (⚙️)
 
   // debug in console
-  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, ecs, orologioSim, sistemiSim, rngSim, ctxSim, calciaPalla, sistemaPalle, sistemaResaPalle, creaEntitaPalla, distruggiPalla, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf, diagnostica: eseguiDiagnostica };
+  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, inventario, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, palle, sincronizzaPalle, ecs, orologioSim, sistemiSim, sistemiResa, rngSim, servizi, agenda, creature, sistemaCreature, pensaCreatura, calciaPalla, sistemaPalle, sistemaResaPalle, creaEntitaPalla, distruggiPalla, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf, diagnostica: eseguiDiagnostica };
 
   // accelerazione hardware: avvisa se il WebView disegna in SOFTWARE (fps bassi)
   if (rig.software) {
@@ -2338,7 +2349,7 @@ let _tPasso = 0;
 let _tPalle = 0;
 let _tPartFlussi = 0, _tPartAnelli = 0;
 const _ombrePg = [];
-const _ctxResa = { ecs, alpha: 0, dtFrame: 0 };   // ctx della resa palle, riusato ogni frame
+const _ctxResa = { ecs, alpha: 0, dtFrame: 0, notte: false };   // ctx della resa (palle+creature), riusato ogni frame
 const _dimBuffer = new THREE.Vector2();
 
 /** Spruzzo di goccioline (tuffi, secchiate): la schiuma la fa lo shader. */
@@ -2684,7 +2695,7 @@ document.getElementById('opzXR').addEventListener('click', async () => {
     }
   }
   if (modalitaAR.attiva) modalitaAR.ferma();     // una modalità AR alla volta
-  creature.svuota();
+  creature.svuota(ecs);
   fuochiFatui.svuota();   // in AR il mondo trasloca in un pivot scalato: le luci in volo vanno spente
   const ok = await modalitaXR.avvia(controller.pos);
   if (ok) rig.renderer.setAnimationLoop((t, frame) => passo(t, frame));
@@ -2702,7 +2713,7 @@ document.getElementById('opzAR').addEventListener('click', async () => {
     return;
   }
   document.getElementById('opzioni').classList.remove('aperto');
-  creature.svuota();
+  creature.svuota(ecs);
   fuochiFatui.svuota();   // in AR il mondo trasloca in un pivot scalato: le luci in volo vanno spente
   const ok = await conCaricamento('📷 Avvio l’AR… (camera + tracking)', () => modalitaAR.avvia(controller.pos));
   btn.classList.toggle('attivo', ok);
@@ -2858,7 +2869,9 @@ function passo(adesso, frameXR) {
   audio.aggiorna(dt, ciclo.eNotte ? 1 : 0);
   emettiParticelleBlocchi(dt);
   if (!modalitaAR.attiva && !modalitaXR.attiva) {
-    creature.aggiorna(dt, controller.pos, ciclo.eNotte);
+    // POOL delle creature (spawn/despawn per distanza): crea/distrugge ENTITÀ ECS
+    // attorno al gatto. Il MOTO e il PENSIERO girano nella corsia a passo fisso.
+    creature.sincronizza(ecs, servizi, controller.pos);
     // I FUOCHI FATUI SI MUOVONO QUI, ogni frame, e non chiedono niente a
     // nessuno: sono luci LEGGERE, quindi spostarle e' scrivere tre float. Se un
     // giorno questa riga cominciasse a costare, il colpevole non e' il moto —
@@ -2943,16 +2956,23 @@ function passo(adesso, frameXR) {
       );
     }
   }
-  // CORSIA A PASSO FISSO (ECS) — per ora possiede SOLO le palle. La fisica
-  // avanza a tick di 1/20s: l'orologio ACCUMULA il dt reale e consuma solo
-  // interi passi, così la traiettoria è identica a 25 come a 60 fps. Il resto
-  // di passo() gira per-frame come sempre, invariato.
-  orologioSim.passi(dt, (tick) => { ctxSim.tick = tick; sistemiSim.esegui(ctxSim); });
+  // CORSIA A PASSO FISSO (ECS) — possiede PALLE e CREATURE. La fisica avanza a
+  // tick di 1/20s: l'orologio ACCUMULA il dt reale e consuma solo interi passi,
+  // così la traiettoria è identica a 25 come a 60 fps. Il resto di passo() gira
+  // per-frame come sempre. Ordine dentro il tick: prima l'AGENDA scarica i
+  // "pensieri" scaduti (le creature scelgono dove vagare), POI i sistemi muovono.
+  servizi.notte = ciclo.eNotte;
+  orologioSim.passi(dt, (tick) => {
+    servizi.tick = tick;
+    agenda.scarica(tick, (cosa) => pensaCreatura(cosa, servizi));
+    sistemiSim.esegui(servizi);
+  });
   // resa INTERPOLATA: sposta i mesh fra posizionePrec e posizione con alpha (la
   // frazione di tick non ancora consumata), disaccoppiando la fluidità dagli Hz.
   _ctxResa.alpha = orologioSim.alpha();
   _ctxResa.dtFrame = dt;
-  sistemaResaPalle(_ctxResa);
+  _ctxResa.notte = ciclo.eNotte;
+  sistemiResa.esegui(_ctxResa);
 
   // TUFFO del gatto: goccioline (la schiuma attorno la fa lo shader dell'acqua)
   const tPiedi = mondo.tipo(Math.floor(controller.pos.x), Math.floor(controller.pos.y + 0.05), Math.floor(controller.pos.z));

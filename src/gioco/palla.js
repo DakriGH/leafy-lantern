@@ -24,8 +24,8 @@
 //                            il mesh a lerp(posizionePrec, posizione, alpha).
 
 import * as THREE from 'three';
-import { defDi, livelloAcqua } from '../world/blocks.js?v=mrsh3dhg';
-import { patchLuci } from '../fx/materials.js?v=mrsh3dhg';
+import { defDi, livelloAcqua } from '../world/blocks.js?v=mrsi80i0';
+import { patchLuci } from '../fx/materials.js?v=mrsi80i0';
 
 export const RAGGIO = 0.3;
 const GRAVITA = 26;
@@ -221,10 +221,15 @@ function muoviAsse(mondo, pos, vel, sf, asse, delta) {
  * SISTEMA RESA (può toccare three) — a OGNI frame mette il mesh a
  * lerp(posizionePrec, posizione, alpha), così la palla è fluida anche se la
  * fisica gira a 20Hz e il render a 60+. ctx: { ecs, alpha, dtFrame }.
+ *
+ * La query include 'sfera' (esclusiva delle palle) di proposito: da quando le
+ * CREATURE condividono i componenti cinematici + 'vista', una query su solo
+ * 'vista' pescherebbe anche loro (e di notte una farfalla ha mesh null → crash).
+ * 'sfera' isola le palle senza costi.
  */
 export function sistemaResaPalle(ctx) {
   const { ecs, alpha, dtFrame } = ctx;
-  for (const e of ecs.ognuna('posizione', 'posizionePrec', 'velocita', 'vista')) {
+  for (const e of ecs.ognuna('posizione', 'posizionePrec', 'velocita', 'sfera', 'vista')) {
     const pos = ecs.leggi(e, 'posizione');
     const prec = ecs.leggi(e, 'posizionePrec');
     const vel = ecs.leggi(e, 'velocita');

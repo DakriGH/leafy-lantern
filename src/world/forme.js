@@ -10,7 +10,7 @@
 // NB: queste forme NON riempiono la cella → non devono nascondere le facce dei
 // vicini (vedi riempieCella in blocks.js), altrimenti si aprono buchi nel mondo.
 
-import { coloreFaccia } from './stagioni.js?v=mrsh3dhg';
+import { coloreFaccia } from './stagioni.js?v=mrsi80i0';
 
 const U = 1 / 16;
 const F = 8 * U;        // mezza cella
