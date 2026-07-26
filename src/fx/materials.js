@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms2g0whv';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms2g0whv';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms2ghfs8';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms2ghfs8';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -270,7 +270,7 @@ const uniformi = {
   // termine alla volta non si sa dove vadano. È una uniform e non una define
   // perché la diagnostica la muove a caldo, fra due misure alternate, senza
   // ricompilare niente. Vedi PARTI e docs/RIFONDAZIONE-RESA.md.
-  uParti: { value: 7 },
+  uParti: { value: 15 },
   uPioggia: { value: 0 },                        // 0..1: increspature di pioggia
   uRiflesso: { value: null },                    // RT del mirror (riflesso.js)
   uRiflessoMat: { value: new THREE.Matrix4() },
@@ -364,7 +364,7 @@ export function impostaForzaRiflesso(f) { uniformi.uRiflessoForza.value = f; }
 /** I TERMINI della lanterna, per scomporne il costo sul dispositivo vero.
  *  Non è un'impostazione utente: la muove solo la diagnostica, e torna a TUTTE
  *  appena finisce. 0 = shader nudo (colore della palette e basta). */
-export const PARTI = { nuvole: 1, personaggi: 2, lampade: 4, tutte: 7 };
+export const PARTI = { nuvole: 1, personaggi: 2, lampade: 4, acqua: 8, tutte: 15 };
 export function impostaParti(maschera) { uniformi.uParti.value = maschera | 0; }
 
 /** Le nuvole pubblicano qui i rettangoli (XZ) delle loro scatole = ombra reale.
@@ -399,7 +399,7 @@ const GLSL_FRAGMENT = /* glsl */`
   uniform int uLuciNum;
   uniform vec3 uAmbiente;
   uniform float uOcclusione;       // interruttore Impostazioni: 0 = niente ombre
-  uniform int uParti;              // bisturi: 1 nuvole · 2 personaggi · 4 lampade
+  uniform int uParti;              // bisturi: 1 nuvole · 2 personaggi · 4 lampade · 8 acqua
   uniform highp sampler3D uVox;    // 1 byte per cella: 1 = solido
   uniform vec4 uVoxMin;            // (minX, minY, minZ, 1 = griglia collegata)
   uniform vec3 uVoxDim;            // (lx, ly, lz) in celle
@@ -746,7 +746,11 @@ const GLSL_ACQUA_COLORE = /* glsl */`
   float tipoA = vAcqua.z;
   float band = 0.0;
   _biancoAcqua = 0.0;
-  bool pelo = tipoA < 1.5 || (tipoA > 2.5 && tipoA < 3.5);
+  // bisturi: bit 8 spento = acqua PIATTA (niente riflesso, onde, schiuma,
+  // correnti). Serve a sapere quanto dei 30 ms del pass principale sia lei:
+  // il resto dello shader del mondo è già stato assolto (la lanterna pesa
+  // l'1,5 su 31), e l'acqua è l'unico fragment davvero complesso rimasto.
+  bool pelo = (uParti & 8) != 0 && (tipoA < 1.5 || (tipoA > 2.5 && tipoA < 3.5));
   if (pelo) {
     float lontano = clamp(distance(cameraPosition, vPosMondo) / 32.0, 0.0, 1.0);
 

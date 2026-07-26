@@ -99,13 +99,25 @@ export function riassuntoDiagnostica(dati) {
   // chiusura. Se i due numeri non coincidono il dispositivo è cambiato durante
   // la batteria (si scalda, entra in risparmio energetico) e i confronti FRA
   // gruppi diversi non valgono più: va detto in testa, non lasciato dedurre.
+  // SI GUARDANO I ms GPU SE CI SONO, non gli fps: su uno schermo agganciato al
+  // vsync gli fps saltano a gradini (30 → 60) e gridavano «deriva +100%» mentre
+  // la GPU faceva 31,5 e 31,1 ms, cioè non era cambiato niente.
   const fine = sw.baseline_fine;
-  if (base && fine && fpsDi(base) !== null && fpsDi(fine) !== null && fpsDi(base) > 0) {
-    const delta = Math.round((fpsDi(fine) - fpsDi(base)) / fpsDi(base) * 100);
-    if (Math.abs(delta) >= 12) {
-      righe.push(`⚠ Deriva ${delta > 0 ? '+' : ''}${delta}%: la stessa configurazione dava ${arr(fpsDi(base))} fps all'inizio e ${arr(fpsDi(fine))} alla fine — il dispositivo è cambiato durante la misura. Fidati SOLO dei confronti dentro lo stesso gruppo.`);
-    } else {
-      righe.push(`Deriva ${delta > 0 ? '+' : ''}${delta}%: il dispositivo è rimasto stabile per tutta la misura.`);
+  if (base && fine) {
+    const gA = gpuTotale(base), gB = gpuTotale(fine);
+    const usaGpu = gA != null && gB != null && gA > 0;
+    const a = usaGpu ? gA : fpsDi(base);
+    const b = usaGpu ? gB : fpsDi(fine);
+    if (a != null && b != null && a > 0) {
+      // in ms un aumento è un PEGGIORAMENTO: il segno si gira per leggerlo sempre
+      // come «il dispositivo è andato meglio o peggio»
+      const delta = Math.round((usaGpu ? (a - b) / a : (b - a) / a) * 100);
+      const unita = usaGpu ? 'ms GPU' : 'fps';
+      if (Math.abs(delta) >= 12) {
+        righe.push(`⚠ Deriva ${delta > 0 ? '+' : ''}${delta}%: la stessa configurazione dava ${arr(a)} ${unita} all'inizio e ${arr(b)} alla fine — il dispositivo è cambiato durante la misura. Fidati SOLO dei confronti dentro lo stesso gruppo.`);
+      } else {
+        righe.push(`Deriva ${delta > 0 ? '+' : ''}${delta}% (su ${unita}): il dispositivo è rimasto stabile per tutta la misura.`);
+      }
     }
   }
 
@@ -152,10 +164,11 @@ export function riassuntoDiagnostica(dati) {
     const quota = Math.round(nostro / gT * 100);
     righe.push(`Costo per pixel: shader completo ${arr(gT)} ms · NUDO ${arr(gN)} ms ⇒ la lanterna pesa ${arr(nostro)} ms (${quota}% del pass principale), il resto è il prezzo di riempire i pixel.`);
     const voci = [
+      ['acqua (riflesso, onde, schiuma)', gpuPassata(sw.shader_senzaAcqua, 'principale')],
       ['ombre nuvole', gpuPassata(sw.shader_senzaNuvole, 'principale')],
       ['ombre personaggi', gpuPassata(sw.shader_senzaPg, 'principale')],
     ].filter(([, v]) => v != null).map(([n, v]) => `${n} ${arr(gT - v)} ms`);
-    if (voci.length) righe.push(`Dentro la lanterna: ${voci.join(' · ')}.`);
+    if (voci.length) righe.push(`Dentro il pass: ${voci.join(' · ')}.`);
   } else if (sTutto && sNudo && fpsDi(sTutto) !== null && fpsDi(sNudo) !== null) {
     righe.push(`Costo per pixel: ${arr(fpsDi(sTutto))} fps con lo shader completo contro ${arr(fpsDi(sNudo))} col mondo NUDO.`);
   }
