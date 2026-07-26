@@ -6,8 +6,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { CAMERA } from '../config.js?v=ms26hu1n';
+import { CAMERA } from '../config.js?v=ms27ell6';
 
 /**
  * Il browser sta disegnando via SOFTWARE (niente GPU)?
@@ -25,17 +24,34 @@ export function disegnaInSoftware(gpu) {
   return /\bsoftware\b|basic render/i.test(s);
 }
 
-// Gaussiana 5 tap (campionamento lineare) pesata dalla distanza dalla banda a fuoco.
+// TILT-SHIFT IN UNA PASSATA SOLA.
+//
+// Prima erano tre quad a schermo intero: blur orizzontale, blur verticale e
+// OutputPass (conversione sRGB). Su una GPU a piastrelle come la Mali-G68 del
+// committente ogni passata è una lettura E una scrittura dell'intero schermo in
+// mezza precisione: la banda di memoria, non i calcoli, è quello che costa —
+// misurato sul suo telefono, il tilt-shift da solo vale 8 fps su 41 (diagnostica
+// del 2026-07-26). Le due gaussiane separabili diventano un kernel 3×3 e la
+// conversione sRGB si fa qui: da 3 passate a UNA, cioè un terzo del traffico.
+//
+// Perché 3×3 basta: il kernel separabile a 5 tap aveva varianza 2,68 (in unità
+// di `passo`). Un 3 tap con pesi 0,264 / 0,472 / 0,264 e scarto ±2,253 ha la
+// STESSA varianza, quindi la stessa quantità di sfocatura percepita — e col
+// raggio massimo di 2,6 px la differenza di forma non è visibile (verificata a
+// pixel contro la vecchia catena: vedi il commit).
+const TS_OFF = 2.253;
+const TS_W = [0.264, 0.472, 0.264];
+
 const ShaderTiltShift = {
   name: 'TiltShiftLantern',
   uniforms: {
     tDiffuse: { value: null },
     risoluzione: { value: new THREE.Vector2(1, 1) },
-    direzione: { value: new THREE.Vector2(1, 0) },
     fuoco: { value: 0.45 },      // centro banda (0..1 in verticale schermo)
     banda: { value: 0.13 },      // semi-ampiezza nitida
     sfuma: { value: 0.32 },      // transizione
     quantita: { value: 2.2 },    // pixel di blur massimo
+    versoSchermo: { value: 1 },  // 1 = scrive sul canvas (converte in sRGB), 0 = resta lineare
   },
   vertexShader: /* glsl */`
     varying vec2 vUv;
@@ -45,16 +61,41 @@ const ShaderTiltShift = {
     }`,
   fragmentShader: /* glsl */`
     uniform sampler2D tDiffuse;
-    uniform vec2 risoluzione, direzione;
-    uniform float fuoco, banda, sfuma, quantita;
+    uniform vec2 risoluzione;
+    uniform float fuoco, banda, sfuma, quantita, versoSchermo;
     varying vec2 vUv;
+
+    const float OFF = ${TS_OFF.toFixed(4)};
+    const float W0 = ${TS_W[0].toFixed(4)};
+    const float W1 = ${TS_W[1].toFixed(4)};
+
     void main() {
       float d = abs(vUv.y - fuoco);
       float f = smoothstep(banda, banda + sfuma, d) * quantita;
-      vec2 passo = direzione / risoluzione * f;
-      vec4 c = texture2D(tDiffuse, vUv) * 0.2270270;
-      c += (texture2D(tDiffuse, vUv + passo * 1.3846154) + texture2D(tDiffuse, vUv - passo * 1.3846154)) * 0.3162162;
-      c += (texture2D(tDiffuse, vUv + passo * 3.2307692) + texture2D(tDiffuse, vUv - passo * 3.2307692)) * 0.0702703;
+      vec2 passo = OFF * f / risoluzione;
+
+      vec4 c;
+      if (f < 0.02) {
+        c = texture2D(tDiffuse, vUv);          // dentro la banda a fuoco: un solo tap
+      } else {
+        // 3×3 separabile srotolato: i pesi per riga/colonna si moltiplicano
+        c  = (texture2D(tDiffuse, vUv + vec2(-passo.x, -passo.y))
+            + texture2D(tDiffuse, vUv + vec2( passo.x, -passo.y))
+            + texture2D(tDiffuse, vUv + vec2(-passo.x,  passo.y))
+            + texture2D(tDiffuse, vUv + vec2( passo.x,  passo.y))) * (W0 * W0);
+        c += (texture2D(tDiffuse, vUv + vec2(0.0, -passo.y))
+            + texture2D(tDiffuse, vUv + vec2(0.0,  passo.y))) * (W1 * W0);
+        c += (texture2D(tDiffuse, vUv + vec2(-passo.x, 0.0))
+            + texture2D(tDiffuse, vUv + vec2( passo.x, 0.0))) * (W0 * W1);
+        c += texture2D(tDiffuse, vUv) * (W1 * W1);
+      }
+
+      // era il lavoro dell'OutputPass, che così non serve più (niente tone
+      // mapping in questo gioco: solo la curva sRGB)
+      if (versoSchermo > 0.5) {
+        vec3 v = max(c.rgb, vec3(0.0));
+        c.rgb = mix(pow(v, vec3(0.4166666667)) * 1.055 - 0.055, v * 12.92, vec3(lessThanEqual(v, vec3(0.0031308))));
+      }
       gl_FragColor = c;
     }`,
 };
@@ -109,8 +150,7 @@ export class Rig {
     // la catena tilt-shift si costruisce SOLO alla prima attivazione: su mobile
     // (dove parte spento) non si allocano nemmeno i 2 render target full-res
     this.composer = null;
-    this._tsH = null;
-    this._tsV = null;
+    this._tilt = null;
     this.tiltShift = false;
     this._tiltQ = 0;
     this._fuoco = 0.45;
@@ -145,8 +185,7 @@ export class Rig {
       const dpr = this.renderer.getPixelRatio();
       this.composer.setPixelRatio(dpr);
       this.composer.setSize(w, h);
-      this._tsH.uniforms.risoluzione.value.set(w * dpr, h * dpr);
-      this._tsV.uniforms.risoluzione.value.set(w * dpr, h * dpr);
+      this._tilt.uniforms.risoluzione.value.set(w * dpr, h * dpr);
       this._applicaTilt();
     }
     this.camera.aspect = w / h;
@@ -156,12 +195,8 @@ export class Rig {
   _creaComposer() {
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scena, this.camera));
-    this._tsH = new ShaderPass(ShaderTiltShift);
-    this._tsV = new ShaderPass(ShaderTiltShift);
-    this._tsV.uniforms.direzione.value.set(0, 1);
-    this.composer.addPass(this._tsH);
-    this.composer.addPass(this._tsV);
-    this.composer.addPass(new OutputPass());
+    this._tilt = new ShaderPass(ShaderTiltShift);   // blur + sRGB: è anche l'output
+    this.composer.addPass(this._tilt);
     this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));
   }
 
@@ -181,9 +216,7 @@ export class Rig {
   _applicaTilt() {
     const pieno = Math.min(devicePixelRatio, this.dprMax);
     const f = Math.max(0.1, this.renderer.getPixelRatio() / pieno);
-    const q = (this._tiltQ || 0) * f;
-    this._tsH.uniforms.quantita.value = q;
-    this._tsV.uniforms.quantita.value = q;
+    this._tilt.uniforms.quantita.value = (this._tiltQ || 0) * f;
   }
 
   /** Scala la risoluzione di rendering (qualità adattiva): 1 = nativa capata. */
@@ -205,8 +238,7 @@ export class Rig {
       const y = THREE.MathUtils.clamp((p.y + 1) / 2, 0.12, 0.88);
       this._fuoco += (y - this._fuoco) * Math.min(1, dt * 5);
     }
-    this._tsH.uniforms.fuoco.value = this._fuoco;
-    this._tsV.uniforms.fuoco.value = this._fuoco;
+    this._tilt.uniforms.fuoco.value = this._fuoco;
   }
 
   orbita(dx, dy) {

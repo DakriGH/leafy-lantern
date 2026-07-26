@@ -27,7 +27,13 @@ export function nomeFileDiagnostica(quando = Date.now()) {
 // Ogni scenario dello sweep può mancare (misura saltata, o GPU senza timer):
 // il riassunto non deve MAI lanciare, solo omettere la riga che non può dire.
 
-function fpsDi(m) { return m && typeof m.fps === 'number' && isFinite(m.fps) ? m.fps : null; }
+// fps MEDIANO se c'è: una singola pausa da 50 ms sposta la media e non sposta la
+// mediana, e sono proprio quelle pause che facevano leggere «ombre spente» come
+// più lenta di «ombre accese». I file vecchi hanno solo `fps`: si ricade lì.
+function fpsDi(m) {
+  if (m && typeof m.fpsMediano === 'number' && isFinite(m.fpsMediano) && m.fpsMediano > 0) return m.fpsMediano;
+  return m && typeof m.fps === 'number' && isFinite(m.fps) ? m.fps : null;
+}
 
 function gpuDisponibile(m) { return !!(m && m.gpu && m.gpu.disponibile); }
 
@@ -62,7 +68,21 @@ export function riassuntoDiagnostica(dati) {
   // 2) baseline: dove siamo adesso
   if (base && fpsDi(base) !== null) {
     const g = gpuTotale(base);
-    righe.push(`Alle impostazioni attuali: ${arr(base.fps)} fps${base.cpuMediana != null ? ` · ${arr(base.cpuMediana)} ms CPU (mediana)` : ''}${g != null ? ` · ${arr(g)} ms GPU` : ''}.`);
+    righe.push(`Alle impostazioni attuali: ${arr(fpsDi(base))} fps${base.frameMs != null ? ` (${arr(base.frameMs)} ms a frame)` : ''}${base.cpuMediana != null ? ` · ${arr(base.cpuMediana)} ms CPU (mediana)` : ''}${g != null ? ` · ${arr(g)} ms GPU` : ''}.`);
+  }
+
+  // 2b) DERIVA: la stessa identica configurazione misurata in apertura e in
+  // chiusura. Se i due numeri non coincidono il dispositivo è cambiato durante
+  // la batteria (si scalda, entra in risparmio energetico) e i confronti FRA
+  // gruppi diversi non valgono più: va detto in testa, non lasciato dedurre.
+  const fine = sw.baseline_fine;
+  if (base && fine && fpsDi(base) !== null && fpsDi(fine) !== null && fpsDi(base) > 0) {
+    const delta = Math.round((fpsDi(fine) - fpsDi(base)) / fpsDi(base) * 100);
+    if (Math.abs(delta) >= 12) {
+      righe.push(`⚠ Deriva ${delta > 0 ? '+' : ''}${delta}%: la stessa configurazione dava ${arr(fpsDi(base))} fps all'inizio e ${arr(fpsDi(fine))} alla fine — il dispositivo è cambiato durante la misura. Fidati SOLO dei confronti dentro lo stesso gruppo.`);
+    } else {
+      righe.push(`Deriva ${delta > 0 ? '+' : ''}${delta}%: il dispositivo è rimasto stabile per tutta la misura.`);
+    }
   }
 
   // 3) la scala di rendering: la leva fill-rate più importante su macchine deboli
@@ -71,7 +91,7 @@ export function riassuntoDiagnostica(dati) {
   const bassoNome = sw['scala_0.50'] ? '0.50' : (sw['scala_0.66'] ? '0.66' : '0.85');
   if (alto && basso && fpsDi(alto) !== null && fpsDi(basso) !== null && alto !== basso) {
     const guad = fpsDi(alto) > 0 ? Math.round((fpsDi(basso) - fpsDi(alto)) / fpsDi(alto) * 100) : null;
-    righe.push(`Scala render: a ${bassoNome} gli fps vanno da ${arr(alto.fps)} a ${arr(basso.fps)}${guad != null ? ` (${guad >= 0 ? '+' : ''}${guad}%)` : ''}.`);
+    righe.push(`Scala render: a ${bassoNome} gli fps vanno da ${arr(fpsDi(alto))} a ${arr(fpsDi(basso))}${guad != null ? ` (${guad >= 0 ? '+' : ''}${guad}%)` : ''}.`);
   }
 
   // 4) quanto costa il riflesso: GPU se c'è, altrimenti la differenza di fps
@@ -80,13 +100,20 @@ export function riassuntoDiagnostica(dati) {
   if (rPass != null && rPass > 0) {
     righe.push(`Il riflesso dell'acqua costa ~${arr(rPass)} ms GPU per esecuzione.`);
   } else if (rOn && rOff && fpsDi(rOn) !== null && fpsDi(rOff) !== null) {
-    righe.push(`Riflesso: ${arr(rOn.fps)} fps acceso contro ${arr(rOff.fps)} spento.`);
+    righe.push(`Riflesso: ${arr(fpsDi(rOn))} fps acceso contro ${arr(fpsDi(rOff))} spento.`);
   }
 
   // 5) il caso peggiore del committente: notte + ombre voxel (lampade + marching)
   const notte = sw.notte_ombre, giorno = sw.giorno;
   if (notte && giorno && fpsDi(notte) !== null && fpsDi(giorno) !== null) {
-    righe.push(`Caso peggiore (notte con ombre): ${arr(notte.fps)} fps, contro ${arr(giorno.fps)} di giorno.`);
+    righe.push(`Caso peggiore (notte con ombre): ${arr(fpsDi(notte))} fps, contro ${arr(fpsDi(giorno))} di giorno.`);
+  }
+
+  // 6) il tilt-shift: sul telefono del committente è la voce singola più cara
+  const tOn = sw.tilt_on, tOff = sw.tilt_off;
+  if (tOn && tOff && fpsDi(tOn) !== null && fpsDi(tOff) !== null && fpsDi(tOn) > 0) {
+    const guad = Math.round((fpsDi(tOff) - fpsDi(tOn)) / fpsDi(tOn) * 100);
+    righe.push(`Tilt-shift: ${arr(fpsDi(tOn))} fps acceso contro ${arr(fpsDi(tOff))} spento (${guad >= 0 ? '+' : ''}${guad}% a spegnerlo).`);
   }
 
   return righe;

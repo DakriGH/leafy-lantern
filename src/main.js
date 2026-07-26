@@ -1,67 +1,67 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms26hu1n';
-import { Rig } from './engine/renderer.js?v=ms26hu1n';
-import { Input } from './engine/input.js?v=ms26hu1n';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms26hu1n';
-import { Cadenza } from './engine/cadenza.js?v=ms26hu1n';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms26hu1n';
-import { componiDiagnostica } from './engine/diagnostica.js?v=ms26hu1n';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms26hu1n';
-import { Mondo } from './world/world.js?v=ms26hu1n';
-import { SimAcqua } from './world/acqua.js?v=ms26hu1n';
-import { Lobby } from './net/lobby.js?v=ms26hu1n';
-import { Segnalatore } from './net/segnalatore.js?v=ms26hu1n';
-import { Bolla } from './ui/bolla.js?v=ms26hu1n';
-import { Scelta } from './ui/scelta.js?v=ms26hu1n';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms26hu1n';
-import { Zaino } from './ui/zaino.js?v=ms26hu1n';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=ms26hu1n';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms26hu1n';
-import { generaMostra } from './world/mostra.js?v=ms26hu1n';
-import { generaCollaudo } from './world/collaudo.js?v=ms26hu1n';
-import { generaTestLuci } from './world/testLuci.js?v=ms26hu1n';
-import { generaTestMacchine } from './world/testMacchine.js?v=ms26hu1n';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=ms26hu1n';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms26hu1n';
-import { Meteo } from './fx/meteo.js?v=ms26hu1n';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms26hu1n';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms26hu1n';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=ms26hu1n';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms26hu1n';
-import { CicloGiorno } from './fx/daynight.js?v=ms26hu1n';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=ms26hu1n';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms26hu1n';
-import { ModalitaAR } from './ar/ar.js?v=ms26hu1n';
-import { Nuvole } from './fx/nuvole.js?v=ms26hu1n';
-import { SegnaPercorso } from './fx/percorso.js?v=ms26hu1n';
-import { ComandiTouch } from './ui/comandi-touch.js?v=ms26hu1n';
-import { RiflessoAcqua } from './fx/riflesso.js?v=ms26hu1n';
-import { Pioggia } from './fx/pioggia.js?v=ms26hu1n';
-import { Particelle } from './fx/particelle.js?v=ms26hu1n';
-import { Audio } from './fx/audio.js?v=ms26hu1n';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms26hu1n';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms26hu1n';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms26hu1n';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms26hu1n';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms26hu1n';
-import { Registro } from './ecs/registro.js?v=ms26hu1n';
-import { Orologio, Rng } from './ecs/orologio.js?v=ms26hu1n';
-import { Sistemi } from './ecs/sistemi.js?v=ms26hu1n';
-import { Agenda } from './ecs/agenda.js?v=ms26hu1n';
-import { Gatto } from './player/player.js?v=ms26hu1n';
-import { ManoStrumento } from './player/mano.js?v=ms26hu1n';
-import { dropDi } from './gioco/drop.js?v=ms26hu1n';
-import { Controller } from './player/controller.js?v=ms26hu1n';
-import { FURNI, centroide } from './furniture/registry.js?v=ms26hu1n';
-import { caricaModelli } from './furniture/loader.js?v=ms26hu1n';
-import { Arredo } from './furniture/furniture.js?v=ms26hu1n';
-import { HUD } from './ui/hud.js?v=ms26hu1n';
-import { MenuDebug } from './ui/debug.js?v=ms26hu1n';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms26hu1n';
-import { ModalitaXR } from './ar/ar-xr.js?v=ms26hu1n';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms26hu1n';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms27ell6';
+import { Rig } from './engine/renderer.js?v=ms27ell6';
+import { Input } from './engine/input.js?v=ms27ell6';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms27ell6';
+import { Cadenza } from './engine/cadenza.js?v=ms27ell6';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms27ell6';
+import { componiDiagnostica } from './engine/diagnostica.js?v=ms27ell6';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms27ell6';
+import { Mondo } from './world/world.js?v=ms27ell6';
+import { SimAcqua } from './world/acqua.js?v=ms27ell6';
+import { Lobby } from './net/lobby.js?v=ms27ell6';
+import { Segnalatore } from './net/segnalatore.js?v=ms27ell6';
+import { Bolla } from './ui/bolla.js?v=ms27ell6';
+import { Scelta } from './ui/scelta.js?v=ms27ell6';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms27ell6';
+import { Zaino } from './ui/zaino.js?v=ms27ell6';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=ms27ell6';
+import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms27ell6';
+import { generaMostra } from './world/mostra.js?v=ms27ell6';
+import { generaCollaudo } from './world/collaudo.js?v=ms27ell6';
+import { generaTestLuci } from './world/testLuci.js?v=ms27ell6';
+import { generaTestMacchine } from './world/testMacchine.js?v=ms27ell6';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=ms27ell6';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms27ell6';
+import { Meteo } from './fx/meteo.js?v=ms27ell6';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms27ell6';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms27ell6';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=ms27ell6';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms27ell6';
+import { CicloGiorno } from './fx/daynight.js?v=ms27ell6';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=ms27ell6';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms27ell6';
+import { ModalitaAR } from './ar/ar.js?v=ms27ell6';
+import { Nuvole } from './fx/nuvole.js?v=ms27ell6';
+import { SegnaPercorso } from './fx/percorso.js?v=ms27ell6';
+import { ComandiTouch } from './ui/comandi-touch.js?v=ms27ell6';
+import { RiflessoAcqua } from './fx/riflesso.js?v=ms27ell6';
+import { Pioggia } from './fx/pioggia.js?v=ms27ell6';
+import { Particelle } from './fx/particelle.js?v=ms27ell6';
+import { Audio } from './fx/audio.js?v=ms27ell6';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms27ell6';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms27ell6';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms27ell6';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms27ell6';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms27ell6';
+import { Registro } from './ecs/registro.js?v=ms27ell6';
+import { Orologio, Rng } from './ecs/orologio.js?v=ms27ell6';
+import { Sistemi } from './ecs/sistemi.js?v=ms27ell6';
+import { Agenda } from './ecs/agenda.js?v=ms27ell6';
+import { Gatto } from './player/player.js?v=ms27ell6';
+import { ManoStrumento } from './player/mano.js?v=ms27ell6';
+import { dropDi } from './gioco/drop.js?v=ms27ell6';
+import { Controller } from './player/controller.js?v=ms27ell6';
+import { FURNI, centroide } from './furniture/registry.js?v=ms27ell6';
+import { caricaModelli } from './furniture/loader.js?v=ms27ell6';
+import { Arredo } from './furniture/furniture.js?v=ms27ell6';
+import { HUD } from './ui/hud.js?v=ms27ell6';
+import { MenuDebug } from './ui/debug.js?v=ms27ell6';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms27ell6';
+import { ModalitaXR } from './ar/ar-xr.js?v=ms27ell6';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms27ell6';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -217,10 +217,20 @@ function aggiornaPerf(fps) {
 // La parte PURA (assemblaggio + riassunto) è in engine/diagnostica.js, testata.
 const round2 = (x) => (typeof x === 'number' && isFinite(x) ? Math.round(x * 100) / 100 : null);
 let _diagCpu = null;       // (msCpu)=>void: raccoglitore per-frame, attivo solo in batteria
+let _diagPassi = null;     // (msIntervallo)=>void: durata VERA di ogni frame
 let _diagFrames = 0;       // contatore di frame VERI (rispetta la cadenza), letto a delta
 let _diagInCorso = false;  // un giro alla volta
 const DIAG_FINESTRA = 1400; // ms di misura per scenario
 const DIAG_SETTLE = 320;    // ms di assestamento prima di misurare (drena i timer vecchi)
+// A COPPIE ALTERNATE: acceso/spento/acceso/spento invece di una misura sola per
+// parte. Le due diagnostiche del 2026-07-26 si contraddicevano da sole (ombre
+// SPENTE più lente di ombre accese, scala 0.66 a 25 fps con un picco CPU da
+// 49 ms): finestre da un secondo e mezzo su un telefono che si scalda non
+// distinguono differenze del 10%. Alternando, la deriva colpisce ugualmente
+// entrambe le parti e il confronto DENTRO la coppia resta valido.
+const DIAG_GIRI = 2;        // quante volte si alterna A/B
+const DIAG_FETTA = 700;     // ms per fetta alternata
+const DIAG_ASSAGGIO = 500;  // ms buttati in apertura: il primo scenario legge sempre basso
 
 /** Aspetta `ms` di OROLOGIO (non solo rAF, che la preview congela se non è in
  *  primo piano: così non si blocca mai). Ritorna quanti frame VERI sono passati e
@@ -233,23 +243,32 @@ function _diagAttendi(ms) {
 }
 
 /** Misura UNO scenario GIÀ applicato: assesta, azzera, raccoglie CPU+GPU per
- *  ~DIAG_FINESTRA, legge. Gli fps sono frame veri / tempo reale. */
-async function _diagMisura() {
+ *  `finestra` ms, legge. Gli fps sono frame veri / tempo reale, e il tempo di
+ *  frame MEDIANO è la cifra robusta (una singola pausa da 50 ms sposta la media
+ *  e non sposta la mediana: è così che «ombre spente» risultava più lenta di
+ *  «ombre accese»). */
+async function _diagMisura(finestra = DIAG_FINESTRA) {
   // assestamento: i timer GPU della config PRECEDENTE si drenano (raccogli() li
   // svuota nel loop) e la CPU si stabilizza — così non sporcano questo scenario
   await _diagAttendi(DIAG_SETTLE);
   perf.azzera();
   const cpu = new Campioni(600);
+  const passi = new Campioni(600);
   _diagCpu = (ms) => cpu.push(ms);
-  const w = await _diagAttendi(DIAG_FINESTRA);
+  _diagPassi = (ms) => { if (ms > 0 && ms < 2000) passi.push(ms); };
+  const w = await _diagAttendi(finestra);
   _diagCpu = null;
+  _diagPassi = null;
   await _diagAttendi(80);   // coda: i timer sono asincroni, gli ultimi arrivano ora
   const s = perf.disponibile ? perf.statistiche() : null;
   const pass = (n) => (s && s.passate[n])
     ? { media: round2(s.passate[n].media), p95: round2(s.passate[n].p95), n: s.passate[n].n }
     : { media: 0, p95: 0, n: 0 };
+  const mediana = passi.n ? passi.mediana() : 0;
   return {
     fps: w.ms > 0 ? Math.round(w.frame / (w.ms / 1000)) : 0,
+    fpsMediano: mediana > 0 ? Math.round(1000 / mediana) : 0,
+    frameMs: round2(mediana), frameMsP95: round2(passi.n ? passi.p95() : 0),
     frame: w.frame,
     cpuMedia: round2(cpu.media()), cpuMediana: round2(cpu.mediana()), cpuP95: round2(cpu.p95()), cpuCampioni: cpu.n,
     gpu: {
@@ -259,6 +278,41 @@ async function _diagMisura() {
       passate: { principale: pass('principale'), riflesso: pass('riflesso'), schiuma: pass('schiuma') },
     },
   };
+}
+
+/**
+ * CONFRONTO ALTERNATO: invece di misurare A e poi B una volta sola, si gira
+ * A, B, A, B… in fette corte e si tiene la MEDIANA dei tempi di frame di ogni
+ * parte. Se il telefono rallenta a metà (si scalda, arriva una notifica) il
+ * rallentamento cade su TUTTE le parti e il confronto regge; con una misura per
+ * parte, no — ed è esattamente così che nelle due diagnostiche del 2026-07-26
+ * «ombre spente» risultava più lenta di «ombre accese».
+ * @param voci [[nome, applica], …] — anche più di due (la scala ne ha quattro)
+ */
+async function _diagAlternati(voci, prog) {
+  const parti = {};
+  for (const [nome] of voci) parti[nome] = [];
+  for (let giro = 0; giro < DIAG_GIRI; giro++) {
+    for (const [nome, applica, etichetta] of voci) {
+      if (prog) prog(`${etichetta || nome} — giro ${giro + 1}/${DIAG_GIRI}`);
+      applica();
+      parti[nome].push(await _diagMisura(DIAG_FETTA));
+    }
+  }
+  const out = {};
+  for (const [nome] of voci) {
+    const lista = parti[nome];
+    const ms = lista.map((m) => m.frameMs).filter((x) => x > 0).sort((a, b) => a - b);
+    const mediana = ms.length ? ms[ms.length >> 1] : 0;
+    out[nome] = {
+      ...lista[lista.length - 1],
+      frame: lista.reduce((s, m) => s + m.frame, 0),
+      frameMs: round2(mediana),
+      fpsMediano: mediana > 0 ? Math.round(1000 / mediana) : 0,
+      fette: lista.length,
+    };
+  }
+  return out;
 }
 
 /** Applica UNA config di rendering muovendo SOLO le leve (scala, riflesso, tilt,
@@ -494,24 +548,37 @@ async function eseguiDiagnostica() {
     if (!perf.disponibile) note.push('gpu_timer: non disponibile (manca EXT_disjoint_timer_query_webgl2): misure solo CPU/fps.');
     ciclo.auto = false;   // congela l'ora: notte/giorno non devono derivare durante la misura
 
-    const scenari = [
-      ['baseline', 'baseline (impostazioni attuali)', () => _diagApplica(base)],
-      ['riflesso_on', 'riflesso ACCESO', () => _diagApplica({ ...base, rifl: true })],
-      ['riflesso_off', 'riflesso SPENTO', () => _diagApplica({ ...base, rifl: false })],
-      ['ombre_on', 'ombre voxel ACCESE', () => _diagApplica({ ...base, occ: true })],
-      ['ombre_off', 'ombre voxel SPENTE', () => _diagApplica({ ...base, occ: false })],
-      ['tilt_on', 'tilt-shift ACCESO', () => _diagApplica({ ...base, tiltQ: opzioni.tiltQ || 2.2 })],
-      ['tilt_off', 'tilt-shift SPENTO', () => _diagApplica({ ...base, tiltQ: 0 })],
-      ['scala_1.00', 'scala render 1.00', () => _diagApplica({ ...base, scala: 1 })],
-      ['scala_0.85', 'scala render 0.85', () => _diagApplica({ ...base, scala: 0.85 })],
-      ['scala_0.66', 'scala render 0.66', () => _diagApplica({ ...base, scala: 0.66 })],
-      ['scala_0.50', 'scala render 0.50', () => _diagApplica({ ...base, scala: 0.5 })],
-      ['notte_ombre', 'notte con ombre (caso peggiore)', () => { ciclo.t = 0.0; ciclo.aggiorna(0); _diagApplica({ ...base, occ: true }); }],
-      ['giorno', 'giorno pieno', () => { ciclo.t = 0.5; ciclo.aggiorna(0); _diagApplica({ ...base, occ: true }); }],
-      ['preset_bassa', 'preset «bassa»', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 0.66, rifl: false, tiltQ: 0, occ: false }); }],
-      ['preset_alta', 'preset «alta»', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 1, rifl: true, tiltQ: 2.2, occ: true }); }],
+    // I confronti si fanno DENTRO un gruppo alternato; fra gruppi diversi i
+    // numeri non si paragonano (il telefono cambia stato durante la batteria).
+    const gruppi = [
+      ['riflesso', [
+        ['riflesso_on', () => _diagApplica({ ...base, rifl: true }), 'riflesso ACCESO'],
+        ['riflesso_off', () => _diagApplica({ ...base, rifl: false }), 'riflesso SPENTO'],
+      ]],
+      ['ombre', [
+        ['ombre_on', () => _diagApplica({ ...base, occ: true }), 'ombre voxel ACCESE'],
+        ['ombre_off', () => _diagApplica({ ...base, occ: false }), 'ombre voxel SPENTE'],
+      ]],
+      ['tilt', [
+        ['tilt_on', () => _diagApplica({ ...base, tiltQ: opzioni.tiltQ || 2.2 }), 'tilt-shift ACCESO'],
+        ['tilt_off', () => _diagApplica({ ...base, tiltQ: 0 }), 'tilt-shift SPENTO'],
+      ]],
+      ['scala', [
+        ['scala_1.00', () => _diagApplica({ ...base, scala: 1 }), 'scala render 1.00'],
+        ['scala_0.85', () => _diagApplica({ ...base, scala: 0.85 }), 'scala render 0.85'],
+        ['scala_0.66', () => _diagApplica({ ...base, scala: 0.66 }), 'scala render 0.66'],
+        ['scala_0.50', () => _diagApplica({ ...base, scala: 0.5 }), 'scala render 0.50'],
+      ]],
+      ['ora', [
+        ['giorno', () => { ciclo.t = 0.5; ciclo.aggiorna(0); _diagApplica({ ...base, occ: true }); }, 'giorno pieno'],
+        ['notte_ombre', () => { ciclo.t = 0.0; ciclo.aggiorna(0); _diagApplica({ ...base, occ: true }); }, 'notte con ombre'],
+      ]],
+      ['preset', [
+        ['preset_alta', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 1, rifl: true, tiltQ: 2.2, occ: true }); }, 'preset «alta»'],
+        ['preset_bassa', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 0.66, rifl: false, tiltQ: 0, occ: false }); }, 'preset «bassa»'],
+      ]],
     ];
-    const N = scenari.length + 2;   // +raccolta info +assemblaggio
+    const N = gruppi.length + 4;   // +info +assaggio +baseline iniziale/finale +assemblaggio
 
     prog.passo(1, N, 'raccolgo info dispositivo/GL/scena');
     const dispositivo = _diagDispositivo();
@@ -520,16 +587,33 @@ async function eseguiDiagnostica() {
     if (modalitaAR.attiva || modalitaXR.attiva) note.push('AR/XR attiva durante la misura: riflesso e schiuma sono spenti per costruzione.');
     note.push('Riflesso e schiuma girano SOLO se un piano d\'acqua è in vista: se leggono 0 ms, non c\'era acqua inquadrata.');
     note.push('Preset misurati a livello di rendering (scala/riflesso/tilt/ombre); il diorama NON viene rifatto.');
+    note.push('Ogni gruppo è misurato ALTERNANDO le sue voci: confronta solo dentro lo stesso gruppo, mai fra gruppi diversi.');
+
+    // ASSAGGIO BUTTATO: la primissima misura legge sempre bassa (compilazione
+    // degli shader, JIT, il modale appena aperto). Prima si finiva per pubblicare
+    // quel numero come «baseline» e sembrava che il gioco andasse peggio di com'è.
+    prog.passo(2, N, 'scaldo il motore (misura buttata)');
+    _diagApplica(base);
+    await _diagMisura(DIAG_ASSAGGIO);
+
+    prog.passo(3, N, 'baseline (impostazioni attuali)');
+    _diagApplica(base);
+    baseline = await _diagMisura();
+    sweep.baseline = baseline;
 
     let i = 0;
-    for (const [chiave, etichetta, applica] of scenari) {
-      prog.passo(2 + i, N, etichetta);
-      applica();
-      const m = await _diagMisura();
-      sweep[chiave] = m;
-      if (chiave === 'baseline') baseline = m;
+    for (const [nome, voci] of gruppi) {
+      const misure = await _diagAlternati(voci, (t) => prog.passo(4 + i, N, t));
+      Object.assign(sweep, misure);
       i++;
     }
+
+    // BASELINE DI CHIUSURA: stesse identiche impostazioni della prima. Se i due
+    // numeri divergono, il telefono è cambiato durante la batteria e TUTTI i
+    // confronti fra gruppi vanno buttati (quelli dentro i gruppi reggono).
+    prog.passo(4 + i, N, 'baseline di chiusura (controllo deriva)');
+    _diagApplica(base);
+    sweep.baseline_fine = await _diagMisura();
 
     prog.passo(N, N, 'assemblo e scarico il file');
     const heapDopo = (performance.memory && performance.memory.usedJSHeapSize) || null;
@@ -3121,8 +3205,10 @@ function loop(adesso) {
 
 function passo(adesso, frameXR) {
   const _cpuInizio = performance.now();   // ms CPU del lavoro di questo frame (overlay perf)
-  const dt = Math.min((adesso - prima) / 1000, 0.05);
+  const _passoMs = adesso - prima;        // intervallo VERO fra due frame (per la diagnostica)
+  const dt = Math.min(_passoMs / 1000, 0.05);
   prima = adesso;
+  if (_diagPassi) _diagPassi(_passoMs);
 
   ciclo.aggiorna(dt);
   ciclo.zoomComp = Math.min(1, Math.max(0.3, 18 / rig.distanza));   // dezoom → nebbia più aperta
