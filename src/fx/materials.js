@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms2fgo9d';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms2fgo9d';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms2g0whv';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms2g0whv';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -263,6 +263,14 @@ const uniformi = {
   // Interruttore Impostazioni della maschera d'occlusione (world/luce.js):
   // 0 = spenta, e le luci-sfera tornano ad attraversare i muri com'era prima.
   uOcclusione: { value: 1 },
+  // IL BISTURI: quali TERMINI della lanterna esegue il fragment. Serve a
+  // scomporre il costo per pixel sul dispositivo vero invece di indovinarlo —
+  // sul Chromebook il pass principale costa 19,9 ms di giorno, cioè con le
+  // lampade SPENTE e il ciclo delle luci che non gira nemmeno: senza spegnere un
+  // termine alla volta non si sa dove vadano. È una uniform e non una define
+  // perché la diagnostica la muove a caldo, fra due misure alternate, senza
+  // ricompilare niente. Vedi PARTI e docs/RIFONDAZIONE-RESA.md.
+  uParti: { value: 7 },
   uPioggia: { value: 0 },                        // 0..1: increspature di pioggia
   uRiflesso: { value: null },                    // RT del mirror (riflesso.js)
   uRiflessoMat: { value: new THREE.Matrix4() },
@@ -353,6 +361,12 @@ export function impostaRiflesso(ok, texture, matrice) {
 }
 export function impostaForzaRiflesso(f) { uniformi.uRiflessoForza.value = f; }
 
+/** I TERMINI della lanterna, per scomporne il costo sul dispositivo vero.
+ *  Non è un'impostazione utente: la muove solo la diagnostica, e torna a TUTTE
+ *  appena finisce. 0 = shader nudo (colore della palette e basta). */
+export const PARTI = { nuvole: 1, personaggi: 2, lampade: 4, tutte: 7 };
+export function impostaParti(maschera) { uniformi.uParti.value = maschera | 0; }
+
 /** Le nuvole pubblicano qui i rettangoli (XZ) delle loro scatole = ombra reale.
  *  box = Vector4(minX, minZ, maxX, maxZ) in coordinate mondo. */
 export function impostaOmbreNuvole(box, forza) {
@@ -385,6 +399,7 @@ const GLSL_FRAGMENT = /* glsl */`
   uniform int uLuciNum;
   uniform vec3 uAmbiente;
   uniform float uOcclusione;       // interruttore Impostazioni: 0 = niente ombre
+  uniform int uParti;              // bisturi: 1 nuvole · 2 personaggi · 4 lampade
   uniform highp sampler3D uVox;    // 1 byte per cella: 1 = solido
   uniform vec4 uVoxMin;            // (minX, minY, minZ, 1 = griglia collegata)
   uniform vec3 uVoxDim;            // (lx, ly, lz) in celle
@@ -455,6 +470,7 @@ const GLSL_FRAGMENT = /* glsl */`
 
   vec3 lanternaAccumulo() {
     vec3 acc = vec3(0.0);
+    if ((uParti & 4) == 0) return acc;                // bisturi: lampade spente
     if (uLuciNum == 0) return acc;                    // giorno senza lampade: costo zero
     // EARLY-OUT DELLE OMBRE: se non c'è nemmeno una luce PESANTE in vista, il
     // lavoro d'ombra non si fa proprio — niente fetch, niente uniform lette.
@@ -492,6 +508,7 @@ const GLSL_FRAGMENT = /* glsl */`
   // in una maschera → UN campionamento a pixel, forma esatta della nuvola.
   // Scurisce SOLO la superficie più alta della colonna (heightmap: niente grotte).
   float lanternaOmbra() {
+    if ((uParti & 1) == 0) return 1.0;                // bisturi: ombre delle nuvole
     if (uOmbraNum == 0 || uOmbraForza <= 0.0) return 1.0;
     vec2 uvC = (vPosMondo.xz - uCieloInfo.xy) * uCieloInfo.z;
     if (uvC.x <= 0.0 || uvC.x >= 1.0 || uvC.y <= 0.0 || uvC.y >= 1.0) return 1.0;
@@ -520,6 +537,7 @@ const GLSL_FRAGMENT = /* glsl */`
   // dei blocchi invece di saltare al piano sotto, e si stringe con la profondità.
   float ombraPg() {
     float f = 1.0;
+    if ((uParti & 2) == 0) return f;                  // bisturi: ombre dei personaggi
     for (int i = 0; i < 6; i++) {
       if (i >= uPgNum) break;
       vec4 o = uPgPos[i];
@@ -548,8 +566,11 @@ const GLSL_FRAGMENT = /* glsl */`
 // due canali di luce cotti nei vertici (cielo e lume) più occlusione ambientale
 // e ombreggiatura per direzione di faccia: bocciato in blocco.
 const GLSL_COMPOSIZIONE = /* glsl */`
-_ombraTot = lanternaOmbra() * ombraPg();
-outgoingLight = outgoingLight * (uAmbiente + lanternaAccumulo()) * _ombraTot;
+_ombraTot = 1.0;
+if (uParti != 0) {
+  _ombraTot = lanternaOmbra() * ombraPg();
+  outgoingLight = outgoingLight * (uAmbiente + lanternaAccumulo()) * _ombraTot;
+}
 `;
 
 function iniettaLanterna(shader) {

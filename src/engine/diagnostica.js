@@ -140,6 +140,26 @@ export function riassuntoDiagnostica(dati) {
     righe.push(`Tilt-shift: ${arr(fpsDi(tOn))} fps acceso contro ${arr(fpsDi(tOff))} spento (${guad >= 0 ? '+' : ''}${guad}% a spegnerlo).`);
   }
 
+  // 7) LA SCOMPOSIZIONE DEL COSTO PER PIXEL — la riga che decide dove si lavora.
+  //    `nudo` è il mondo disegnato col solo colore della palette: quello che
+  //    resta lì sotto non è ottimizzabile riscrivendo la lanterna, è il prezzo di
+  //    riempire quei pixel. La differenza fra `tutto` e `nudo` è invece nostra, e
+  //    i due termini in mezzo dicono di chi è.
+  const sTutto = sw.shader_tutto, sNudo = sw.shader_nudo;
+  const gT = gpuPassata(sTutto, 'principale'), gN = gpuPassata(sNudo, 'principale');
+  if (gT != null && gN != null && gT > 0) {
+    const nostro = gT - gN;
+    const quota = Math.round(nostro / gT * 100);
+    righe.push(`Costo per pixel: shader completo ${arr(gT)} ms · NUDO ${arr(gN)} ms ⇒ la lanterna pesa ${arr(nostro)} ms (${quota}% del pass principale), il resto è il prezzo di riempire i pixel.`);
+    const voci = [
+      ['ombre nuvole', gpuPassata(sw.shader_senzaNuvole, 'principale')],
+      ['ombre personaggi', gpuPassata(sw.shader_senzaPg, 'principale')],
+    ].filter(([, v]) => v != null).map(([n, v]) => `${n} ${arr(gT - v)} ms`);
+    if (voci.length) righe.push(`Dentro la lanterna: ${voci.join(' · ')}.`);
+  } else if (sTutto && sNudo && fpsDi(sTutto) !== null && fpsDi(sNudo) !== null) {
+    righe.push(`Costo per pixel: ${arr(fpsDi(sTutto))} fps con lo shader completo contro ${arr(fpsDi(sNudo))} col mondo NUDO.`);
+  }
+
   return righe;
 }
 
