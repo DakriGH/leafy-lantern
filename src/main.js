@@ -1,67 +1,67 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=mrt9jcee';
-import { Rig } from './engine/renderer.js?v=mrt9jcee';
-import { Input } from './engine/input.js?v=mrt9jcee';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mrt9jcee';
-import { Cadenza } from './engine/cadenza.js?v=mrt9jcee';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=mrt9jcee';
-import { componiDiagnostica } from './engine/diagnostica.js?v=mrt9jcee';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mrt9jcee';
-import { Mondo } from './world/world.js?v=mrt9jcee';
-import { SimAcqua } from './world/acqua.js?v=mrt9jcee';
-import { Lobby } from './net/lobby.js?v=mrt9jcee';
-import { Segnalatore } from './net/segnalatore.js?v=mrt9jcee';
-import { Bolla } from './ui/bolla.js?v=mrt9jcee';
-import { Scelta } from './ui/scelta.js?v=mrt9jcee';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mrt9jcee';
-import { Zaino } from './ui/zaino.js?v=mrt9jcee';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mrt9jcee';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mrt9jcee';
-import { generaMostra } from './world/mostra.js?v=mrt9jcee';
-import { generaCollaudo } from './world/collaudo.js?v=mrt9jcee';
-import { generaTestLuci } from './world/testLuci.js?v=mrt9jcee';
-import { generaTestMacchine } from './world/testMacchine.js?v=mrt9jcee';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mrt9jcee';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mrt9jcee';
-import { Meteo } from './fx/meteo.js?v=mrt9jcee';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mrt9jcee';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mrt9jcee';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=mrt9jcee';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mrt9jcee';
-import { CicloGiorno } from './fx/daynight.js?v=mrt9jcee';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=mrt9jcee';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mrt9jcee';
-import { ModalitaAR } from './ar/ar.js?v=mrt9jcee';
-import { Nuvole } from './fx/nuvole.js?v=mrt9jcee';
-import { SegnaPercorso } from './fx/percorso.js?v=mrt9jcee';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mrt9jcee';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mrt9jcee';
-import { Pioggia } from './fx/pioggia.js?v=mrt9jcee';
-import { Particelle } from './fx/particelle.js?v=mrt9jcee';
-import { Audio } from './fx/audio.js?v=mrt9jcee';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mrt9jcee';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mrt9jcee';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mrt9jcee';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=mrt9jcee';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mrt9jcee';
-import { Registro } from './ecs/registro.js?v=mrt9jcee';
-import { Orologio, Rng } from './ecs/orologio.js?v=mrt9jcee';
-import { Sistemi } from './ecs/sistemi.js?v=mrt9jcee';
-import { Agenda } from './ecs/agenda.js?v=mrt9jcee';
-import { Gatto } from './player/player.js?v=mrt9jcee';
-import { ManoStrumento } from './player/mano.js?v=mrt9jcee';
-import { dropDi } from './gioco/drop.js?v=mrt9jcee';
-import { Controller } from './player/controller.js?v=mrt9jcee';
-import { FURNI, centroide } from './furniture/registry.js?v=mrt9jcee';
-import { caricaModelli } from './furniture/loader.js?v=mrt9jcee';
-import { Arredo } from './furniture/furniture.js?v=mrt9jcee';
-import { HUD } from './ui/hud.js?v=mrt9jcee';
-import { MenuDebug } from './ui/debug.js?v=mrt9jcee';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mrt9jcee';
-import { ModalitaXR } from './ar/ar-xr.js?v=mrt9jcee';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mrt9jcee';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms24973m';
+import { Rig } from './engine/renderer.js?v=ms24973m';
+import { Input } from './engine/input.js?v=ms24973m';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms24973m';
+import { Cadenza } from './engine/cadenza.js?v=ms24973m';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms24973m';
+import { componiDiagnostica } from './engine/diagnostica.js?v=ms24973m';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms24973m';
+import { Mondo } from './world/world.js?v=ms24973m';
+import { SimAcqua } from './world/acqua.js?v=ms24973m';
+import { Lobby } from './net/lobby.js?v=ms24973m';
+import { Segnalatore } from './net/segnalatore.js?v=ms24973m';
+import { Bolla } from './ui/bolla.js?v=ms24973m';
+import { Scelta } from './ui/scelta.js?v=ms24973m';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms24973m';
+import { Zaino } from './ui/zaino.js?v=ms24973m';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=ms24973m';
+import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms24973m';
+import { generaMostra } from './world/mostra.js?v=ms24973m';
+import { generaCollaudo } from './world/collaudo.js?v=ms24973m';
+import { generaTestLuci } from './world/testLuci.js?v=ms24973m';
+import { generaTestMacchine } from './world/testMacchine.js?v=ms24973m';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=ms24973m';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms24973m';
+import { Meteo } from './fx/meteo.js?v=ms24973m';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms24973m';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms24973m';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=ms24973m';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms24973m';
+import { CicloGiorno } from './fx/daynight.js?v=ms24973m';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci } from './fx/materials.js?v=ms24973m';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms24973m';
+import { ModalitaAR } from './ar/ar.js?v=ms24973m';
+import { Nuvole } from './fx/nuvole.js?v=ms24973m';
+import { SegnaPercorso } from './fx/percorso.js?v=ms24973m';
+import { ComandiTouch } from './ui/comandi-touch.js?v=ms24973m';
+import { RiflessoAcqua } from './fx/riflesso.js?v=ms24973m';
+import { Pioggia } from './fx/pioggia.js?v=ms24973m';
+import { Particelle } from './fx/particelle.js?v=ms24973m';
+import { Audio } from './fx/audio.js?v=ms24973m';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms24973m';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms24973m';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms24973m';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms24973m';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms24973m';
+import { Registro } from './ecs/registro.js?v=ms24973m';
+import { Orologio, Rng } from './ecs/orologio.js?v=ms24973m';
+import { Sistemi } from './ecs/sistemi.js?v=ms24973m';
+import { Agenda } from './ecs/agenda.js?v=ms24973m';
+import { Gatto } from './player/player.js?v=ms24973m';
+import { ManoStrumento } from './player/mano.js?v=ms24973m';
+import { dropDi } from './gioco/drop.js?v=ms24973m';
+import { Controller } from './player/controller.js?v=ms24973m';
+import { FURNI, centroide } from './furniture/registry.js?v=ms24973m';
+import { caricaModelli } from './furniture/loader.js?v=ms24973m';
+import { Arredo } from './furniture/furniture.js?v=ms24973m';
+import { HUD } from './ui/hud.js?v=ms24973m';
+import { MenuDebug } from './ui/debug.js?v=ms24973m';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms24973m';
+import { ModalitaXR } from './ar/ar-xr.js?v=ms24973m';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms24973m';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -2690,18 +2690,32 @@ const _posaRemotaV = new THREE.Vector3();
 // anche con la qualita' gia' abbassata. Al PRIMO scalino cadono INSIEME le due
 // cose piu' care: il riflesso (secondo render della scena) e le ombre voxel.
 // Spente, le luci-sfera restano identiche, solo senza occlusione dei muri.
+// Ogni scalino porta anche la DISTANZA DI DISEGNO (`dist`), e non è un dettaglio:
+// su un mondo aperto la nebbia nascondeva i chunk lontani ma la GPU li disegnava
+// lo stesso, pagando draw call e riempimento per pixel che poi la nebbia
+// copriva. Prima la distanza la toccavano solo i preset a mano — la scala
+// automatica no, quindi un telefono in affanno restava col far plane a 700 e
+// continuava a fondere sui chunk in fondo. Adesso avvicinando l'orizzonte
+// scendono INSIEME i pixel (scala) e la geometria (dist): sono le due leve che
+// contano su un chip fill-starved, e la nebbia era già lì a coprire il taglio.
 const LIVELLI_Q = rig.mobile ? [
   // su mobile le ombre voxel sono SEMPRE off (misurato: ~30% di fps su Mali-G68).
   // Chi le vuole le accende a mano dalle Impostazioni; la scala auto non le
-  // riaccende mai da sola.
-  { tilt: 0, rifl: false, ombre: false, scala: 1 },
-  { tilt: 0, rifl: false, ombre: false, scala: 0.82 },
-  { tilt: 0, rifl: false, ombre: false, scala: 0.66 },
+  // riaccende mai da sola. Gli ultimi due scalini sono NUOVI: il vecchio
+  // pavimento (0.66 di scala, ~1MP su questi schermi) restava troppo pesante per
+  // le GPU più deboli, che così stavano incollate sotto i 30fps senza via
+  // d'uscita. Ora la scala arriva a 0.45 e l'orizzonte a 220: brutto, ma
+  // GIOCABILE, ed è la condizione per cui l'AR su fascia bassa è pensabile.
+  { tilt: 0, rifl: false, ombre: false, scala: 1, dist: 700 },
+  { tilt: 0, rifl: false, ombre: false, scala: 0.82, dist: 500 },
+  { tilt: 0, rifl: false, ombre: false, scala: 0.66, dist: 360 },
+  { tilt: 0, rifl: false, ombre: false, scala: 0.55, dist: 280 },
+  { tilt: 0, rifl: false, ombre: false, scala: 0.45, dist: 220 },
 ] : [
-  { tilt: 2.2, rifl: true, ombre: true, scala: 1 },
-  { tilt: 2.2, rifl: false, ombre: false, scala: 1 },
-  { tilt: 0, rifl: false, ombre: false, scala: 0.82 },
-  { tilt: 0, rifl: false, ombre: false, scala: 0.66 },
+  { tilt: 2.2, rifl: true, ombre: true, scala: 1, dist: 900 },
+  { tilt: 2.2, rifl: false, ombre: false, scala: 1, dist: 700 },
+  { tilt: 0, rifl: false, ombre: false, scala: 0.82, dist: 500 },
+  { tilt: 0, rifl: false, ombre: false, scala: 0.66, dist: 360 },
 ];
 let qLivello = 0;
 let qManuale = false;        // qualità auto spenta: comandano le Impostazioni
@@ -2735,6 +2749,10 @@ function applicaQualita() {
   const q = LIVELLI_Q[qLivello];
   rig.impostaTiltShift(qManuale ? (opzioni.tilt ? opzioni.tiltQ : 0) : Math.min(q.tilt, opzioni.tiltQ || 2.2));
   rig.setScalaRender(qManuale ? opzioni.scala : Math.min(q.scala, opzioni.scala));
+  // l'orizzonte segue la qualità: quando è auto NON supera mai quello del livello,
+  // così un telefono in affanno smette di disegnare i chunk che la nebbia già copre
+  const far = qManuale ? opzioni.dist : Math.min(q.dist, opzioni.dist);
+  if (rig.camera.far !== far) { rig.camera.far = far; rig.camera.updateProjectionMatrix(); }
   // su mobile i riflessi partono spenti (default opzioni) ma se l'utente li
   // ACCENDE valgono anche lì: niente più divieto assoluto
   riflesso.attivo = (qManuale ? true : q.rifl) && riflessiUtente;

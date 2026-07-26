@@ -7,7 +7,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { CAMERA } from '../config.js?v=mrt9jcee';
+import { CAMERA } from '../config.js?v=ms24973m';
 
 /**
  * Il browser sta disegnando via SOFTWARE (niente GPU)?
@@ -165,7 +165,10 @@ export class Rig {
 
   /** Scala la risoluzione di rendering (qualità adattiva): 1 = nativa capata. */
   setScalaRender(f) {
-    const dpr = Math.max(0.5, Math.min(devicePixelRatio, this.dprMax) * f);
+    // pavimento a 0.4: la scala auto arriva a 0.45 sui telefoni più deboli, e un
+    // clamp a 0.5 gliela mangiava proprio quando serviva di più. Sotto 0.4 il
+    // gioco non si legge nemmeno, quindi non si scende oltre.
+    const dpr = Math.max(0.4, Math.min(devicePixelRatio, this.dprMax) * f);
     if (Math.abs(dpr - this.renderer.getPixelRatio()) < 0.02) return;
     this.renderer.setPixelRatio(dpr);
     this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));

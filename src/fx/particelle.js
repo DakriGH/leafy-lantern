@@ -5,7 +5,7 @@
 // Un solo THREE.Points, buffer riciclato: costo CPU e GPU irrisorio.
 
 import * as THREE from 'three';
-import { ambienteAttuale } from './materials.js?v=mrt9jcee';
+import { ambienteAttuale } from './materials.js?v=ms24973m';
 
 const MAX = 180;
 

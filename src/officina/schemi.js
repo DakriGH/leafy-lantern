@@ -6,9 +6,9 @@
 // Tipi di campo gestiti dall'editor: testo · colore · scelta · numero ·
 // interruttore · facce (i 6 lati dipinti singolarmente).
 
-import { registraBlocco } from '../world/blocks.js?v=mrt9jcee';
-import { ATTREZZI } from '../gioco/inventario.js?v=mrt9jcee';
-import { MOTIVI } from '../world/motivi.js?v=mrt9jcee';
+import { registraBlocco } from '../world/blocks.js?v=ms24973m';
+import { ATTREZZI } from '../gioco/inventario.js?v=ms24973m';
+import { MOTIVI } from '../world/motivi.js?v=ms24973m';
 
 export const hexInt = (h) => parseInt(String(h).slice(1), 16);
 export const intHex = (n) => '#' + (n || 0).toString(16).padStart(6, '0');
