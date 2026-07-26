@@ -9,13 +9,14 @@
 // Il mondo è a chunk: si ricostruiscono solo i chunk sporchi.
 
 import * as THREE from 'three';
-import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=ms28fhvp';
-import { paletteBlocco, coloreFaccia } from './stagioni.js?v=ms28fhvp';
-import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=ms28fhvp';
-import { tintaPalette } from './motivi.js?v=ms28fhvp';
-import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=ms28fhvp';
-import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel } from '../fx/materials.js?v=ms28fhvp';
-import { CHUNK } from './world.js?v=ms28fhvp';
+import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=ms2f1duo';
+import { paletteBlocco, coloreFaccia } from './stagioni.js?v=ms2f1duo';
+import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=ms2f1duo';
+import { tintaPalette } from './motivi.js?v=ms2f1duo';
+import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=ms2f1duo';
+import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel } from '../fx/materials.js?v=ms2f1duo';
+import { LAYER_PROFONDITA } from '../engine/renderer.js?v=ms2f1duo';
+import { CHUNK } from './world.js?v=ms2f1duo';
 
 const U = 1 / 16;                 // 1 pixel in unità mondo
 const COPPIE_SMUSSO = [[0, 1], [0, 2], [1, 2]];
@@ -755,6 +756,9 @@ export class Mesher {
         acqua: new THREE.Mesh(new THREE.BufferGeometry(), materialeAcqua()),
       };
       e.acqua.renderOrder = 2;
+      // SOLO i solidi vanno nel pre-passaggio di profondità: l'acqua è
+      // traslucida e se scrivesse la profondità nasconderebbe il fondale
+      e.solidi.layers.enable(LAYER_PROFONDITA);
       // geometrie in coordinate mondo, mesh mai spostate: matrici congelate
       e.solidi.matrixAutoUpdate = false;
       e.acqua.matrixAutoUpdate = false;

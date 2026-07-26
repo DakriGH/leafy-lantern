@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=ms28fhvp';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=ms28fhvp';
-import { FISICA } from '../config.js?v=ms28fhvp';
+import { CHUNK } from '../world/world.js?v=ms2f1duo';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=ms2f1duo';
+import { FISICA } from '../config.js?v=ms2f1duo';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.

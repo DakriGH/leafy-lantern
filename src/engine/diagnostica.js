@@ -124,6 +124,20 @@ export function riassuntoDiagnostica(dati) {
     righe.push(`Tilt-shift: ${arr(fpsDi(tOn))} fps acceso contro ${arr(fpsDi(tOff))} spento (${guad >= 0 ? '+' : ''}${guad}% a spegnerlo).`);
   }
 
+  // 7) il pre-passaggio di profondità: vale la pena solo dove lo shader per
+  //    pixel è il collo. Se c'è il timer GPU si guarda il pass principale, che
+  //    è la cosa che il pre-passaggio può ridurre; altrimenti gli fps.
+  const pOn = sw.prepass_on, pOff = sw.prepass_off;
+  if (pOn && pOff) {
+    const gOn = gpuPassata(pOn, 'principale'), gOff = gpuPassata(pOff, 'principale');
+    if (gOn != null && gOff != null && gOff > 0) {
+      const taglio = Math.round((gOff - gOn) / gOff * 100);
+      righe.push(`Pre-passaggio di profondità: il pass principale passa da ${arr(gOff)} a ${arr(gOn)} ms GPU (${taglio >= 0 ? '−' : '+'}${Math.abs(taglio)}%).`);
+    } else if (fpsDi(pOn) !== null && fpsDi(pOff) !== null) {
+      righe.push(`Pre-passaggio di profondità: ${arr(fpsDi(pOn))} fps con, ${arr(fpsDi(pOff))} senza.`);
+    }
+  }
+
   return righe;
 }
 

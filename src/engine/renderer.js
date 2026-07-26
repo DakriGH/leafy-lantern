@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { CAMERA } from '../config.js?v=ms28fhvp';
+import { CAMERA } from '../config.js?v=ms2f1duo';
 
 /**
  * Il browser sta disegnando via SOFTWARE (niente GPU)?
@@ -100,6 +100,28 @@ const ShaderTiltShift = {
     }`,
 };
 
+// Layer dei soli SOLIDI del mondo: è l'insieme che il pre-passaggio di
+// profondità disegna. Sta qui e non in config.js perché è un dettaglio di come
+// il Rig rende, non una regola del gioco (il mesher lo accende e basta).
+export const LAYER_PROFONDITA = 4;
+
+// PRE-PASSAGGIO DI PROFONDITÀ.
+//
+// Misurato: da una camera a volo d'uccello il terreno a terrazze si sovrappone
+// **3,3 volte per pixel** (contate col trucco additivo: 58% dei pixel una volta,
+// 27% quattro, 14% sei o più). Ogni strato nascosto paga per intero lo shader
+// del mondo — che sul Chromebook del committente è quasi tutto il frame: 26 ms
+// dei 33 del pass principale, e proporzionali ai pixel (fissi 3,3 ms + 22,4 ms
+// che scalano con la risoluzione). three ordina i chunk dal più vicino, ma
+// DENTRO un chunk i triangoli arrivano nell'ordine del mesher: la parete lontana
+// può essere disegnata prima della cima vicina, e allora si colora due volte.
+//
+// La cura è quella classica: prima si scrive SOLO la profondità con uno shader
+// che non fa niente, poi il passaggio vero (che usa già LessEqual) trova i
+// frammenti nascosti bocciati e li scarta prima di colorarli. Non cambia un
+// pixel dell'immagine: cambia solo quante volte la si calcola.
+const MAT_PROFONDITA = new THREE.MeshBasicMaterial({ colorWrite: false, fog: false });
+
 export class Rig {
   constructor(contenitore) {
     // mobile = touch primario: i telefoni hanno DPR 2.5–3.5 → un canvas full-screen
@@ -151,6 +173,15 @@ export class Rig {
     // (dove parte spento) non si allocano nemmeno i 2 render target full-res
     this.composer = null;
     this._tilt = null;
+    this._renderPass = null;
+    // PRE-PASSAGGIO SPENTO DI DEFAULT, e non per prudenza generica: sulla GPU di
+    // sviluppo (RTX) non guadagna niente — 0,370 ms contro 0,359 e 0,393 delle
+    // due prove senza, cioè dentro il rumore — perché lì lo scarto anticipato
+    // butta già via i frammenti nascosti da solo. Il guadagno, se c'è, sta sulle
+    // GPU deboli dove lo shader per pixel è quasi tutto il frame. Lo accende la
+    // diagnostica come scenario: si decide col numero preso sul dispositivo vero,
+    // non con la mia intuizione.
+    this.prePassaggio = false;
     this.tiltShift = false;
     this._tiltQ = 0;
     this._fuoco = 0.45;
@@ -194,7 +225,8 @@ export class Rig {
 
   _creaComposer() {
     this.composer = new EffectComposer(this.renderer);
-    this.composer.addPass(new RenderPass(this.scena, this.camera));
+    this._renderPass = new RenderPass(this.scena, this.camera);
+    this.composer.addPass(this._renderPass);
     this._tilt = new ShaderPass(ShaderTiltShift);   // blur + sRGB: è anche l'output
     this.composer.addPass(this._tilt);
     this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));
@@ -294,8 +326,48 @@ export class Rig {
   // in tutto src/, più un render target ridimensionato a metà canvas a ogni
   // resize. Via anche quello.)
 
+  /** Scrive SOLO la profondità dei solidi del mondo nel bersaglio dato.
+   *  Va fatto PRIMA del passaggio vero e nello STESSO bersaglio, senza pulire
+   *  la profondità dopo: è quella che fa da filtro. */
+  _preProfondita(bersaglio) {
+    const r = this.renderer;
+    const maschera = this.camera.layers.mask;
+    const sfondo = this.scena.background;
+    const nebbia = this.scena.fog;
+    r.setRenderTarget(bersaglio);
+    // il colore lo dipinge il passaggio vero: qui si pulisce e basta
+    if (sfondo && sfondo.isColor) r.setClearColor(sfondo);
+    r.clear(true, true, false);
+    this.camera.layers.set(LAYER_PROFONDITA);
+    this.scena.background = null;         // niente cielo: costerebbe uno schermo pieno in più
+    this.scena.fog = null;                // la nebbia non tocca la profondità
+    this.scena.overrideMaterial = MAT_PROFONDITA;
+    r.autoClear = false;
+    r.render(this.scena, this.camera);
+    r.autoClear = true;
+    this.scena.overrideMaterial = null;
+    this.scena.fog = nebbia;
+    this.scena.background = sfondo;
+    this.camera.layers.mask = maschera;
+  }
+
   render() {
-    if (this.tiltShift && this.composer) this.composer.render();
-    else this.renderer.render(this.scena, this.camera);
+    const conPre = this.prePassaggio && !this.contestoPerso;
+    if (this.tiltShift && this.composer) {
+      // dentro il composer il bersaglio è il buffer di lettura, e il RenderPass
+      // non deve ripulire la profondità che abbiamo appena scritto
+      if (conPre) this._preProfondita(this.composer.readBuffer);
+      if (this._renderPass) this._renderPass.clear = !conPre;
+      this.composer.render();
+    } else {
+      if (conPre) {
+        this._preProfondita(null);
+        this.renderer.autoClear = false;
+        this.renderer.render(this.scena, this.camera);
+        this.renderer.autoClear = true;
+      } else {
+        this.renderer.render(this.scena, this.camera);
+      }
+    }
   }
 }
