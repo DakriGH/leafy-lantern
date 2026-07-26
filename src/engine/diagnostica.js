@@ -73,10 +73,26 @@ export function riassuntoDiagnostica(dati) {
       : `Build: ${dati.build} — se non è l'ultima pubblicata, RICARICA la pagina e rifai la misura.`);
   }
 
-  // 2) baseline: dove siamo adesso
-  if (base && fpsDi(base) !== null) {
+  // 2) baseline: dove siamo adesso. IN TESTA VA LA MEDIA, non la mediana — è
+  // quella che si sente giocando. Sul Chromebook la mediana diceva 60 fps mentre
+  // i frame veri erano 34 al secondo: metà a 16,7 ms e metà sopra i 60, e il
+  // riassunto raccontava una cosa che l'utente non stava vedendo.
+  if (base && (base.fps != null || fpsDi(base) !== null)) {
+    const medi = typeof base.fps === 'number' && base.fps > 0 ? base.fps : fpsDi(base);
+    const mediana = fpsDi(base);
     const g = gpuTotale(base);
-    righe.push(`Alle impostazioni attuali: ${arr(fpsDi(base))} fps${base.frameMs != null ? ` (${arr(base.frameMs)} ms a frame)` : ''}${base.cpuMediana != null ? ` · ${arr(base.cpuMediana)} ms CPU (mediana)` : ''}${g != null ? ` · ${arr(g)} ms GPU` : ''}.`);
+    const dueNumeri = mediana != null && medi != null && Math.abs(mediana - medi) > Math.max(3, medi * 0.1);
+    righe.push(`Alle impostazioni attuali: ${arr(medi)} fps${dueNumeri ? ` (mediana ${arr(mediana)})` : ''}`
+      + `${base.cpuMediana != null ? ` · ${arr(base.cpuMediana)} ms CPU` : ''}${g != null ? ` · ${arr(g)} ms GPU` : ''}.`);
+  }
+
+  // 2a) FRAME IRREGOLARI. Un gioco che alterna 16 e 66 ms si sente peggio di uno
+  // fermo a 35 fps costanti, e nessuna media lo dice. Il p95 contro la mediana
+  // lo dice: se il quinto percentile peggiore è il doppio della mediana, i frame
+  // sono a due velocità (di solito perché due passate pesanti cadono nello
+  // stesso frame invece di alternarsi).
+  if (base && base.frameMs > 0 && base.frameMsP95 >= base.frameMs * 2) {
+    righe.push(`⚠ Frame IRREGOLARI: metà dei frame in ${arr(base.frameMs)} ms, ma il 5% peggiore sopra ${arr(base.frameMsP95)} ms — a schermo si vede come scatto, non come lentezza.`);
   }
 
   // 2b) DERIVA: la stessa identica configurazione misurata in apertura e in
@@ -122,20 +138,6 @@ export function riassuntoDiagnostica(dati) {
   if (tOn && tOff && fpsDi(tOn) !== null && fpsDi(tOff) !== null && fpsDi(tOn) > 0) {
     const guad = Math.round((fpsDi(tOff) - fpsDi(tOn)) / fpsDi(tOn) * 100);
     righe.push(`Tilt-shift: ${arr(fpsDi(tOn))} fps acceso contro ${arr(fpsDi(tOff))} spento (${guad >= 0 ? '+' : ''}${guad}% a spegnerlo).`);
-  }
-
-  // 7) il pre-passaggio di profondità: vale la pena solo dove lo shader per
-  //    pixel è il collo. Se c'è il timer GPU si guarda il pass principale, che
-  //    è la cosa che il pre-passaggio può ridurre; altrimenti gli fps.
-  const pOn = sw.prepass_on, pOff = sw.prepass_off;
-  if (pOn && pOff) {
-    const gOn = gpuPassata(pOn, 'principale'), gOff = gpuPassata(pOff, 'principale');
-    if (gOn != null && gOff != null && gOff > 0) {
-      const taglio = Math.round((gOff - gOn) / gOff * 100);
-      righe.push(`Pre-passaggio di profondità: il pass principale passa da ${arr(gOff)} a ${arr(gOn)} ms GPU (${taglio >= 0 ? '−' : '+'}${Math.abs(taglio)}%).`);
-    } else if (fpsDi(pOn) !== null && fpsDi(pOff) !== null) {
-      righe.push(`Pre-passaggio di profondità: ${arr(fpsDi(pOn))} fps con, ${arr(fpsDi(pOff))} senza.`);
-    }
   }
 
   return righe;
