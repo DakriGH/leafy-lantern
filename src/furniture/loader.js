@@ -5,8 +5,8 @@
 
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { MEZZO_SUPER } from '../config.js?v=ms24973m';
-import { convertiUnlit, patchLuci } from '../fx/materials.js?v=ms24973m';
+import { MEZZO_SUPER } from '../config.js?v=ms258m6h';
+import { convertiUnlit, materialiConMappa, patchLuci } from '../fx/materials.js?v=ms258m6h';
 
 const fbx = new FBXLoader();
 
@@ -109,6 +109,118 @@ function rendiUnlit(radice) {
       figlio.material = convertiUnlit(figlio.material, figlio.geometry);
     }
   });
+}
+
+// ---- compattazione: una draw call per materiale, non una per pezzo ----------
+// I FBX di Blockbench arrivano SPEZZATI come li ha modellati l'autore: l'albero
+// è 12 mesh (6 delle quali a ZERO vertici, residui dell'esportatore) e il
+// lampione 7 per stato — e condividono TUTTE la stessa texture. Misurato nel
+// gioco: 12 draw call per ogni albero, cioè oltre mille in un open world con 89
+// alberi, per una manciata di triangoli. Fondere le mesh che hanno lo STESSO
+// materiale in una sola geometria non cambia un pixel e le riduce a una.
+//
+// Si fa DOPO `normalizza`, che ha bisogno delle mesh separate per `allineaBase`
+// (la mesh più bassa decide il centro: fondendo prima, l'albero tornerebbe a
+// piantarsi storto — è il bug del commit 5b40a62).
+
+const ATTRIBUTI_FUSI = ['position', 'normal', 'uv'];
+
+/** Due materiali si possono fondere solo se disegnano IDENTICO. */
+function firmaMateriale(m) {
+  return [
+    m.type, m.color ? m.color.getHexString() : '-', m.map ? m.map.uuid : '-',
+    m.transparent, m.opacity, m.side, m.blending, m.depthWrite, m.depthTest,
+    m.alphaTest, !!m.vertexColors, m.toneMapped, m.fog,
+  ].join('|');
+}
+
+function fusibile(mesh) {
+  if (Array.isArray(mesh.material)) return false;       // multi-materiale: si lascia stare
+  const a = mesh.geometry.attributes;
+  return ATTRIBUTI_FUSI.every((n) => !!a[n]);
+}
+
+/** Concatena le geometrie in una sola, portando i vertici nello spazio di `radice`. */
+function fondiGeometrie(mesh, inversa) {
+  const geo = mesh.map((m) => (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry));
+  let n = 0;
+  for (const g of geo) n += g.attributes.position.count;
+
+  const pos = new Float32Array(n * 3);
+  const nor = new Float32Array(n * 3);
+  const uv = new Float32Array(n * 2);
+  const locale = new THREE.Matrix4();
+  const perNormali = new THREE.Matrix3();
+  const v = new THREE.Vector3();
+
+  let i = 0;
+  for (let k = 0; k < geo.length; k++) {
+    const g = geo[k];
+    locale.multiplyMatrices(inversa, mesh[k].matrixWorld);
+    perNormali.getNormalMatrix(locale);
+    const P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
+    for (let j = 0; j < P.count; j++, i++) {
+      v.set(P.getX(j), P.getY(j), P.getZ(j)).applyMatrix4(locale);
+      pos[i * 3] = v.x; pos[i * 3 + 1] = v.y; pos[i * 3 + 2] = v.z;
+      v.set(N.getX(j), N.getY(j), N.getZ(j)).applyMatrix3(perNormali).normalize();
+      nor[i * 3] = v.x; nor[i * 3 + 1] = v.y; nor[i * 3 + 2] = v.z;
+      uv[i * 2] = U.getX(j); uv[i * 2 + 1] = U.getY(j);
+    }
+  }
+
+  const fusa = new THREE.BufferGeometry();
+  fusa.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  fusa.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  fusa.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  fusa.computeBoundingSphere();
+  return fusa;
+}
+
+/**
+ * Butta le mesh vuote e fonde per materiale. Ritorna il conteggio per il log.
+ * Le mesh che non si possono fondere (attributi diversi, multi-materiale)
+ * restano dove sono: non si rompe mai un modello per ottimizzarlo.
+ */
+function compatta(radice) {
+  radice.updateWorldMatrix(true, true);
+  const inversa = new THREE.Matrix4().copy(radice.matrixWorld).invert();
+
+  const gruppi = new Map();       // firma → mesh[]
+  const vuote = [];
+  let prima = 0;
+  radice.traverse((o) => {
+    if (!o.isMesh) return;
+    prima++;
+    const p = o.geometry.attributes.position;
+    if (!p || p.count === 0) { vuote.push(o); return; }
+    if (!fusibile(o)) return;
+    const firma = firmaMateriale(o.material);
+    if (!gruppi.has(firma)) gruppi.set(firma, []);
+    gruppi.get(firma).push(o);
+  });
+
+  for (const o of vuote) {
+    if (o.parent) o.parent.remove(o);
+    o.geometry.dispose();
+    materialiConMappa.delete(o.material);
+  }
+
+  for (const mesh of gruppi.values()) {
+    if (mesh.length < 2) continue;                       // già una sola: niente da fare
+    const fusa = new THREE.Mesh(fondiGeometrie(mesh, inversa), mesh[0].material);
+    fusa.name = mesh[0].name || 'fuso';
+    fusa.userData.fuso = mesh.length;
+    for (const o of mesh) {
+      if (o.parent) o.parent.remove(o);
+      o.geometry.dispose();
+      if (o.material !== fusa.material) materialiConMappa.delete(o.material);
+    }
+    radice.add(fusa);
+  }
+
+  let dopo = 0;
+  radice.traverse((o) => { if (o.isMesh) dopo++; });
+  return { prima, dopo, vuote: vuote.length };
 }
 
 /** Normalizza un modello: scala calibrata, base a y=0, centro XZ sul pivot.
@@ -309,6 +421,8 @@ export async function caricaModelli(FURNI, avanza = () => {}) {
         const modello = await caricaFbx(def.modello);
         rendiUnlit(modello);
         def.modello3d = normalizza(modello, scala, def.allineaBase);
+        const c = compatta(def.modello3d);
+        console.log(`[lantern] ${def.id}: ${c.prima} mesh → ${c.dopo} draw call (${c.vuote} vuote)`);
       } catch (e) {
         console.warn(`[lantern] ${def.modello} non caricabile, uso il sostituto procedurale`, e);
         def.modello3d = fallback(def.id);
@@ -336,6 +450,7 @@ export async function caricaModelli(FURNI, avanza = () => {}) {
           const m = await caricaFbx(stato.modello);
           rendiUnlit(m);
           stato.modello3d = normalizza(m, scala, def.allineaBase);
+          compatta(stato.modello3d);
         } catch (e) {
           console.warn(`[lantern] stato ${def.id}/${stato.nome}: ${stato.modello} non caricabile, uso il base`, e);
           stato.modello3d = null;
