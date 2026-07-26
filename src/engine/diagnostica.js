@@ -65,6 +65,14 @@ export function riassuntoDiagnostica(dati) {
   const timer = gl.timerQuery === true ? 'sì' : (gl.timerQuery === false ? 'no' : '?');
   righe.push(`GPU: ${gpuTxt} — software: ${soft} · WebGL2: ${gl.webgl2 ? 'sì' : 'no'} · timer GPU: ${timer}`);
 
+  // QUALE build ha misurato: senza, una pagina rimasta aperta da prima della
+  // pubblicazione fa sembrare che una correzione non funzioni
+  if (dati && dati.build) {
+    righe.push(dati.build === 'sviluppo'
+      ? 'Build: in sviluppo (server locale, nessun timbro).'
+      : `Build: ${dati.build} — se non è l'ultima pubblicata, RICARICA la pagina e rifai la misura.`);
+  }
+
   // 2) baseline: dove siamo adesso
   if (base && fpsDi(base) !== null) {
     const g = gpuTotale(base);
@@ -133,6 +141,7 @@ export function componiDiagnostica(grezzi = {}, opts = {}) {
   const generato = (quando instanceof Date ? quando : new Date(quando)).toISOString();
 
   const dati = {
+    build: grezzi.build || null,
     dispositivo: grezzi.dispositivo || null,
     gl: grezzi.gl || null,
     impostazioni: grezzi.impostazioni || null,
