@@ -7,7 +7,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { CAMERA } from '../config.js?v=ms258m6h';
+import { CAMERA } from '../config.js?v=ms26hu1n';
 
 /**
  * Il browser sta disegnando via SOFTWARE (niente GPU)?
@@ -112,6 +112,7 @@ export class Rig {
     this._tsH = null;
     this._tsV = null;
     this.tiltShift = false;
+    this._tiltQ = 0;
     this._fuoco = 0.45;
 
     // collisione della camera coi muri (spenta col settaggio "camera fantasma")
@@ -133,10 +134,20 @@ export class Rig {
   dimensiona(w, h) {
     this.renderer.setSize(w, h, w === innerWidth && h === innerHeight);
     if (this.composer) {
-      this.composer.setSize(w, h);
+      // IL COMPOSER NON SEGUE DA SOLO LA SCALA DI RENDERING. EffectComposer si
+      // fotografa il pixel ratio alla COSTRUZIONE e `setSize` continua a usare
+      // quello: abbassare la scala rimpiccioliva soltanto il canvas finale,
+      // mentre scena e due passate di blur restavano alla risoluzione piena.
+      // Risultato misurato sul telefono dell'utente (Mali-G68, diagnostica del
+      // 2026-07-26): col tilt-shift acceso la scala non spostava NIENTE — 53 fps
+      // a 1.00 e 55 a 0.50 — cioè la leva principale della qualità adattiva era
+      // scollegata. Va risincronizzato a ogni ridimensionamento.
       const dpr = this.renderer.getPixelRatio();
+      this.composer.setPixelRatio(dpr);
+      this.composer.setSize(w, h);
       this._tsH.uniforms.risoluzione.value.set(w * dpr, h * dpr);
       this._tsV.uniforms.risoluzione.value.set(w * dpr, h * dpr);
+      this._applicaTilt();
     }
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -157,10 +168,22 @@ export class Rig {
   /** Intensità del tilt-shift (0 = spento). */
   impostaTiltShift(quantita) {
     this.tiltShift = quantita > 0;
+    this._tiltQ = quantita;
     if (this.tiltShift && !this.composer) this._creaComposer();
     if (!this.composer) return;
-    this._tsH.uniforms.quantita.value = quantita;
-    this._tsV.uniforms.quantita.value = quantita;
+    this._applicaTilt();
+  }
+
+  /** Il blur è espresso in PIXEL del bersaglio: se la scala di rendering scende,
+   *  quegli stessi pixel valgono una fetta più grande di schermo e la sfocatura
+   *  raddoppierebbe da sola. Si compensa, così abbassare la risoluzione cambia
+   *  gli fps e non l'aspetto. */
+  _applicaTilt() {
+    const pieno = Math.min(devicePixelRatio, this.dprMax);
+    const f = Math.max(0.1, this.renderer.getPixelRatio() / pieno);
+    const q = (this._tiltQ || 0) * f;
+    this._tsH.uniforms.quantita.value = q;
+    this._tsV.uniforms.quantita.value = q;
   }
 
   /** Scala la risoluzione di rendering (qualità adattiva): 1 = nativa capata. */
