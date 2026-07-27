@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms2ghfs8';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms2ghfs8';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms2xhyng';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms2xhyng';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -270,7 +270,7 @@ const uniformi = {
   // termine alla volta non si sa dove vadano. È una uniform e non una define
   // perché la diagnostica la muove a caldo, fra due misure alternate, senza
   // ricompilare niente. Vedi PARTI e docs/RIFONDAZIONE-RESA.md.
-  uParti: { value: 15 },
+  uParti: { value: 127 },
   uPioggia: { value: 0 },                        // 0..1: increspature di pioggia
   uRiflesso: { value: null },                    // RT del mirror (riflesso.js)
   uRiflessoMat: { value: new THREE.Matrix4() },
@@ -364,7 +364,13 @@ export function impostaForzaRiflesso(f) { uniformi.uRiflessoForza.value = f; }
 /** I TERMINI della lanterna, per scomporne il costo sul dispositivo vero.
  *  Non è un'impostazione utente: la muove solo la diagnostica, e torna a TUTTE
  *  appena finisce. 0 = shader nudo (colore della palette e basta). */
-export const PARTI = { nuvole: 1, personaggi: 2, lampade: 4, acqua: 8, tutte: 15 };
+export const PARTI = {
+  nuvole: 1, personaggi: 2, lampade: 4, acqua: 8,
+  // dentro l'acqua, per sapere QUALE pezzo costa (misurato: l'acqua è il 60%
+  // del pass principale sul Chromebook, 14,3 ms su 24)
+  riflesso: 16, silhouette: 32, correnti: 64,
+  tutte: 127,
+};
 export function impostaParti(maschera) { uniformi.uParti.value = maschera | 0; }
 
 /** Le nuvole pubblicano qui i rettangoli (XZ) delle loro scatole = ombra reale.
@@ -756,11 +762,20 @@ const GLSL_ACQUA_COLORE = /* glsl */`
 
     // RIFLESSO: wobble a VALUE-NOISE (mai ripetitivo) che sfuma con la
     // distanza — da lontano lo specchio resta fermo, niente pattern
-    if (uRiflessoOn > 0.5) {
-      vec2 pw = vPosMondo.xz * 0.6 + vAcqua.xy * uTempo * 0.4;
-      vec2 w = vec2(lanternaRumore(pw + uTempo * 0.16), lanternaRumore(pw.yx - uTempo * 0.13)) - 0.5;
+    if (uRiflessoOn > 0.5 && (uParti & 16) != 0) {
       vec4 ruv = vRiflessoUv;
-      ruv.xy += w * 0.035 * (1.0 - lontano * 0.85) * ruv.w;
+      // L'ONDEGGIO SI SPEGNE DEL TUTTO A 32 UNITÀ, e allora oltre non si calcola.
+      // Prima sfumava a (1 − lontano·0.85), cioè restava al 15% per tutto
+      // l'orizzonte: due rumori per pixel per un'increspatura che a quella
+      // distanza sposta lo specchio di meno di un pixel — e nella vista a diorama
+      // l'acqua lontana è la fetta più grande dello schermo. Portando la sfumata a
+      // (1 − lontano) l'ampiezza arriva a ZERO proprio dove si smette di
+      // calcolarla: il salto non esiste per costruzione, e il taglio è esatto.
+      if (lontano < 1.0) {
+        vec2 pw = vPosMondo.xz * 0.6 + vAcqua.xy * uTempo * 0.4;
+        vec2 w = vec2(lanternaRumore(pw + uTempo * 0.16), lanternaRumore(pw.yx - uTempo * 0.13)) - 0.5;
+        ruv.xy += w * 0.035 * (1.0 - lontano) * ruv.w;
+      }
       vec3 rifl = texture2DProj(uRiflesso, ruv).rgb;
       vec3 vistaDir = normalize(cameraPosition - vPosMondo);
       float fres = pow(1.0 - clamp(vistaDir.y, 0.0, 1.0), 1.4);
@@ -772,26 +787,45 @@ const GLSL_ACQUA_COLORE = /* glsl */`
     //  · TUTTO IL RESTO (furni di qualsiasi forma, gatti, palle, NPC futuri):
     //    silhouette dall'alto della sola geometria che BUCA il pelo — la
     //    schiuma segue la forma vera, niente footprint quadrati.
-    float frasta = lanternaRumore(vPosMondo.xz * 3.4 + uTempo * vec2(0.4, 0.3));
+    // IL RUMORE SI CALCOLA SOLO DOVE PUÒ CAMBIARE QUALCOSA, e non è una
+    // approssimazione: frasta entra solo in dRiva, che serve solo se la
+    // schiuma di riva può accendersi. Siccome frasta sta in [0,1], il termine
+    // (frasta−0.5)·0.30 sta in [−0.15, +0.15]: con vRiva.x oltre 0.39 la soglia
+    // 0.24 non è raggiungibile NEMMENO col rumore al minimo, e con l'apertura
+    // sotto 0.50 lo step la spegne comunque. Fuori da quella fascia il valore
+    // sarebbe stato buttato — ed è la maggioranza dei pixel di un lago.
+    bool serveRiva = vRiva.y >= 0.50 && vRiva.x < 0.39;
+    float frasta = serveRiva ? lanternaRumore(vPosMondo.xz * 3.4 + uTempo * vec2(0.4, 0.3)) : 0.5;
     // silhouette VIVA: il punto di campionamento ONDEGGIA col tempo (il
     // contorno non sta mai fermo) e l'anello di dilatazione "respira"
     float sagoma = 0.0;
-    if (uSchiumaRTInfo.w > 0.5) {
-      vec2 wob = (vec2(
-        lanternaRumore(vPosMondo.xz * 1.9 + uTempo * vec2(0.55, 0.4)),
-        lanternaRumore(vPosMondo.zx * 1.9 - uTempo * vec2(0.5, 0.35))) - 0.5) * 0.3;
-      vec2 uvT = (vPosMondo.xz + wob - uSchiumaRTInfo.xy) * uSchiumaRTInfo.z;
-      if (uvT.x > 0.001 && uvT.x < 0.999 && uvT.y > 0.001 && uvT.y < 0.999) {
-        float o = (0.32 + 0.08 * sin(uTempo * 2.3)) * uSchiumaRTInfo.z;
-        sagoma = texture2D(uSchiumaRT, uvT).r;
-        sagoma = max(sagoma, texture2D(uSchiumaRT, uvT + vec2(o, 0.0)).r);
-        sagoma = max(sagoma, texture2D(uSchiumaRT, uvT - vec2(o, 0.0)).r);
-        sagoma = max(sagoma, texture2D(uSchiumaRT, uvT + vec2(0.0, o)).r);
-        sagoma = max(sagoma, texture2D(uSchiumaRT, uvT - vec2(0.0, o)).r);
+    if (uSchiumaRTInfo.w > 0.5 && (uParti & 32) != 0) {
+      vec2 uvC = (vPosMondo.xz - uSchiumaRTInfo.xy) * uSchiumaRTInfo.z;
+      if (uvC.x > 0.001 && uvC.x < 0.999 && uvC.y > 0.001 && uvC.y < 0.999) {
+        // SETACCIO: un livello grosso della mipmap copre ~2 unità di mondo per
+        // texel. Se lì attorno non c'è NIENTE, non ci sarà niente nemmeno con
+        // l'ondeggio (±0.15u) e con l'anello di dilatazione (±0.4u), quindi si
+        // salta tutto: due rumori e cinque letture risparmiate su ogni pixel di
+        // mare aperto, che sono la stragrande maggioranza.
+        if (textureLod(uSchiumaRT, uvC, 4.0).r > 0.002) {
+          vec2 wob = (vec2(
+            lanternaRumore(vPosMondo.xz * 1.9 + uTempo * vec2(0.55, 0.4)),
+            lanternaRumore(vPosMondo.zx * 1.9 - uTempo * vec2(0.5, 0.35))) - 0.5) * 0.3;
+          vec2 uvT = uvC + wob * uSchiumaRTInfo.z;
+          float o = (0.32 + 0.08 * sin(uTempo * 2.3)) * uSchiumaRTInfo.z;
+          sagoma = texture2D(uSchiumaRT, uvT).r;
+          sagoma = max(sagoma, texture2D(uSchiumaRT, uvT + vec2(o, 0.0)).r);
+          sagoma = max(sagoma, texture2D(uSchiumaRT, uvT - vec2(o, 0.0)).r);
+          sagoma = max(sagoma, texture2D(uSchiumaRT, uvT + vec2(0.0, o)).r);
+          sagoma = max(sagoma, texture2D(uSchiumaRT, uvT - vec2(0.0, o)).r);
+        }
       }
     }
     float maschera = anelloImpatti(vPosMondo.xz, vPosMondo.y);   // impatti cascate
-    float vivo = lanternaRumore(vPosMondo.xz * 4.6 + uTempo * vec2(1.2, 0.9));
+    // stessa regola: vivo sfrangia la SILHOUETTE, e dove la silhouette è zero
+    // il prodotto è zero comunque. La sagoma copre una manciata di pixel attorno
+    // a chi sta in acqua, il rumore lo pagava tutto il lago.
+    float vivo = sagoma > 0.0 ? lanternaRumore(vPosMondo.xz * 4.6 + uTempo * vec2(1.2, 0.9)) : 0.0;
     // RIVA: UNA SOGLIA SOLA E NETTA, ed è il rilievo del committente ("la
     // schiuma ai bordi è troppo sfocata, voglio qualcosa di più nitido senza
     // sfocature, netto come l'ombra del player e le fake pointlight").
@@ -901,7 +935,7 @@ const GLSL_ACQUA_COLORE = /* glsl */`
       float strisce = step(0.75, lanternaRumore(vec2(lungo * 1.05, trasv * 3.0))) * 0.7;
       band = max(band, strisce);
       diffuseColor.a = min(1.0, diffuseColor.a + strisce * 0.25);
-    } else if (tipoA >= 0.5) {
+    } else if (tipoA >= 0.5 && (uParti & 64) != 0) {
       // CORRENTE: scie allungate lungo il flusso, trascinate dalla corrente
       vec2 pf = vPosMondo.xz - vAcqua.xy * uTempo * 1.2;
       float lungoF = dot(pf, vAcqua.xy);

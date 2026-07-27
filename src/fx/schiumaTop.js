@@ -32,8 +32,15 @@ export class SchiumaTop {
     const DIM_RT = mobile ? 256 : 512;
     this.rt = new THREE.WebGLRenderTarget(DIM_RT, DIM_RT, { depthBuffer: false });
     this.rt.texture.magFilter = THREE.LinearFilter;
-    this.rt.texture.minFilter = THREE.LinearFilter;
-    this.rt.texture.generateMipmaps = false;
+    // MIPMAP ACCESI, e non per filtrare: servono come SETACCIO. Lo shader
+    // dell'acqua campionava questa mappa cinque volte (centro più quattro per
+    // dilatare l'anello) e ci aggiungeva due rumori per far ondeggiare il punto
+    // di campionamento — per OGNI pixel d'acqua dello schermo, anche in mezzo al
+    // mare dove di silhouette non ce n'è a chilometri. Con un livello grosso
+    // basta UNA lettura per sapere che lì attorno non c'è niente e saltare tutto
+    // il resto. Misurato sul Chromebook: l'acqua è il 60% del pass principale.
+    this.rt.texture.minFilter = THREE.LinearMipmapLinearFilter;
+    this.rt.texture.generateMipmaps = true;
     const m = ESTENSIONE / 2;
     // guardando in giù con up=(0,0,1) il "right" della camera è −X: si
     // scambiano left/right nel frustum così u cresce con la x del mondo
