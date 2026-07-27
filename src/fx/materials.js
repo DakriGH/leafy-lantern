@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms2yheag';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms2yheag';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms3ci6d9';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms3ci6d9';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -705,16 +705,37 @@ const GLSL_ACQUA_FRAGMENT = /* glsl */`
   // Il rumore che sfrangia il bordo si campiona UNA VOLTA fuori dal ciclo: non
   // dipende dall'indice, e dentro era l'unica cosa cara — è ciò che rende
   // sostenibile alzare IMPATTI_MAX da 8 a 32.
+  // MISURATO SUL CHROMEBOOK (2026-07-27): questa funzione costava 9,6 ms dei
+  // 12,1 dell'acqua, cioè l'80%. Non era il ciclo: era il RUMORE, che stava
+  // fuori e si calcolava per OGNI pixel d'acqua dello schermo appena esisteva
+  // un impatto nel mondo — quattro seni a pixel per sfrangiare un anello che
+  // quel pixel non incontrerà mai. (La nota storica qui sotto diceva che il
+  // costo era trascurabile: era stata presa a 0 impatti, dove la funzione esce
+  // alla prima riga.)
+  //
+  // Ora si paga solo dove serve, e i tagli sono ESATTI, non approssimazioni:
+  //  · la quota taglia per prima con la soglia VERA (0.72, quella dello step):
+  //    era dy < 1.0 e poi uno step, cioè si calcolavano seno e distanza anche
+  //    per una fascia che sarebbe stata spenta comunque;
+  //  · il rumore sposta la distanza al massimo di ±0.15 (sta in [0,1], scalato
+  //    0.3 e centrato), quindi un pixel oltre raggio·0.18 + 0.15 dall'anello
+  //    non può accendersi NEMMENO col rumore al valore peggiore: si scarta
+  //    prima, e il rumore si calcola solo al primo anello che passa il filtro.
   float anelloImpatti(vec2 pXZ, float y) {
     float s = 0.0;
     if (uImpattiNum == 0) return s;
-    float sfr = (lanternaRumore(pXZ * 3.2 + uTempo * vec2(0.45, 0.3)) - 0.5) * 0.3;
+    float sfr = 0.0;
+    bool haSfr = false;
     for (int i = 0; i < ${IMPATTI_MAX}; i++) {
       if (i >= uImpattiNum) break;
       vec4 im = uImpatti[i];
       float dy = abs(y - im.y);
-      if (dy < 1.0) {
+      if (dy <= 0.72) {
         float rr = im.w * (1.0 + 0.10 * sin(uTempo * 2.6 + float(i) * 1.7));
+        float spessore = im.w * 0.18;
+        float dNudo = abs(distance(pXZ, im.xz) - rr);
+        if (dNudo > spessore + 0.15) continue;   // fuori portata anche col rumore al peggio
+        if (!haSfr) { sfr = (lanternaRumore(pXZ * 3.2 + uTempo * vec2(0.45, 0.3)) - 0.5) * 0.3; haSfr = true; }
         float d = abs(distance(pXZ, im.xz) - rr + sfr);      // distanza DALL'ANELLO
         // SOTTILE: a spessore 0.34·r l'anello copriva più area del disco che
         // sostituiva (una corona 0.69→1.41 batte un cerchio di raggio 1.05) e
@@ -723,7 +744,7 @@ const GLSL_ACQUA_FRAGMENT = /* glsl */`
         // verticale: 0.72 sta comodo fra i suoi due padroni — sopra il massimo
         // dislivello possibile fra pelo e centro cella (peloDi(0) = 0.4375) e
         // sotto il gradino di una cella, che è il limite da non superare.
-        s = max(s, step(d, im.w * 0.18) * step(dy, 0.72));
+        s = max(s, step(d, spessore));   // la quota l'ha già filtrata il dy <= 0.72 qui sopra
       }
     }
     return s;
