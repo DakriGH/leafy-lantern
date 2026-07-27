@@ -142,18 +142,33 @@ export const ID_SCENE = SCENE.map((s) => s.id);
  */
 export function riassuntoBanco(banco) {
   if (!banco || !banco.terreno) return [];
-  const ms = (s) => (s && s.gpu && typeof s.gpu.totaleMedia === 'number' ? s.gpu.totaleMedia : null);
-  const base = ms(banco.terreno);
-  if (base == null) return [];
   const arr = (x) => Math.round(x * 10) / 10;
-  const righe = [`Banco standard — terreno asciutto: ${arr(base)} ms GPU (è il fondo della scala).`];
+
+  // MILLISECONDI DI GPU SE CI SONO, altrimenti i FRAME AL SECONDO convertiti in
+  // millisecondi a frame. Non è un ripiego da poco: il telefono del committente
+  // — cioè il bersaglio principale — NON ha le timer query, e la prima versione
+  // di questo riassunto pretendeva i ms e restava muta proprio lì.
+  // Si usano gli fps MEDI e non la mediana perché su uno schermo agganciato al
+  // vsync la mediana si incolla al passo del display (22,3 ms per tutte e sette
+  // le scene, misurato) mentre la media distingue eccome.
+  const conGpu = typeof (banco.terreno.gpu || {}).totaleMedia === 'number';
+  const metrica = (s) => {
+    if (!s) return null;
+    if (conGpu) return (s.gpu && typeof s.gpu.totaleMedia === 'number') ? s.gpu.totaleMedia : null;
+    return (typeof s.fps === 'number' && s.fps > 0) ? 1000 / s.fps : null;
+  };
+  const unita = conGpu ? 'ms GPU' : 'ms a frame';
+
+  const base = metrica(banco.terreno);
+  if (base == null) return [];
+  const righe = [`Banco standard — terreno asciutto: ${arr(base)} ${unita}${conGpu ? '' : ` (${Math.round(banco.terreno.fps)} fps)`}, è il fondo della scala.`];
   const extra = SCENE.filter((s) => s.id !== 'terreno')
-    .map((s) => ({ nome: s.nome, ms: ms(banco[s.id]) }))
-    .filter((s) => s.ms != null)
-    .map((s) => ({ ...s, di: s.ms - base }))
+    .map((s) => ({ nome: s.nome, v: metrica(banco[s.id]), fps: banco[s.id] && banco[s.id].fps }))
+    .filter((s) => s.v != null)
+    .map((s) => ({ ...s, di: s.v - base }))
     .sort((a, b) => b.di - a.di);
   if (extra.length) {
-    righe.push(`Quanto costa IN PIÙ ogni condizione: ${extra.map((s) => `${s.nome} +${arr(s.di)} ms`).join(' · ')}.`);
+    righe.push(`Quanto costa IN PIÙ ogni condizione (${unita}): ${extra.map((s) => `${s.nome} ${s.di >= 0 ? '+' : ''}${arr(s.di)}`).join(' · ')}.`);
   }
   return righe;
 }

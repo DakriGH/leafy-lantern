@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms3d2i50';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms3d2i50';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms3kbelx';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms3kbelx';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -967,8 +967,14 @@ const GLSL_ACQUA_COLORE = /* glsl */`
       band = max(band, step(0.77, scia) * 0.3);
     }
 
-    // pioggia: anelli bianchi sul pelo (solo quando piove)
-    if (uPioggia > 0.01) band = max(band, anelliPioggia(vPosMondo.xz) * uPioggia);
+    // PIOGGIA: anelli bianchi sul pelo, e SOLO DA VICINO. Il filo di un anello è
+    // spesso 0.035 unità di mondo; con questo campo visivo, oltre una ventina di
+    // unità quel filo sta sotto il pixel — cioè non si vede più come anello, si
+    // vede come sfarfallio. Sopra lontano 0.7 (circa 22 unità) si smette di
+    // calcolarlo: due seni per pixel d'acqua risparmiati su tutto l'orizzonte,
+    // che è la fetta più grande. Misurato sul telefono col banco standard: il
+    // temporale era la condizione PIÙ CARA di tutte (+6,5 ms a frame).
+    if (uPioggia > 0.01 && lontano < 0.7) band = max(band, anelliPioggia(vPosMondo.xz) * uPioggia);
   } else if ((uParti & 8) != 0 && tipoA < 2.5) {
     // CASCATA / acqua CHE SCORRE in diagonale: NON una lastra bianca — resta
     // azzurra, con filamenti bianchi SOTTILI che corrono in giù (soglia alta:
