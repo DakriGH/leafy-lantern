@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { CAMERA } from '../config.js?v=ms2xo6kx';
+import { CAMERA } from '../config.js?v=ms2y1d0v';
 
 /**
  * Il browser sta disegnando via SOFTWARE (niente GPU)?
@@ -154,6 +154,9 @@ export class Rig {
     this.tiltShift = false;
     this._tiltQ = 0;
     this._fuoco = 0.45;
+    // risoluzione INTERNA (0.4…1) e come la si ingrandisce sul canvas pieno
+    this.scalaInterna = 1;
+    this.nitido = true;
 
     // collisione della camera coi muri (spenta col settaggio "camera fantasma")
     this.solido = null;          // (x,y,z) => bool, iniettato da main
@@ -170,7 +173,14 @@ export class Rig {
     this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));
   }
 
-  /** Dimensiona TUTTO (renderer, composer se esiste, uniform del blur, camera). */
+  /** Dimensiona TUTTO (renderer, composer se esiste, uniform del blur, camera).
+   *
+   *  IL CANVAS RESTA SEMPRE ALLA RISOLUZIONE DELLO SCHERMO. A rimpicciolirsi è
+   *  solo il bersaglio INTERNO dove si disegna la scena: l'ultima passata legge
+   *  quel bersaglio e scrive sul canvas pieno, cioè è lei a fare l'ingrandimento
+   *  e possiamo scegliere COME. Prima si rimpiccioliva il canvas e l'ingrandimento
+   *  lo faceva il browser, sempre in bilineare: ecco perché abbassare la
+   *  risoluzione impastava tutto. */
   dimensiona(w, h) {
     this.renderer.setSize(w, h, w === innerWidth && h === innerHeight);
     if (this.composer) {
@@ -182,11 +192,12 @@ export class Rig {
       // 2026-07-26): col tilt-shift acceso la scala non spostava NIENTE — 53 fps
       // a 1.00 e 55 a 0.50 — cioè la leva principale della qualità adattiva era
       // scollegata. Va risincronizzato a ogni ridimensionamento.
-      const dpr = this.renderer.getPixelRatio();
+      const dpr = this.renderer.getPixelRatio() * this.scalaInterna;
       this.composer.setPixelRatio(dpr);
       this.composer.setSize(w, h);
       this._tilt.uniforms.risoluzione.value.set(w * dpr, h * dpr);
       this._applicaTilt();
+      this._filtroInterno();
     }
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -195,9 +206,23 @@ export class Rig {
   _creaComposer() {
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scena, this.camera));
-    this._tilt = new ShaderPass(ShaderTiltShift);   // blur + sRGB: è anche l'output
+    this._tilt = new ShaderPass(ShaderTiltShift);   // blur + sRGB + ingrandimento: è anche l'output
     this.composer.addPass(this._tilt);
     this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));
+  }
+
+  /**
+   * COME SI INGRANDISCE il bersaglio interno quando è più piccolo del canvas.
+   * `nitido` = NearestFilter: i pixel restano quadrati e a bordo vivo, come in un
+   * gioco a pixel-art — che è esattamente lo stile di questo (blocchi, colori
+   * piatti, bande nette). `morbido` = LinearFilter, l'impasto di prima.
+   * A scala piena non cambia niente: il filtro non entra mai in gioco.
+   */
+  _filtroInterno() {
+    const f = (this.scalaInterna < 0.995 && this.nitido) ? THREE.NearestFilter : THREE.LinearFilter;
+    for (const rt of [this.composer.renderTarget1, this.composer.renderTarget2]) {
+      if (rt.texture.magFilter !== f) { rt.texture.magFilter = f; rt.texture.minFilter = f; rt.texture.needsUpdate = true; }
+    }
   }
 
   /** Intensità del tilt-shift (0 = spento). */
@@ -214,20 +239,30 @@ export class Rig {
    *  raddoppierebbe da sola. Si compensa, così abbassare la risoluzione cambia
    *  gli fps e non l'aspetto. */
   _applicaTilt() {
-    const pieno = Math.min(devicePixelRatio, this.dprMax);
-    const f = Math.max(0.1, this.renderer.getPixelRatio() / pieno);
-    this._tilt.uniforms.quantita.value = (this._tiltQ || 0) * f;
+    this._tilt.uniforms.quantita.value = (this._tiltQ || 0) * Math.max(0.1, this.scalaInterna);
   }
 
-  /** Scala la risoluzione di rendering (qualità adattiva): 1 = nativa capata. */
+  /**
+   * Scala la risoluzione INTERNA (qualità adattiva): 1 = nativa capata.
+   *
+   * NON tocca più il canvas. Prima rimpiccioliva `renderer.setPixelRatio`, cioè
+   * il canvas stesso, e a stirarlo sullo schermo ci pensava il browser in
+   * bilineare: da lì il «quando abbasso la risoluzione è tutto blurrato». Adesso
+   * il canvas resta nativo e a rimpicciolirsi è solo il bersaglio dove si disegna
+   * la scena; l'ultima passata lo legge e lo scrive a schermo pieno, col filtro
+   * scelto da `nitido`. Stessi pixel risparmiati, immagine a bordo vivo.
+   */
   setScalaRender(f) {
     // pavimento a 0.4: la scala auto arriva a 0.45 sui telefoni più deboli, e un
     // clamp a 0.5 gliela mangiava proprio quando serviva di più. Sotto 0.4 il
     // gioco non si legge nemmeno, quindi non si scende oltre.
-    const dpr = Math.max(0.4, Math.min(devicePixelRatio, this.dprMax) * f);
-    if (Math.abs(dpr - this.renderer.getPixelRatio()) < 0.02) return;
-    this.renderer.setPixelRatio(dpr);
-    this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));
+    const s = Math.max(0.4, Math.min(1, f));
+    if (Math.abs(s - this.scalaInterna) < 0.02) return;
+    this.scalaInterna = s;
+    // sotto scala piena serve il composer ANCHE senza tilt-shift: è lui a
+    // disegnare a risoluzione ridotta e a ingrandire con il filtro giusto
+    if (s < 0.995 && !this.composer) this._creaComposer();
+    else this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));
   }
 
   /** La banda a fuoco insegue un punto del mondo (il gatto), con dolcezza. */
@@ -295,7 +330,8 @@ export class Rig {
   // resize. Via anche quello.)
 
   render() {
-    if (this.tiltShift && this.composer) this.composer.render();
+    // il composer serve anche a scala ridotta senza tilt: è lui l'ingranditore
+    if (this.composer && (this.tiltShift || this.scalaInterna < 0.995)) this.composer.render();
     else this.renderer.render(this.scena, this.camera);
   }
 }
