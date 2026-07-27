@@ -1,67 +1,68 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms3ci6d9';
-import { Rig } from './engine/renderer.js?v=ms3ci6d9';
-import { Input } from './engine/input.js?v=ms3ci6d9';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms3ci6d9';
-import { Cadenza } from './engine/cadenza.js?v=ms3ci6d9';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms3ci6d9';
-import { componiDiagnostica } from './engine/diagnostica.js?v=ms3ci6d9';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms3ci6d9';
-import { Mondo } from './world/world.js?v=ms3ci6d9';
-import { SimAcqua } from './world/acqua.js?v=ms3ci6d9';
-import { Lobby } from './net/lobby.js?v=ms3ci6d9';
-import { Segnalatore } from './net/segnalatore.js?v=ms3ci6d9';
-import { Bolla } from './ui/bolla.js?v=ms3ci6d9';
-import { Scelta } from './ui/scelta.js?v=ms3ci6d9';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms3ci6d9';
-import { Zaino } from './ui/zaino.js?v=ms3ci6d9';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=ms3ci6d9';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms3ci6d9';
-import { generaMostra } from './world/mostra.js?v=ms3ci6d9';
-import { generaCollaudo } from './world/collaudo.js?v=ms3ci6d9';
-import { generaTestLuci } from './world/testLuci.js?v=ms3ci6d9';
-import { generaTestMacchine } from './world/testMacchine.js?v=ms3ci6d9';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=ms3ci6d9';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms3ci6d9';
-import { Meteo } from './fx/meteo.js?v=ms3ci6d9';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms3ci6d9';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms3ci6d9';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=ms3ci6d9';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms3ci6d9';
-import { CicloGiorno } from './fx/daynight.js?v=ms3ci6d9';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI } from './fx/materials.js?v=ms3ci6d9';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms3ci6d9';
-import { ModalitaAR } from './ar/ar.js?v=ms3ci6d9';
-import { Nuvole } from './fx/nuvole.js?v=ms3ci6d9';
-import { SegnaPercorso } from './fx/percorso.js?v=ms3ci6d9';
-import { ComandiTouch } from './ui/comandi-touch.js?v=ms3ci6d9';
-import { RiflessoAcqua } from './fx/riflesso.js?v=ms3ci6d9';
-import { Pioggia } from './fx/pioggia.js?v=ms3ci6d9';
-import { Particelle } from './fx/particelle.js?v=ms3ci6d9';
-import { Audio } from './fx/audio.js?v=ms3ci6d9';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms3ci6d9';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms3ci6d9';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms3ci6d9';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms3ci6d9';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms3ci6d9';
-import { Registro } from './ecs/registro.js?v=ms3ci6d9';
-import { Orologio, Rng } from './ecs/orologio.js?v=ms3ci6d9';
-import { Sistemi } from './ecs/sistemi.js?v=ms3ci6d9';
-import { Agenda } from './ecs/agenda.js?v=ms3ci6d9';
-import { Gatto } from './player/player.js?v=ms3ci6d9';
-import { ManoStrumento } from './player/mano.js?v=ms3ci6d9';
-import { dropDi } from './gioco/drop.js?v=ms3ci6d9';
-import { Controller } from './player/controller.js?v=ms3ci6d9';
-import { FURNI, centroide } from './furniture/registry.js?v=ms3ci6d9';
-import { caricaModelli } from './furniture/loader.js?v=ms3ci6d9';
-import { Arredo } from './furniture/furniture.js?v=ms3ci6d9';
-import { HUD } from './ui/hud.js?v=ms3ci6d9';
-import { MenuDebug } from './ui/debug.js?v=ms3ci6d9';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms3ci6d9';
-import { ModalitaXR } from './ar/ar-xr.js?v=ms3ci6d9';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms3ci6d9';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms3d2i50';
+import { Rig } from './engine/renderer.js?v=ms3d2i50';
+import { Input } from './engine/input.js?v=ms3d2i50';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms3d2i50';
+import { Cadenza } from './engine/cadenza.js?v=ms3d2i50';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms3d2i50';
+import { componiDiagnostica } from './engine/diagnostica.js?v=ms3d2i50';
+import { SCENE } from './engine/banco.js?v=ms3d2i50';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms3d2i50';
+import { Mondo } from './world/world.js?v=ms3d2i50';
+import { SimAcqua } from './world/acqua.js?v=ms3d2i50';
+import { Lobby } from './net/lobby.js?v=ms3d2i50';
+import { Segnalatore } from './net/segnalatore.js?v=ms3d2i50';
+import { Bolla } from './ui/bolla.js?v=ms3d2i50';
+import { Scelta } from './ui/scelta.js?v=ms3d2i50';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms3d2i50';
+import { Zaino } from './ui/zaino.js?v=ms3d2i50';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=ms3d2i50';
+import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms3d2i50';
+import { generaMostra } from './world/mostra.js?v=ms3d2i50';
+import { generaCollaudo } from './world/collaudo.js?v=ms3d2i50';
+import { generaTestLuci } from './world/testLuci.js?v=ms3d2i50';
+import { generaTestMacchine } from './world/testMacchine.js?v=ms3d2i50';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=ms3d2i50';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms3d2i50';
+import { Meteo } from './fx/meteo.js?v=ms3d2i50';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms3d2i50';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms3d2i50';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=ms3d2i50';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms3d2i50';
+import { CicloGiorno } from './fx/daynight.js?v=ms3d2i50';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI } from './fx/materials.js?v=ms3d2i50';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms3d2i50';
+import { ModalitaAR } from './ar/ar.js?v=ms3d2i50';
+import { Nuvole } from './fx/nuvole.js?v=ms3d2i50';
+import { SegnaPercorso } from './fx/percorso.js?v=ms3d2i50';
+import { ComandiTouch } from './ui/comandi-touch.js?v=ms3d2i50';
+import { RiflessoAcqua } from './fx/riflesso.js?v=ms3d2i50';
+import { Pioggia } from './fx/pioggia.js?v=ms3d2i50';
+import { Particelle } from './fx/particelle.js?v=ms3d2i50';
+import { Audio } from './fx/audio.js?v=ms3d2i50';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms3d2i50';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms3d2i50';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms3d2i50';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms3d2i50';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms3d2i50';
+import { Registro } from './ecs/registro.js?v=ms3d2i50';
+import { Orologio, Rng } from './ecs/orologio.js?v=ms3d2i50';
+import { Sistemi } from './ecs/sistemi.js?v=ms3d2i50';
+import { Agenda } from './ecs/agenda.js?v=ms3d2i50';
+import { Gatto } from './player/player.js?v=ms3d2i50';
+import { ManoStrumento } from './player/mano.js?v=ms3d2i50';
+import { dropDi } from './gioco/drop.js?v=ms3d2i50';
+import { Controller } from './player/controller.js?v=ms3d2i50';
+import { FURNI, centroide } from './furniture/registry.js?v=ms3d2i50';
+import { caricaModelli } from './furniture/loader.js?v=ms3d2i50';
+import { Arredo } from './furniture/furniture.js?v=ms3d2i50';
+import { HUD } from './ui/hud.js?v=ms3d2i50';
+import { MenuDebug } from './ui/debug.js?v=ms3d2i50';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms3d2i50';
+import { ModalitaXR } from './ar/ar-xr.js?v=ms3d2i50';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms3d2i50';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -286,6 +287,68 @@ async function _diagMisura(finestra = DIAG_FINESTRA) {
       passate: { principale: pass('principale'), riflesso: pass('riflesso'), schiuma: pass('schiuma') },
     },
   };
+}
+
+/**
+ * IL BANCO STANDARD: costruisce ogni scena di engine/banco.js, la misura con le
+ * impostazioni attuali, e alla fine RIMETTE IL MONDO DEL COMMITTENTE com'era.
+ *
+ * Perché il mondo si tocca (finora era vietato): misurare «quello che c'è
+ * davanti» rende due giri inconfrontabili — a tredici minuti di distanza l'acqua
+ * ha misurato 3,4 ms e 18,0 ms senza che il codice cambiasse, perché era cambiata
+ * l'inquadratura. Il diorama si salva IN MEMORIA (non in localStorage: potrebbe
+ * non entrarci) e si rimette nel finally, qualunque cosa succeda.
+ */
+async function _diagBanco(prog, passoBase, N) {
+  const banco = {};
+  const salvato = serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() });
+  const camPrec = { b: rig.bersaglio.clone(), d: rig.distanza, p: rig.pitch, y: rig.yaw };
+  const pioggiaPrec = pioggia.attiva;
+  const uni = uniformiCondivise();
+  try {
+    for (let i = 0; i < SCENE.length; i++) {
+      const s = SCENE[i];
+      prog.passo(passoBase + i, N, `banco: ${s.nome}`);
+      // mondo pulito, poi la scena
+      mondo.chunks.clear(); mondo.contaBlocchi = 0; mondo.furni?.clear?.();
+      arredo.svuota();
+      s.costruisci(mondo, arredo);
+      mesher.ricostruisciTutto(mondo);
+      ricostruisciLuciBlocchi();
+      ricostruisciBlocchiSpeciali();
+      // condizioni: ora, pioggia, e gli anelli d'impatto messi A MANO (la sim
+      // dell'acqua non li produrrebbe in una vasca ferma, e sono il caso che ha
+      // smascherato il costo vero)
+      ciclo.auto = false; ciclo.t = s.condizioni.ora; ciclo.aggiorna(0);
+      arredo.aggiornaNotte(ciclo.eNotte);
+      pioggia.imposta(s.condizioni.pioggia > 0);
+      impostaPioggia(s.condizioni.pioggia || 0);
+      const nImp = s.condizioni.impatti || 0;
+      for (let k = 0; k < nImp && k < uni.uImpatti.value.length; k++) {
+        const a = (k / Math.max(1, nImp)) * Math.PI * 2;
+        uni.uImpatti.value[k].set(Math.cos(a) * 9, s.camera.bersaglio[1] + 0.44, Math.sin(a) * 9, 1.4 + (k % 3) * 0.5);
+      }
+      uni.uImpattiNum.value = nImp;
+      // camera fissa: è metà del senso del banco
+      rig.bersaglio.set(s.camera.bersaglio[0], s.camera.bersaglio[1], s.camera.bersaglio[2]);
+      rig.distanza = s.camera.distanza; rig.pitch = s.camera.pitch; rig.yaw = s.camera.yaw;
+      rig.aggiorna();
+      aggiornaLuci(rig.bersaglio);
+      banco[s.id] = { ...(await _diagMisura(DIAG_FETTA)), condizioni: s.condizioni, perche: s.perche };
+    }
+  } finally {
+    uni.uImpattiNum.value = 0;
+    pioggia.imposta(pioggiaPrec);
+    impostaPioggia(pioggiaPrec ? 1 : 0);
+    arredo.svuota();
+    applica(salvato, mondo, arredo, ciclo, inventario);
+    mesher.ricostruisciTutto(mondo);
+    ricostruisciLuciBlocchi();
+    ricostruisciBlocchiSpeciali();
+    rig.bersaglio.copy(camPrec.b); rig.distanza = camPrec.d; rig.pitch = camPrec.p; rig.yaw = camPrec.y;
+    rig.aggiorna();
+  }
+  return banco;
 }
 
 /**
@@ -545,6 +608,7 @@ async function eseguiDiagnostica() {
   };
   const note = [];
   const sweep = {};
+  let banco = null;
   let baseline = null;
 
   try {
@@ -611,7 +675,7 @@ async function eseguiDiagnostica() {
         ['preset_bassa', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 0.66, rifl: false, tiltQ: 0, occ: false }); }, 'preset «bassa»'],
       ]],
     ];
-    const N = gruppi.length + 4;   // +info +assaggio +baseline iniziale/finale +assemblaggio
+    const N = gruppi.length + SCENE.length + 4;   // +info +assaggio +baseline iniziale/finale +assemblaggio
 
     prog.passo(1, N, 'raccolgo info dispositivo/GL/scena');
     const dispositivo = _diagDispositivo();
@@ -648,6 +712,9 @@ async function eseguiDiagnostica() {
     _diagApplica(base);
     sweep.baseline_fine = await _diagMisura();
 
+    // IL BANCO: scene costruite qui, uguali su ogni dispositivo e ogni versione
+    banco = await _diagBanco(prog, 5 + i, N);
+
     prog.passo(N, N, 'assemblo e scarico il file');
     const heapDopo = (performance.memory && performance.memory.usedJSHeapSize) || null;
     const memoria = {
@@ -659,7 +726,7 @@ async function eseguiDiagnostica() {
     };
 
     const report = componiDiagnostica(
-      { build: VERSIONE_CODICE, dispositivo, gl, impostazioni: _diagImpostazioni(), scena, baseline, sweep, memoria, note },
+      { build: VERSIONE_CODICE, dispositivo, gl, impostazioni: _diagImpostazioni(), scena, baseline, sweep, banco, memoria, note },
       { quando: t0 },
     );
     const testo = JSON.stringify(report, null, 2);

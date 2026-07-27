@@ -10,7 +10,11 @@
 // aritmetica pura — così si prova per intero in Node (test/diagnostica.test.mjs)
 // senza un contesto grafico.
 
-export const VERSIONE_DIAGNOSTICA = 1;
+import { riassuntoBanco } from './banco.js?v=ms3d2i50';
+
+// 2 = c'è il banco standard: le scene se le costruisce la diagnostica, quindi i
+// numeri sono confrontabili fra dispositivi e fra versioni (prima no).
+export const VERSIONE_DIAGNOSTICA = 2;
 
 /** Nome file col timbro dell'ora LOCALE: lantern-diagnostica-AAAAMMGG-hhmm.json.
  *  Accetta un Date o un numero di ms (Date.now()); il default è "adesso". */
@@ -189,6 +193,11 @@ export function riassuntoDiagnostica(dati) {
     righe.push(`Costo per pixel: ${arr(fpsDi(sTutto))} fps con lo shader completo contro ${arr(fpsDi(sNudo))} col mondo NUDO.`);
   }
 
+  // 8) IL BANCO STANDARD, in fondo: è la parte confrontabile fra dispositivi,
+  //    fra versioni e fra giorni diversi, perché le scene le costruisce il gioco
+  //    invece di misurare quello che capita davanti alla camera.
+  righe.push(...riassuntoBanco(dati && dati.banco));
+
   return righe;
 }
 
@@ -207,6 +216,7 @@ export function componiDiagnostica(grezzi = {}, opts = {}) {
 
   const dati = {
     build: grezzi.build || null,
+    banco: grezzi.banco || null,
     dispositivo: grezzi.dispositivo || null,
     gl: grezzi.gl || null,
     impostazioni: grezzi.impostazioni || null,
