@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms2y1d0v';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms2y1d0v';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms2yheag';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms2yheag';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -270,7 +270,7 @@ const uniformi = {
   // termine alla volta non si sa dove vadano. È una uniform e non una define
   // perché la diagnostica la muove a caldo, fra due misure alternate, senza
   // ricompilare niente. Vedi PARTI e docs/RIFONDAZIONE-RESA.md.
-  uParti: { value: 127 },
+  uParti: { value: 511 },
   uPioggia: { value: 0 },                        // 0..1: increspature di pioggia
   uRiflesso: { value: null },                    // RT del mirror (riflesso.js)
   uRiflessoMat: { value: new THREE.Matrix4() },
@@ -368,8 +368,8 @@ export const PARTI = {
   nuvole: 1, personaggi: 2, lampade: 4, acqua: 8,
   // dentro l'acqua, per sapere QUALE pezzo costa (misurato: l'acqua è il 60%
   // del pass principale sul Chromebook, 14,3 ms su 24)
-  riflesso: 16, silhouette: 32, correnti: 64,
-  tutte: 127,
+  riflesso: 16, silhouette: 32, correnti: 64, riva: 128, impatti: 256,
+  tutte: 511,
 };
 export function impostaParti(maschera) { uniformi.uParti.value = maschera | 0; }
 
@@ -406,6 +406,7 @@ const GLSL_FRAGMENT = /* glsl */`
   uniform vec3 uAmbiente;
   uniform float uOcclusione;       // interruttore Impostazioni: 0 = niente ombre
   uniform int uParti;              // bisturi: 1 nuvole · 2 personaggi · 4 lampade · 8 acqua
+                                   // dentro l'acqua: 16 riflesso · 32 silhouette · 64 correnti · 128 riva · 256 impatti
   uniform highp sampler3D uVox;    // 1 byte per cella: 1 = solido
   uniform vec4 uVoxMin;            // (minX, minY, minZ, 1 = griglia collegata)
   uniform vec3 uVoxDim;            // (lx, ly, lz) in celle
@@ -794,7 +795,7 @@ const GLSL_ACQUA_COLORE = /* glsl */`
     // 0.24 non è raggiungibile NEMMENO col rumore al minimo, e con l'apertura
     // sotto 0.50 lo step la spegne comunque. Fuori da quella fascia il valore
     // sarebbe stato buttato — ed è la maggioranza dei pixel di un lago.
-    bool serveRiva = vRiva.y >= 0.50 && vRiva.x < 0.39;
+    bool serveRiva = (uParti & 128) != 0 && vRiva.y >= 0.50 && vRiva.x < 0.39;
     float frasta = serveRiva ? lanternaRumore(vPosMondo.xz * 3.4 + uTempo * vec2(0.4, 0.3)) : 0.5;
     // silhouette VIVA: il punto di campionamento ONDEGGIA col tempo (il
     // contorno non sta mai fermo) e l'anello di dilatazione "respira"
@@ -821,7 +822,7 @@ const GLSL_ACQUA_COLORE = /* glsl */`
         }
       }
     }
-    float maschera = anelloImpatti(vPosMondo.xz, vPosMondo.y);   // impatti cascate
+    float maschera = (uParti & 256) != 0 ? anelloImpatti(vPosMondo.xz, vPosMondo.y) : 0.0;   // impatti cascate
     // stessa regola: vivo sfrangia la SILHOUETTE, e dove la silhouette è zero
     // il prodotto è zero comunque. La sagoma copre una manciata di pixel attorno
     // a chi sta in acqua, il rumore lo pagava tutto il lago.
@@ -947,7 +948,7 @@ const GLSL_ACQUA_COLORE = /* glsl */`
 
     // pioggia: anelli bianchi sul pelo (solo quando piove)
     if (uPioggia > 0.01) band = max(band, anelliPioggia(vPosMondo.xz) * uPioggia);
-  } else if (tipoA < 2.5) {
+  } else if ((uParti & 8) != 0 && tipoA < 2.5) {
     // CASCATA / acqua CHE SCORRE in diagonale: NON una lastra bianca — resta
     // azzurra, con filamenti bianchi SOTTILI che corrono in giù (soglia alta:
     // prima step(0.35) copriva i 2/3 della faccia → tutta bianca)

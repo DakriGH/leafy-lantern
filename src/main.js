@@ -1,67 +1,67 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms2y1d0v';
-import { Rig } from './engine/renderer.js?v=ms2y1d0v';
-import { Input } from './engine/input.js?v=ms2y1d0v';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms2y1d0v';
-import { Cadenza } from './engine/cadenza.js?v=ms2y1d0v';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms2y1d0v';
-import { componiDiagnostica } from './engine/diagnostica.js?v=ms2y1d0v';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms2y1d0v';
-import { Mondo } from './world/world.js?v=ms2y1d0v';
-import { SimAcqua } from './world/acqua.js?v=ms2y1d0v';
-import { Lobby } from './net/lobby.js?v=ms2y1d0v';
-import { Segnalatore } from './net/segnalatore.js?v=ms2y1d0v';
-import { Bolla } from './ui/bolla.js?v=ms2y1d0v';
-import { Scelta } from './ui/scelta.js?v=ms2y1d0v';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms2y1d0v';
-import { Zaino } from './ui/zaino.js?v=ms2y1d0v';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=ms2y1d0v';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms2y1d0v';
-import { generaMostra } from './world/mostra.js?v=ms2y1d0v';
-import { generaCollaudo } from './world/collaudo.js?v=ms2y1d0v';
-import { generaTestLuci } from './world/testLuci.js?v=ms2y1d0v';
-import { generaTestMacchine } from './world/testMacchine.js?v=ms2y1d0v';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=ms2y1d0v';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms2y1d0v';
-import { Meteo } from './fx/meteo.js?v=ms2y1d0v';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms2y1d0v';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms2y1d0v';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=ms2y1d0v';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms2y1d0v';
-import { CicloGiorno } from './fx/daynight.js?v=ms2y1d0v';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI } from './fx/materials.js?v=ms2y1d0v';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms2y1d0v';
-import { ModalitaAR } from './ar/ar.js?v=ms2y1d0v';
-import { Nuvole } from './fx/nuvole.js?v=ms2y1d0v';
-import { SegnaPercorso } from './fx/percorso.js?v=ms2y1d0v';
-import { ComandiTouch } from './ui/comandi-touch.js?v=ms2y1d0v';
-import { RiflessoAcqua } from './fx/riflesso.js?v=ms2y1d0v';
-import { Pioggia } from './fx/pioggia.js?v=ms2y1d0v';
-import { Particelle } from './fx/particelle.js?v=ms2y1d0v';
-import { Audio } from './fx/audio.js?v=ms2y1d0v';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms2y1d0v';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms2y1d0v';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms2y1d0v';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms2y1d0v';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms2y1d0v';
-import { Registro } from './ecs/registro.js?v=ms2y1d0v';
-import { Orologio, Rng } from './ecs/orologio.js?v=ms2y1d0v';
-import { Sistemi } from './ecs/sistemi.js?v=ms2y1d0v';
-import { Agenda } from './ecs/agenda.js?v=ms2y1d0v';
-import { Gatto } from './player/player.js?v=ms2y1d0v';
-import { ManoStrumento } from './player/mano.js?v=ms2y1d0v';
-import { dropDi } from './gioco/drop.js?v=ms2y1d0v';
-import { Controller } from './player/controller.js?v=ms2y1d0v';
-import { FURNI, centroide } from './furniture/registry.js?v=ms2y1d0v';
-import { caricaModelli } from './furniture/loader.js?v=ms2y1d0v';
-import { Arredo } from './furniture/furniture.js?v=ms2y1d0v';
-import { HUD } from './ui/hud.js?v=ms2y1d0v';
-import { MenuDebug } from './ui/debug.js?v=ms2y1d0v';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms2y1d0v';
-import { ModalitaXR } from './ar/ar-xr.js?v=ms2y1d0v';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms2y1d0v';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms2yheag';
+import { Rig } from './engine/renderer.js?v=ms2yheag';
+import { Input } from './engine/input.js?v=ms2yheag';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms2yheag';
+import { Cadenza } from './engine/cadenza.js?v=ms2yheag';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms2yheag';
+import { componiDiagnostica } from './engine/diagnostica.js?v=ms2yheag';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms2yheag';
+import { Mondo } from './world/world.js?v=ms2yheag';
+import { SimAcqua } from './world/acqua.js?v=ms2yheag';
+import { Lobby } from './net/lobby.js?v=ms2yheag';
+import { Segnalatore } from './net/segnalatore.js?v=ms2yheag';
+import { Bolla } from './ui/bolla.js?v=ms2yheag';
+import { Scelta } from './ui/scelta.js?v=ms2yheag';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms2yheag';
+import { Zaino } from './ui/zaino.js?v=ms2yheag';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=ms2yheag';
+import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms2yheag';
+import { generaMostra } from './world/mostra.js?v=ms2yheag';
+import { generaCollaudo } from './world/collaudo.js?v=ms2yheag';
+import { generaTestLuci } from './world/testLuci.js?v=ms2yheag';
+import { generaTestMacchine } from './world/testMacchine.js?v=ms2yheag';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=ms2yheag';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms2yheag';
+import { Meteo } from './fx/meteo.js?v=ms2yheag';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms2yheag';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms2yheag';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=ms2yheag';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms2yheag';
+import { CicloGiorno } from './fx/daynight.js?v=ms2yheag';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI } from './fx/materials.js?v=ms2yheag';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms2yheag';
+import { ModalitaAR } from './ar/ar.js?v=ms2yheag';
+import { Nuvole } from './fx/nuvole.js?v=ms2yheag';
+import { SegnaPercorso } from './fx/percorso.js?v=ms2yheag';
+import { ComandiTouch } from './ui/comandi-touch.js?v=ms2yheag';
+import { RiflessoAcqua } from './fx/riflesso.js?v=ms2yheag';
+import { Pioggia } from './fx/pioggia.js?v=ms2yheag';
+import { Particelle } from './fx/particelle.js?v=ms2yheag';
+import { Audio } from './fx/audio.js?v=ms2yheag';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms2yheag';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms2yheag';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms2yheag';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms2yheag';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms2yheag';
+import { Registro } from './ecs/registro.js?v=ms2yheag';
+import { Orologio, Rng } from './ecs/orologio.js?v=ms2yheag';
+import { Sistemi } from './ecs/sistemi.js?v=ms2yheag';
+import { Agenda } from './ecs/agenda.js?v=ms2yheag';
+import { Gatto } from './player/player.js?v=ms2yheag';
+import { ManoStrumento } from './player/mano.js?v=ms2yheag';
+import { dropDi } from './gioco/drop.js?v=ms2yheag';
+import { Controller } from './player/controller.js?v=ms2yheag';
+import { FURNI, centroide } from './furniture/registry.js?v=ms2yheag';
+import { caricaModelli } from './furniture/loader.js?v=ms2yheag';
+import { Arredo } from './furniture/furniture.js?v=ms2yheag';
+import { HUD } from './ui/hud.js?v=ms2yheag';
+import { MenuDebug } from './ui/debug.js?v=ms2yheag';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms2yheag';
+import { ModalitaXR } from './ar/ar-xr.js?v=ms2yheag';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms2yheag';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -590,6 +590,17 @@ async function eseguiDiagnostica() {
         ['shader_senzaPg', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.personaggi }), 'senza ombre dei personaggi'],
         ['shader_senzaAcqua', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.acqua }), 'acqua PIATTA'],
         ['shader_nudo', () => _diagApplica({ ...base, parti: 0 }), 'shader NUDO (solo palette)'],
+      ]],
+      // DENTRO l'acqua: quale pezzo del pelo costa. Serve perché l'acqua è
+      // rimasta il 60% del pass anche dopo il primo giro di tagli, e senza
+      // separarla si finisce a riscrivere il pezzo sbagliato (già successo).
+      ['acqua', [
+        ['acqua_tutta', () => _diagApplica({ ...base, parti: PARTI.tutte }), 'pelo completo'],
+        ['acqua_senzaRiflesso', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.riflesso }), 'senza riflesso sul pelo'],
+        ['acqua_senzaSilhouette', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.silhouette }), 'senza schiuma a silhouette'],
+        ['acqua_senzaRiva', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.riva }), 'senza schiuma di riva'],
+        ['acqua_senzaImpatti', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.impatti }), 'senza anelli d\'impatto'],
+        ['acqua_senzaCorrenti', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.correnti }), 'senza correnti e cascate'],
       ]],
       ['ora', [
         ['giorno', () => { ciclo.t = 0.5; ciclo.aggiorna(0); _diagApplica({ ...base, occ: true }); }, 'giorno pieno'],

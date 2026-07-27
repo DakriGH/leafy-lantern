@@ -164,11 +164,27 @@ export function riassuntoDiagnostica(dati) {
     const quota = Math.round(nostro / gT * 100);
     righe.push(`Costo per pixel: shader completo ${arr(gT)} ms · NUDO ${arr(gN)} ms ⇒ la lanterna pesa ${arr(nostro)} ms (${quota}% del pass principale), il resto è il prezzo di riempire i pixel.`);
     const voci = [
-      ['acqua (riflesso, onde, schiuma)', gpuPassata(sw.shader_senzaAcqua, 'principale')],
+      ['acqua (tutto il pelo)', gpuPassata(sw.shader_senzaAcqua, 'principale')],
       ['ombre nuvole', gpuPassata(sw.shader_senzaNuvole, 'principale')],
       ['ombre personaggi', gpuPassata(sw.shader_senzaPg, 'principale')],
     ].filter(([, v]) => v != null).map(([n, v]) => `${n} ${arr(gT - v)} ms`);
     if (voci.length) righe.push(`Dentro il pass: ${voci.join(' · ')}.`);
+  }
+
+  // 7b) e DENTRO l'acqua, quale pezzo: è il gruppo che dice dove mettere le mani
+  const aT = gpuPassata(sw.acqua_tutta, 'principale');
+  if (aT != null && aT > 0) {
+    const pezzi = [
+      ['riflesso', gpuPassata(sw.acqua_senzaRiflesso, 'principale')],
+      ['schiuma a silhouette', gpuPassata(sw.acqua_senzaSilhouette, 'principale')],
+      ['schiuma di riva', gpuPassata(sw.acqua_senzaRiva, 'principale')],
+      ['anelli d\'impatto', gpuPassata(sw.acqua_senzaImpatti, 'principale')],
+      ['correnti e cascate', gpuPassata(sw.acqua_senzaCorrenti, 'principale')],
+    ].filter(([, v]) => v != null)
+      .map(([n, v]) => ({ n, ms: aT - v }))
+      .sort((a, b) => b.ms - a.ms)
+      .map((p) => `${p.n} ${arr(p.ms)} ms`);
+    if (pezzi.length) righe.push(`Dentro l'acqua (dal più caro): ${pezzi.join(' · ')}.`);
   } else if (sTutto && sNudo && fpsDi(sTutto) !== null && fpsDi(sNudo) !== null) {
     righe.push(`Costo per pixel: ${arr(fpsDi(sTutto))} fps con lo shader completo contro ${arr(fpsDi(sNudo))} col mondo NUDO.`);
   }
