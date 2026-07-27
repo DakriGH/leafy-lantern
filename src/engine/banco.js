@@ -142,7 +142,10 @@ export const ID_SCENE = SCENE.map((s) => s.id);
  */
 export function riassuntoBanco(banco) {
   if (!banco || !banco.terreno) return [];
-  const arr = (x) => Math.round(x * 10) / 10;
+  // arrotondamento che segue la grandezza: sul Chromebook si parla di decine di
+  // millisecondi, su una scheda veloce di decimi — con una cifra fissa metà
+  // delle voci uscivano tutte "+0" e il riassunto non diceva niente
+  const arr = (x) => (Math.abs(x) < 2 ? Math.round(x * 100) / 100 : Math.round(x * 10) / 10);
 
   // MILLISECONDI DI GPU SE CI SONO, altrimenti i FRAME AL SECONDO convertiti in
   // millisecondi a frame. Non è un ripiego da poco: il telefono del committente
@@ -151,17 +154,26 @@ export function riassuntoBanco(banco) {
   // Si usano gli fps MEDI e non la mediana perché su uno schermo agganciato al
   // vsync la mediana si incolla al passo del display (22,3 ms per tutte e sette
   // le scene, misurato) mentre la media distingue eccome.
+  // TRE METRICHE IN ORDINE DI FIDUCIA:
+  //  1. i ms di GPU, se il dispositivo ha le timer query (Chromebook sì);
+  //  2. `renderMs` — N disegni di fila con un gl.finish() in fondo, cioè il
+  //     costo VERO di un disegno fuori dal vsync. È il numero che ha salvato la
+  //     misura sul telefono: senza, tutte e sette le scene leggevano 36-38 fps
+  //     perché lo schermo agganciato al vsync appiattisce tutto a gradini;
+  //  3. gli fps medi, ultimo ripiego per i file vecchi che non hanno renderMs.
   const conGpu = typeof (banco.terreno.gpu || {}).totaleMedia === 'number';
+  const conRender = typeof banco.terreno.renderMs === 'number' && banco.terreno.renderMs > 0;
   const metrica = (s) => {
     if (!s) return null;
     if (conGpu) return (s.gpu && typeof s.gpu.totaleMedia === 'number') ? s.gpu.totaleMedia : null;
+    if (conRender) return (typeof s.renderMs === 'number' && s.renderMs > 0) ? s.renderMs : null;
     return (typeof s.fps === 'number' && s.fps > 0) ? 1000 / s.fps : null;
   };
-  const unita = conGpu ? 'ms GPU' : 'ms a frame';
+  const unita = conGpu ? 'ms GPU' : (conRender ? 'ms a disegno' : 'ms a frame');
 
   const base = metrica(banco.terreno);
   if (base == null) return [];
-  const righe = [`Banco standard — terreno asciutto: ${arr(base)} ${unita}${conGpu ? '' : ` (${Math.round(banco.terreno.fps)} fps)`}, è il fondo della scala.`];
+  const righe = [`Banco standard — terreno asciutto: ${arr(base)} ${unita}${conGpu ? '' : ` (${Math.round(banco.terreno.fps || 0)} fps a schermo)`}, è il fondo della scala.`];
   const extra = SCENE.filter((s) => s.id !== 'terreno')
     .map((s) => ({ nome: s.nome, v: metrica(banco[s.id]), fps: banco[s.id] && banco[s.id].fps }))
     .filter((s) => s.v != null)
