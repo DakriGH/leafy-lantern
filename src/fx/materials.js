@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms3nnu1r';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms3nnu1r';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms3u79mj';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms3u79mj';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -1183,6 +1183,12 @@ const _ordinabili = [];
 const FASCIA_TAGLIO = 0.18;
 let _sfumate = 0;
 
+/** Quante luci possono proiettare OMBRA nello stesso frame: è un budget, non un
+ *  limite tecnico. Lo muove la scala di qualità (impostaMaxOmbre). */
+let MAX_OMBRE = 6;
+export function impostaMaxOmbre(n) { MAX_OMBRE = Math.max(0, n | 0); }
+export function maxOmbre() { return MAX_OMBRE; }
+
 /** Rampa liscia in [0,1]: agli estremi la derivata e' nulla, quindi il congedo
  *  non ha lo scalino che una rampa lineare lascia proprio dove si nota di piu'. */
 function _liscia(t) { return t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t); }
@@ -1216,8 +1222,21 @@ export function aggiornaLuci(fuoco) {
   const classe = uniformi.uLuciOmbra.value;
   let pesanti = 0;
   _sfumate = 0;
+  // BUDGET DELLE OMBRE. Ogni luce PESANTE fa camminare un raggio nella griglia
+  // dei solidi PER OGNI PIXEL dentro la sua sfera: il costo cresce con quante
+  // sono, e cresce in fretta. Misurato col banco standard sul Chromebook: 24
+  // lampade con ombra costano +17,6 ms, cioè circa 0,73 ms l'una — mentre otto
+  // lampioni ne costano 7,2. E il mondo del committente ne ha 56.
+  // Le più VICINE tengono l'ombra, le altre restano accese ma smettono di
+  // proiettare: da lontano una pozza di luce si legge, il bordo dell'ombra
+  // dentro quella pozza no. Le luci sono già ordinate per distanza qui sopra
+  // quando sono più del tetto; se sono poche non c'è niente da tagliare.
+  if (_ordinabili.length > MAX_OMBRE) {
+    _ordinabili.sort((a, b) => a.pos.distanceToSquared(fuoco) - b.pos.distanceToSquared(fuoco));
+  }
   for (let i = 0; i < _ordinabili.length; i++) {
     const l = _ordinabili[i];
+    const conOmbra = l.ombra && pesanti < MAX_OMBRE;
     let k = 1;
     if (banda > 1e-6) {
       const d = l.pos.distanceTo(fuoco);
@@ -1229,8 +1248,8 @@ export function aggiornaLuci(fuoco) {
     // non c'è niente da chiedere a nessuno, nessun mesher da svegliare, nessuna
     // risorsa da assegnare. Cinquanta fuochi fatui in volo costano cinquanta
     // scritture di zero.
-    classe[i] = l.ombra ? 1 : 0;
-    if (l.ombra) pesanti++;
+    classe[i] = conOmbra ? 1 : 0;
+    if (conOmbra) pesanti++;
   }
   uniformi.uLuciNum.value = _ordinabili.length;
   // L'EARLY-OUT DELLO SHADER: a zero il lavoro d'ombra non si fa proprio.

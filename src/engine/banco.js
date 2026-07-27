@@ -40,6 +40,15 @@ function riempi(mondo, buca) {
   }
 }
 
+/** 24 lampade in cerchio, a tre quote: la stessa disposizione per le due scene
+ *  della coppia, così a cambiare è solo il tipo di lampada. */
+function lampade(mondo, id) {
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2, r = 8 + (i % 3) * 4;
+    mondo.metti(Math.round(Math.cos(a) * r), Y + 2 + (i % 3), Math.round(Math.sin(a) * r), id, true);
+  }
+}
+
 /** Collinetta di gradini: dà silhouette, ombre proprie e superfici a varie quote. */
 function collina(mondo, cx, cz, alt = 6) {
   for (let h = 1; h <= alt; h++) {
@@ -102,18 +111,30 @@ export const SCENE = [
     },
     camera: { bersaglio: [0, Y + 2, 0], distanza: 18, pitch: 0.75, yaw: 0.6 },
   },
+  // LA COPPIA DEL CONFRONTO. `lampadaPesante` e `lampadaLeggera` hanno la STESSA
+  // identica luce (colore, raggio, intensità) e le stesse facce: l'unica
+  // differenza è se proiettano ombra. Esistono in blocks.js apposta per questo,
+  // e metterle qui affiancate significa che la differenza fra le due scene È il
+  // costo dell'ombra, senza nient'altro in mezzo.
+  // (Qui prima c'era una scena chiamata «luci leggere» che però piazzava
+  // LUCCIOLE — che hanno `ombra: true` per progetto, essendo blocchi-lampada
+  // fermi. Misurava quindi 24 luci PESANTI mentre in etichetta ne dichiarava
+  // zero: +17,6 ms sul Chromebook, il doppio degli otto lampioni. Il numero era
+  // giusto, il nome no — ed è così che è saltato fuori il costo delle ombre.)
   {
-    id: 'lucicolorate',
-    nome: 'molte luci colorate leggere',
-    perche: 'lucciole e blocchi luminosi: luce senza ombra — deve costare molto meno dei lampioni',
+    id: 'lucileggere',
+    nome: '24 luci senza ombra',
+    perche: 'luce pura: sfere colorate che trapassano i muri, il termine di paragone',
     condizioni: { ora: 0.0, pioggia: 0, luci: 24, ombre: false },
-    costruisci(mondo) {
-      piano(mondo, 'erba'); collina(mondo, 0, -8);
-      for (let i = 0; i < 24; i++) {
-        const a = (i / 24) * Math.PI * 2, r = 8 + (i % 3) * 4;
-        mondo.metti(Math.round(Math.cos(a) * r), Y + 2 + (i % 3), Math.round(Math.sin(a) * r), 'lucciola', true);
-      }
-    },
+    costruisci(mondo) { piano(mondo, 'erba'); collina(mondo, 0, -8); lampade(mondo, 'lampadaLeggera'); },
+    camera: { bersaglio: [0, Y + 2, 0], distanza: 18, pitch: 0.75, yaw: 0.6 },
+  },
+  {
+    id: 'lucipesanti',
+    nome: '24 luci CON ombra',
+    perche: 'le stesse identiche lampade, ma che proiettano: la differenza è il costo dell\'ombra',
+    condizioni: { ora: 0.0, pioggia: 0, luci: 24, ombre: true },
+    costruisci(mondo) { piano(mondo, 'erba'); collina(mondo, 0, -8); lampade(mondo, 'lampadaPesante'); },
     camera: { bersaglio: [0, Y + 2, 0], distanza: 18, pitch: 0.75, yaw: 0.6 },
   },
   {

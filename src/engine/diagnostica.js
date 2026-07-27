@@ -10,7 +10,7 @@
 // aritmetica pura — così si prova per intero in Node (test/diagnostica.test.mjs)
 // senza un contesto grafico.
 
-import { riassuntoBanco } from './banco.js?v=ms3nnu1r';
+import { riassuntoBanco } from './banco.js?v=ms3u79mj';
 
 // 2 = c'è il banco standard: le scene se le costruisce la diagnostica, quindi i
 // numeri sono confrontabili fra dispositivi e fra versioni (prima no).
@@ -75,6 +75,15 @@ export function riassuntoDiagnostica(dati) {
     righe.push(dati.build === 'sviluppo'
       ? 'Build: in sviluppo (server locale, nessun timbro).'
       : `Build: ${dati.build} — se non è l'ultima pubblicata, RICARICA la pagina e rifai la misura.`);
+  }
+
+  // 1b) IL LIMITE FPS FALSA TUTTO, e va detto SUBITO. Con un tetto attivo ogni
+  //     scenario legge lo stesso numero — è successo: una batteria intera con
+  //     `fpsMax: 30` ha misurato 30 fps su TUTTE le voci, banco compreso, e non
+  //     valeva niente.
+  const fpsMax = dati && dati.impostazioni && dati.impostazioni.opzioni && dati.impostazioni.opzioni.fpsMax;
+  if (fpsMax > 0) {
+    righe.push(`⚠ LIMITE FPS ATTIVO (${fpsMax}): con un tetto ai fotogrammi ogni scenario legge lo stesso numero e la misura non vale. Toglilo (Grafica → Limite FPS → nessuno) e rifai il giro.`);
   }
 
   // 2) baseline: dove siamo adesso. IN TESTA VA LA MEDIA, non la mediana — è
