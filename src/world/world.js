@@ -2,7 +2,7 @@
 // così il mesher ricostruisce solo i chunk sporchi — fondamento per la
 // generazione procedurale. Ogni modifica emette un evento (pronto per il netcode).
 
-import { BLOCCHI, defDi } from './blocks.js?v=ms2xhyng';
+import { BLOCCHI, defDi } from './blocks.js?v=ms2xo6kx';
 
 export const CHUNK = 16;
 // Celle oltre le quali conviene il ricalcolo pieno della luce.
