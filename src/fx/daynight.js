@@ -2,8 +2,8 @@
 // t ∈ [0,1): 0 mezzanotte · 0.25 alba · 0.5 mezzogiorno · 0.75 tramonto.
 
 import * as THREE from 'three';
-import { TEMPO } from '../config.js?v=ms3u79mj';
-import { impostaAmbiente } from './materials.js?v=ms3u79mj';
+import { TEMPO } from '../config.js?v=ms4didtp';
+import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=ms4didtp';
 
 // `ambiente` È IL GIORNO E LA NOTTE, e non serve altro: lo shader moltiplica
 // l'albedo per questo colore e ci somma sopra le luci-sfera. Un tentativo aveva
@@ -24,6 +24,7 @@ const CHIAVI = [
 
 const _cielo = new THREE.Color();
 const _ambiente = new THREE.Color();
+const _sole = new THREE.Vector3();   // direzione verso l'astro, riusata ogni frame
 const _a = new THREE.Color();
 const _b = new THREE.Color();
 
@@ -57,6 +58,34 @@ export class CicloGiorno {
     return '☀️';
   }
 
+  /**
+   * DOVE STA L'ASTRO E QUANTO SCURISCE — l'ombra del cielo (cel shading) la
+   * disegna lo shader, ma da dove viene la luce lo decide l'ora.
+   *
+   * Il sole percorre mezzo giro dall'alba (t 0.25) al tramonto (t 0.75) e la
+   * luna fa lo stesso di notte, con la stessa forma di arco: così l'ombra gira
+   * lentamente durante la giornata invece di stare inchiodata, che è metà del
+   * mestiere di un'ombra.
+   *
+   * DUE FORZE DIVERSE, ed è una richiesta esplicita: di giorno l'ombra è netta e
+   * marcata, di notte è LEGGERA — la luna illumina poco e un'ombra lunare nera
+   * come quella di mezzogiorno si legge come un buco. Vicino all'orizzonte
+   * (alba e tramonto) la forza scende: con l'astro radente ogni sasso
+   * proietterebbe una lama nera lunga tutto lo schermo.
+   */
+  _astro() {
+    const notte = this.eNotte;
+    // fase 0..1 dell'arco: di giorno dall'alba al tramonto, di notte l'opposto
+    const g = notte ? ((this.t + 0.5) % 1 - 0.25) / 0.5 : (this.t - 0.25) / 0.5;
+    const a = Math.PI * Math.min(1, Math.max(0, g));
+    const alt = Math.sin(a);                       // 0 all'orizzonte, 1 allo zenit
+    _sole.set(Math.cos(a) * 0.75, Math.max(0.05, alt), 0.42);
+    // l'astro basso scurisce meno: la rampa è quadratica, così la lama radente
+    // dell'alba non compare mai
+    const morbido = alt * alt;
+    impostaOmbraCielo(_sole, (notte ? 0.16 : 0.42) * morbido);
+  }
+
   aggiorna(dt) {
     if (this.auto) this.t = (this.t + dt / this.durata) % 1;
     // campiona i keyframe
@@ -85,6 +114,7 @@ export class CicloGiorno {
       this.scena.background.copy(_cielo);
     }
     impostaAmbiente(_ambiente);
+    this._astro();
 
     if (this._eraNotte !== this.eNotte) {
       this._eraNotte = this.eNotte;

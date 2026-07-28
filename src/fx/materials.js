@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms3u79mj';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms3u79mj';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms4didtp';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms4didtp';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -22,6 +22,13 @@ const GBANDE = BANDE_LUCE.toFixed(1);
 // mondo diventa INVISIBILE senza altri segnali. 6 decimali coprono qualunque
 // valore sensato (un milionesimo di cella) restando in notazione decimale.
 const GSCARTO = SCARTO_OMBRA.toFixed(6);
+
+// TETTO del cammino dell'ombra del cielo: è il limite del ciclo GLSL, che
+// pretende una costante. Il budget vero (uSolePassi) sta sotto e lo muove la
+// scala di qualità — questo dice solo quanto in là si POTREBBE arrivare.
+// 24 celle bastano per l'ombra di un albero su un prato; oltre, un'ombra da
+// diorama non serve e costa in proporzione.
+const SOLE_PASSI_MAX = 24;
 
 // ---- heightmap del cielo: per colonna, la quota della superficie più alta.
 // Serve alle OMBRE DELLE NUVOLE: scuriscono solo la cima della colonna
@@ -271,6 +278,11 @@ const uniformi = {
   // perché la diagnostica la muove a caldo, fra due misure alternate, senza
   // ricompilare niente. Vedi PARTI e docs/RIFONDAZIONE-RESA.md.
   uParti: { value: 511 },
+  // OMBRA DEL CIELO (cel shading): direzione verso l'astro, forza dello
+  // scurimento, e quante celle si concede al cammino. A passi 0 non esiste.
+  uSoleDir: { value: new THREE.Vector3(0.4, 0.8, 0.45).normalize() },
+  uSoleForza: { value: 0 },
+  uSolePassi: { value: 0 },
   uPioggia: { value: 0 },                        // 0..1: increspature di pioggia
   uRiflesso: { value: null },                    // RT del mirror (riflesso.js)
   uRiflessoMat: { value: new THREE.Matrix4() },
@@ -411,6 +423,9 @@ const GLSL_FRAGMENT = /* glsl */`
   uniform vec4 uVoxMin;            // (minX, minY, minZ, 1 = griglia collegata)
   uniform vec3 uVoxDim;            // (lx, ly, lz) in celle
   uniform int uOmbreNumPesanti;    // early-out: 0 = niente lavoro d'ombra
+  uniform vec3 uSoleDir;           // direzione VERSO il sole (o la luna), normalizzata
+  uniform float uSoleForza;        // 0 = niente ombra dal cielo; 1 = nero pieno
+  uniform int uSolePassi;          // celle di cammino concesse (0 = spento)
 
   // QUESTA CELLA È UN MURO? Fuori dalla griglia non c'è niente — è aria aperta,
   // non un muro: la stessa regola di GrigliaLuce.eSolido, e sbagliarla vorrebbe
@@ -473,6 +488,52 @@ const GLSL_FRAGMENT = /* glsl */`
       if (voxPieno(c)) return true;
     }
     return false;
+  }
+
+  // L'OMBRA DEL CIELO — il sole di giorno, la luna di notte.
+  //
+  // È CEL SHADING VERO, e la parola chiave è PIATTA: non c'è penombra, non c'è
+  // rampa, non c'è mezzo tono. Un frammento o vede il sole o non lo vede, e chi
+  // non lo vede prende UNA moltiplicazione secca — esattamente come le bande
+  // delle luci-sfera, come il disco del gatto e come la sagoma delle nuvole. Lo
+  // stile del gioco è fatto di salti netti, e un'ombra sfumata sarebbe l'unica
+  // cosa morbida in mezzo a schermate di tagli vivi (è già successo con la
+  // schiuma, ed è stata rifatta netta).
+  //
+  // COME: si cammina la STESSA griglia dei solidi delle lampade (la texture 3D),
+  // dal frammento verso la luce, alla Amanatides-Woo. Zero mappe d'ombra, zero
+  // render aggiuntivi, zero memoria: il bordo dell'ombra coincide AL PIXEL con
+  // lo spigolo del cubo che la proietta, e in un gioco a blocchi i gradini che
+  // restano si leggono come voluti.
+  //
+  // IL BUDGET È IL CUORE DELLA COSA. Il cammino si ferma dopo uSolePassi celle:
+  // è un'ombra DI CONTATTO, cioè quella che si vede davvero in un diorama —
+  // sotto gli alberi, dentro le rientranze, ai piedi dei muri. Un budget corto
+  // costa poco e rende quasi tutto; alzarlo allunga le ombre e costa in
+  // proporzione. A zero non si esegue niente: la scala di qualità lo spegne per
+  // prima sui dispositivi deboli, e su quelli buoni lo alza.
+  //
+  // LA CELLA DI PARTENZA NON CONTA (il ciclo comincia uscendo): il frammento sta
+  // SULLA faccia del suo blocco, e contarla vorrebbe dire che ogni superficie
+  // illuminata si dichiara in ombra da sola — il nero totale.
+  float ombraCielo() {
+    if (uSolePassi == 0 || uSoleForza <= 0.0 || uVoxMin.w < 0.5) return 1.0;
+    if (uSoleDir.y <= 0.02) return 1.0;              // astro sotto l'orizzonte: nessuna ombra
+    vec3 p = vPosMondo + uSoleDir * ${GSCARTO};      // stacco dalla faccia: niente acne
+    vec3 passo = vec3(uSoleDir.x >= 0.0 ? 1.0 : -1.0, uSoleDir.y >= 0.0 ? 1.0 : -1.0, uSoleDir.z >= 0.0 ? 1.0 : -1.0);
+    vec3 inv = 1.0 / max(abs(uSoleDir), vec3(1e-8));
+    vec3 f = p - floor(p);
+    vec3 prossimo = ((passo * 0.5 + 0.5) - passo * f) * inv;
+    ivec3 c = ivec3(floor(p));
+    ivec3 ipasso = ivec3(passo);
+    for (int k = 0; k < ${SOLE_PASSI_MAX}; k++) {
+      if (k >= uSolePassi) break;
+      if (prossimo.x <= prossimo.y && prossimo.x <= prossimo.z) { c.x += ipasso.x; prossimo.x += inv.x; }
+      else if (prossimo.y <= prossimo.z)                        { c.y += ipasso.y; prossimo.y += inv.y; }
+      else                                                      { c.z += ipasso.z; prossimo.z += inv.z; }
+      if (voxPieno(c)) return 1.0 - uSoleForza;      // UN salto secco, niente rampa
+    }
+    return 1.0;
   }
 
   vec3 lanternaAccumulo() {
@@ -572,11 +633,16 @@ const GLSL_FRAGMENT = /* glsl */`
 // e a mezzogiorno è quasi bianco. Un tentativo aveva sostituito tutto questo con
 // due canali di luce cotti nei vertici (cielo e lume) più occlusione ambientale
 // e ombreggiatura per direzione di faccia: bocciato in blocco.
+// L'OMBRA DEL CIELO MOLTIPLICA SOLO L'AMBIENTE, non le lampade — ed è la
+// differenza fra un'ombra e una macchia nera. Una lanterna accesa dentro l'ombra
+// di un albero deve illuminare lo stesso: è luce sua, non luce del sole. Se il
+// fattore moltiplicasse tutta la somma, di notte una pozza di lampione dentro
+// l'ombra della luna si spegnerebbe, che è il contrario di quello che si vede.
 const GLSL_COMPOSIZIONE = /* glsl */`
 _ombraTot = 1.0;
 if (uParti != 0) {
   _ombraTot = lanternaOmbra() * ombraPg();
-  outgoingLight = outgoingLight * (uAmbiente + lanternaAccumulo()) * _ombraTot;
+  outgoingLight = outgoingLight * (uAmbiente * ombraCielo() + lanternaAccumulo()) * _ombraTot;
 }
 `;
 
@@ -1188,6 +1254,20 @@ let _sfumate = 0;
 let MAX_OMBRE = 6;
 export function impostaMaxOmbre(n) { MAX_OMBRE = Math.max(0, n | 0); }
 export function maxOmbre() { return MAX_OMBRE; }
+
+/**
+ * L'OMBRA DEL CIELO: chi la chiama è il ciclo giorno/notte (direzione e forza) e
+ * la scala di qualità (i passi). Tenerli separati è voluto: l'ora del giorno
+ * decide COME appare, il dispositivo decide QUANTO lontano si guarda.
+ * @param dir  direzione VERSO l'astro (non serve normalizzata)
+ * @param forza 0..1, quanto scurisce chi non vede il cielo
+ */
+export function impostaOmbraCielo(dir, forza) {
+  if (dir) uniformi.uSoleDir.value.copy(dir).normalize();
+  if (forza !== undefined) uniformi.uSoleForza.value = Math.max(0, Math.min(1, forza));
+}
+export function impostaPassiCielo(n) { uniformi.uSolePassi.value = Math.max(0, Math.min(SOLE_PASSI_MAX, n | 0)); }
+export function passiCielo() { return uniformi.uSolePassi.value; }
 
 /** Rampa liscia in [0,1]: agli estremi la derivata e' nulla, quindi il congedo
  *  non ha lo scalino che una rampa lineare lascia proprio dove si nota di piu'. */

@@ -138,6 +138,26 @@ export const SCENE = [
     camera: { bersaglio: [0, Y + 2, 0], distanza: 18, pitch: 0.75, yaw: 0.6 },
   },
   {
+    id: 'ombracielo',
+    nome: 'ombra del sole (cel shading)',
+    perche: 'il cammino verso il sole per OGNI pixel: è l\'unica ombra che tocca tutto lo schermo, non solo una pozza',
+    condizioni: { ora: 0.35, pioggia: 0, luci: 0, ombraCielo: true },
+    // sole basso di metà mattina + roba che sporge. GLI OSTACOLI SONO BLOCCHI, e
+    // non è un dettaglio: l'ombra del cielo si cammina nella griglia dei solidi,
+    // che contiene i BLOCCHI e non i mobili. Un bosco di alberi (che sono furni
+    // FBX) non proietterebbe niente e la scena misurerebbe zero — c'è cascato
+    // pure il primo tentativo di questa scena.
+    costruisci(mondo) {
+      piano(mondo, 'erba'); collina(mondo, -10, -10, 8);
+      for (let x = -16; x <= 16; x += 8) {
+        for (let z = 0; z <= 16; z += 8) {
+          for (let h = 1; h <= 5; h++) mondo.metti(x, Y + h, z, 'tronco', true);
+        }
+      }
+    },
+    camera: { bersaglio: [0, Y + 2, 4], distanza: 20, pitch: 0.7, yaw: 0.9 },
+  },
+  {
     id: 'affollata',
     nome: 'bosco fitto (draw call e vertici)',
     perche: 'il caso in cui a pesare non sono i pixel ma il numero di oggetti da mandare alla scheda',
