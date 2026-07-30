@@ -224,8 +224,55 @@ export function riassuntoBanco(banco) {
     .filter((s) => s.v != null)
     .map((s) => ({ ...s, di: s.v - base }))
     .sort((a, b) => b.di - a.di);
-  if (extra.length) {
+
+  // ---- LO STRUMENTO DEVE SAPER DIRE «NON HO MISURATO» ----------------------
+  // È la cosa più importante che fa, e per un giro intero non l'ha fatta: sul
+  // telefono del committente (Mali-G68, nessun timer GPU) il report ha
+  // pubblicato una classifica in cui SEI scene su otto costavano MENO del
+  // terreno asciutto — cioè aggiungere l'acqua, la pioggia e ventiquattro luci
+  // faceva andare più veloce. Non è un'anomalia da interpretare: è la prova che
+  // il numero su cui è costruita la classifica non misura il nostro lavoro.
+  //
+  // PERCHÉ SUCCEDE: senza timer GPU il costo di un disegno si stima ripetendo il
+  // disegno con un gl.finish() in fondo. Su una GPU a TILE — tutti i telefoni —
+  // il driver può accorgersi che il framebuffer viene riscritto da capo e
+  // buttare via i disegni ripetuti, oppure accorparli. Quel che resta è rumore.
+  //
+  // LA REGOLA È AUTOEVIDENTE e non ha soglie da tarare: una scena PIÙ CARICA non
+  // può misurare MENO del fondo della scala. Se capita più di una volta, qui non
+  // si pubblica nessun ordinamento — si dice cosa è successo e quali numeri di
+  // questo file restano validi.
+  const negativi = extra.filter((s) => s.di < 0);
+  const scarti = SCENE.map((s) => banco[s.id] && banco[s.id].renderScarto)
+    .filter((v) => typeof v === 'number');
+  const ballo = scarti.length ? scarti.sort((a, b) => a - b)[scarti.length >> 1] : null;
+  if (!conGpu && negativi.length >= 2) {
+    righe.push(`⚠ QUI NON SI STA MISURANDO IL COSTO: ${negativi.length} scene su ${extra.length} risultano più leggere del terreno asciutto, e aggiungere acqua o luci non può far andare più veloce.${ballo != null ? ` Fra una ripetizione e l'altra lo stesso disegno balla di ${arr(ballo)} ms.` : ''} Senza timer GPU (EXT_disjoint_timer_query_webgl2) su una scheda a tile il disegno ripetuto non è misurabile: di questo file restano validi gli fps a gradini e la CPU per frame, non la classifica delle condizioni.`);
+  } else if (extra.length) {
     righe.push(`Quanto costa IN PIÙ ogni condizione (${unita}): ${extra.map((s) => `${s.nome} ${s.di >= 0 ? '+' : ''}${arr(s.di)}`).join(' · ')}.`);
+  }
+
+  // ---- IL GRADINO DEL VSYNC ------------------------------------------------
+  // Se i tempi di frame sono tutti multipli interi dello stesso passo, lo
+  // schermo è agganciato al vsync e gli fps NON possono valere numeri in mezzo:
+  // valgono il refresh, la sua metà, il suo terzo. Dirlo cambia come si legge
+  // tutto il resto — «45 contro 45» non vuol dire «uguale», vuol dire «la
+  // differenza è più piccola del gradino, e da qui non si vede».
+  const passi = SCENE.map((s) => banco[s.id] && banco[s.id].frameMs)
+    .filter((v) => typeof v === 'number' && v > 1);
+  if (passi.length >= 3) {
+    const minimo = Math.min(...passi);
+    const interi = passi.every((v) => Math.abs(v / minimo - Math.round(v / minimo)) < 0.06);
+    // si arrotonda al refresh COMMERCIALE più vicino (entro il 3%): 1000/11.2 fa
+    // 89.3, e scrivere «89 Hz» fa sembrare sbagliata una misura che è giusta
+    const noti = [60, 75, 90, 100, 120, 144, 165, 240];
+    const grezzo = 1000 / minimo;
+    const hz = noti.find((h) => Math.abs(grezzo - h) / h < 0.03) || Math.round(grezzo);
+    if (interi && hz >= 50) {
+      const gradini = [...new Set(passi.map((v) => Math.round(hz / Math.round(v / minimo))))]
+        .sort((a, b) => b - a);
+      righe.push(`Schermo a ${hz} Hz col vsync agganciato: i tempi di frame sono tutti multipli esatti di ${arr(minimo)} ms, quindi gli fps possono valere SOLO ${gradini.join(' · ')}. Due scene che leggono lo stesso numero non costano uguale: costano meno di un gradino di differenza.`);
+    }
   }
   return righe;
 }

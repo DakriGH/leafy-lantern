@@ -24,7 +24,7 @@
 // niente. Con la raffica scivolano nella direzione del vento e tornano.
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=ms7x2mdx';
+import { CHUNK } from '../world/world.js?v=ms7yggmh';
 
 // I due tipi di mucchio. Le secche sono la regola, il ciliegio la sorpresa.
 const TIPI = [
