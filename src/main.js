@@ -1,72 +1,72 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms7yggmh';
-import { Rig } from './engine/renderer.js?v=ms7yggmh';
-import { Input } from './engine/input.js?v=ms7yggmh';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms7yggmh';
-import { Cadenza } from './engine/cadenza.js?v=ms7yggmh';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms7yggmh';
-import { componiDiagnostica } from './engine/diagnostica.js?v=ms7yggmh';
-import { SCENE } from './engine/banco.js?v=ms7yggmh';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms7yggmh';
-import { Mondo } from './world/world.js?v=ms7yggmh';
-import { SimAcqua } from './world/acqua.js?v=ms7yggmh';
-import { Lobby } from './net/lobby.js?v=ms7yggmh';
-import { Segnalatore } from './net/segnalatore.js?v=ms7yggmh';
-import { Bolla } from './ui/bolla.js?v=ms7yggmh';
-import { Scelta } from './ui/scelta.js?v=ms7yggmh';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms7yggmh';
-import { Zaino } from './ui/zaino.js?v=ms7yggmh';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=ms7yggmh';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms7yggmh';
-import { generaMostra } from './world/mostra.js?v=ms7yggmh';
-import { generaCollaudo } from './world/collaudo.js?v=ms7yggmh';
-import { generaTestLuci } from './world/testLuci.js?v=ms7yggmh';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=ms7yggmh';
-import { generaTestMacchine } from './world/testMacchine.js?v=ms7yggmh';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=ms7yggmh';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms7yggmh';
-import { Meteo } from './fx/meteo.js?v=ms7yggmh';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms7yggmh';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms7yggmh';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=ms7yggmh';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms7yggmh';
-import { CicloGiorno } from './fx/daynight.js?v=ms7yggmh';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, ambienteAttuale } from './fx/materials.js?v=ms7yggmh';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms7yggmh';
-import { ModalitaAR } from './ar/ar.js?v=ms7yggmh';
-import { Nuvole } from './fx/nuvole.js?v=ms7yggmh';
-import { SagomaVista } from './fx/sagomaVista.js?v=ms7yggmh';
-import { Erba } from './fx/erba.js?v=ms7yggmh';
-import { Foglie } from './fx/foglie.js?v=ms7yggmh';
-import { SegnaPercorso } from './fx/percorso.js?v=ms7yggmh';
-import { ComandiTouch } from './ui/comandi-touch.js?v=ms7yggmh';
-import { RiflessoAcqua } from './fx/riflesso.js?v=ms7yggmh';
-import { Pioggia } from './fx/pioggia.js?v=ms7yggmh';
-import { Particelle } from './fx/particelle.js?v=ms7yggmh';
-import { Audio } from './fx/audio.js?v=ms7yggmh';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms7yggmh';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms7yggmh';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms7yggmh';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms7yggmh';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms7yggmh';
-import { Registro } from './ecs/registro.js?v=ms7yggmh';
-import { Orologio, Rng } from './ecs/orologio.js?v=ms7yggmh';
-import { Sistemi } from './ecs/sistemi.js?v=ms7yggmh';
-import { Agenda } from './ecs/agenda.js?v=ms7yggmh';
-import { Gatto } from './player/player.js?v=ms7yggmh';
-import { ManoStrumento } from './player/mano.js?v=ms7yggmh';
-import { dropDi } from './gioco/drop.js?v=ms7yggmh';
-import { Controller } from './player/controller.js?v=ms7yggmh';
-import { FURNI, centroide } from './furniture/registry.js?v=ms7yggmh';
-import { caricaModelli } from './furniture/loader.js?v=ms7yggmh';
-import { Arredo } from './furniture/furniture.js?v=ms7yggmh';
-import { HUD } from './ui/hud.js?v=ms7yggmh';
-import { MenuDebug } from './ui/debug.js?v=ms7yggmh';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms7yggmh';
-import { ModalitaXR } from './ar/ar-xr.js?v=ms7yggmh';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms7yggmh';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms7zdnfp';
+import { Rig } from './engine/renderer.js?v=ms7zdnfp';
+import { Input } from './engine/input.js?v=ms7zdnfp';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms7zdnfp';
+import { Cadenza } from './engine/cadenza.js?v=ms7zdnfp';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms7zdnfp';
+import { componiDiagnostica } from './engine/diagnostica.js?v=ms7zdnfp';
+import { SCENE } from './engine/banco.js?v=ms7zdnfp';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms7zdnfp';
+import { Mondo } from './world/world.js?v=ms7zdnfp';
+import { SimAcqua } from './world/acqua.js?v=ms7zdnfp';
+import { Lobby } from './net/lobby.js?v=ms7zdnfp';
+import { Segnalatore } from './net/segnalatore.js?v=ms7zdnfp';
+import { Bolla } from './ui/bolla.js?v=ms7zdnfp';
+import { Scelta } from './ui/scelta.js?v=ms7zdnfp';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms7zdnfp';
+import { Zaino } from './ui/zaino.js?v=ms7zdnfp';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=ms7zdnfp';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms7zdnfp';
+import { generaMostra } from './world/mostra.js?v=ms7zdnfp';
+import { generaCollaudo } from './world/collaudo.js?v=ms7zdnfp';
+import { generaTestLuci } from './world/testLuci.js?v=ms7zdnfp';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=ms7zdnfp';
+import { generaTestMacchine } from './world/testMacchine.js?v=ms7zdnfp';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=ms7zdnfp';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms7zdnfp';
+import { Meteo } from './fx/meteo.js?v=ms7zdnfp';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms7zdnfp';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms7zdnfp';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=ms7zdnfp';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms7zdnfp';
+import { CicloGiorno } from './fx/daynight.js?v=ms7zdnfp';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, ambienteAttuale } from './fx/materials.js?v=ms7zdnfp';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms7zdnfp';
+import { ModalitaAR } from './ar/ar.js?v=ms7zdnfp';
+import { Nuvole } from './fx/nuvole.js?v=ms7zdnfp';
+import { SagomaVista } from './fx/sagomaVista.js?v=ms7zdnfp';
+import { Erba } from './fx/erba.js?v=ms7zdnfp';
+import { Foglie } from './fx/foglie.js?v=ms7zdnfp';
+import { SegnaPercorso } from './fx/percorso.js?v=ms7zdnfp';
+import { ComandiTouch } from './ui/comandi-touch.js?v=ms7zdnfp';
+import { RiflessoAcqua } from './fx/riflesso.js?v=ms7zdnfp';
+import { Pioggia } from './fx/pioggia.js?v=ms7zdnfp';
+import { Particelle } from './fx/particelle.js?v=ms7zdnfp';
+import { Audio } from './fx/audio.js?v=ms7zdnfp';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms7zdnfp';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms7zdnfp';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms7zdnfp';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms7zdnfp';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms7zdnfp';
+import { Registro } from './ecs/registro.js?v=ms7zdnfp';
+import { Orologio, Rng } from './ecs/orologio.js?v=ms7zdnfp';
+import { Sistemi } from './ecs/sistemi.js?v=ms7zdnfp';
+import { Agenda } from './ecs/agenda.js?v=ms7zdnfp';
+import { Gatto } from './player/player.js?v=ms7zdnfp';
+import { ManoStrumento } from './player/mano.js?v=ms7zdnfp';
+import { dropDi } from './gioco/drop.js?v=ms7zdnfp';
+import { Controller } from './player/controller.js?v=ms7zdnfp';
+import { FURNI, centroide } from './furniture/registry.js?v=ms7zdnfp';
+import { caricaModelli } from './furniture/loader.js?v=ms7zdnfp';
+import { Arredo } from './furniture/furniture.js?v=ms7zdnfp';
+import { HUD } from './ui/hud.js?v=ms7zdnfp';
+import { MenuDebug } from './ui/debug.js?v=ms7zdnfp';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms7zdnfp';
+import { ModalitaXR } from './ar/ar-xr.js?v=ms7zdnfp';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms7zdnfp';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -235,6 +235,9 @@ let _diagFrames = 0;       // contatore di frame VERI (rispetta la cadenza), let
 let _diagInCorso = false;  // un giro alla volta
 const DIAG_FINESTRA = 1400; // ms di misura per scenario
 const DIAG_SETTLE = 320;    // ms di assestamento prima di misurare (drena i timer vecchi)
+// FOTOGRAMMI MINIMI per scenario: una mediana su un campione solo non è una
+// mediana. Sul Chromebook (3 fps) la finestra a tempo ne raccoglieva UNO.
+const DIAG_FRAME_MIN = 10;
 // A COPPIE ALTERNATE: acceso/spento/acceso/spento invece di una misura sola per
 // parte. Le due diagnostiche del 2026-07-26 si contraddicevano da sole (ombre
 // SPENTE più lente di ombre accese, scala 0.66 a 25 fps con un picco CPU da
@@ -248,10 +251,31 @@ const DIAG_ASSAGGIO = 500;  // ms buttati in apertura: il primo scenario legge s
 /** Aspetta `ms` di OROLOGIO (non solo rAF, che la preview congela se non è in
  *  primo piano: così non si blocca mai). Ritorna quanti frame VERI sono passati e
  *  il tempo reale trascorso, per ricavarne gli fps effettivi. */
-function _diagAttendi(ms) {
+/**
+ * Aspetta `ms`, ma NON MENO DI `frameMin` FOTOGRAMMI (fino a un tetto).
+ *
+ * L'attesa a tempo fisso è quella che ha rovinato la misura sul Chromebook del
+ * committente (Intel HD 400, diagnostica del 30 luglio): a tre fotogrammi al
+ * secondo, 1400 ms di finestra hanno raccolto UN campione — e quel campione,
+ * essendo il primo della batteria, si portava dentro la compilazione degli
+ * shader. Quel valore gonfiato è diventato il fondo della scala, e da lì OGNI
+ * altra scena risultava «più leggera del terreno asciutto»: la classifica intera
+ * era il fantasma di un warm-up.
+ *
+ * Il tetto c'è perché su un dispositivo davvero rotto (mezzo fotogramma al
+ * secondo) aspettare i dieci fotogrammi vorrebbe dire non finire mai: meglio
+ * pochi campioni DICHIARATI che una diagnostica che si pianta.
+ */
+function _diagAttendi(ms, frameMin = 0, tetto = 3500) {
   return new Promise((ok) => {
     const f0 = _diagFrames, t0 = performance.now();
-    setTimeout(() => ok({ frame: _diagFrames - f0, ms: performance.now() - t0 }), ms);
+    const fine = () => ok({ frame: _diagFrames - f0, ms: performance.now() - t0 });
+    const controlla = () => {
+      const dt = performance.now() - t0;
+      if (dt >= tetto || (dt >= ms && _diagFrames - f0 >= frameMin)) return fine();
+      setTimeout(controlla, 60);
+    };
+    setTimeout(controlla, ms);
   });
 }
 
@@ -303,13 +327,16 @@ function _diagRenderMs(giri = 5, n = 6) {
 async function _diagMisura(finestra = DIAG_FINESTRA) {
   // assestamento: i timer GPU della config PRECEDENTE si drenano (raccogli() li
   // svuota nel loop) e la CPU si stabilizza — così non sporcano questo scenario
-  await _diagAttendi(DIAG_SETTLE);
+  // l'assestamento vuole almeno DUE fotogrammi: su un dispositivo lentissimo
+  // 320 ms non ne contengono nemmeno uno, e la configurazione precedente
+  // finirebbe dentro la misura di questa
+  await _diagAttendi(DIAG_SETTLE, 2);
   perf.azzera();
   const cpu = new Campioni(600);
   const passi = new Campioni(600);
   _diagCpu = (ms) => cpu.push(ms);
   _diagPassi = (ms) => { if (ms > 0 && ms < 2000) passi.push(ms); };
-  const w = await _diagAttendi(finestra);
+  const w = await _diagAttendi(finestra, DIAG_FRAME_MIN);
   _diagCpu = null;
   _diagPassi = null;
   await _diagAttendi(80);   // coda: i timer sono asincroni, gli ultimi arrivano ora

@@ -208,16 +208,39 @@ export function riassuntoBanco(banco) {
   //  3. gli fps medi, ultimo ripiego per i file vecchi che non hanno renderMs.
   const conGpu = typeof (banco.terreno.gpu || {}).totaleMedia === 'number';
   const conRender = typeof banco.terreno.renderMs === 'number' && banco.terreno.renderMs > 0;
+  // QUANTI CAMPIONI CI SONO DIETRO IL NUMERO. Una media su un campione solo non
+  // è una media: è quel campione, warm-up compreso. Sul Chromebook del
+  // committente il fondo della scala aveva n=1 e valeva 140 ms — la compilazione
+  // degli shader della prima scena — e ha reso «più leggere» tutte le altre.
+  const CAMPIONI_MIN = 4;
+  // se il conteggio NON è dichiarato (file vecchi) non si blocca niente: si
+  // rifiuta un numero solo quando si sa per certo che dietro non c'è abbastanza
+  const campioni = (s) => {
+    if (!s) return 0;
+    if (conGpu) {
+      const p = s.gpu && s.gpu.passate && s.gpu.passate.principale;
+      return (p && typeof p.n === 'number') ? p.n : Infinity;
+    }
+    return typeof s.frame === 'number' ? s.frame : Infinity;
+  };
   const metrica = (s) => {
     if (!s) return null;
-    if (conGpu) return (s.gpu && typeof s.gpu.totaleMedia === 'number') ? s.gpu.totaleMedia : null;
+    if (campioni(s) < CAMPIONI_MIN) return null;   // troppo poco per essere un numero
+    if (conGpu) return (s.gpu && typeof s.gpu.totaleMedia === 'number' && s.gpu.totaleMedia > 0) ? s.gpu.totaleMedia : null;
     if (conRender) return (typeof s.renderMs === 'number' && s.renderMs > 0) ? s.renderMs : null;
     return (typeof s.fps === 'number' && s.fps > 0) ? 1000 / s.fps : null;
   };
   const unita = conGpu ? 'ms GPU' : (conRender ? 'ms a disegno' : 'ms a frame');
 
   const base = metrica(banco.terreno);
-  if (base == null) return [];
+  if (base == null) {
+    // il fondo della scala non è misurabile: senza di lui non esiste nessun
+    // «costa in più», e inventarne uno è peggio che tacere
+    const n = campioni(banco.terreno);
+    return n < CAMPIONI_MIN
+      ? [`⚠ BANCO NON MISURATO: il terreno asciutto — il fondo della scala — ha raccolto ${n} campion${n === 1 ? 'e' : 'i'} su ${CAMPIONI_MIN} necessari. Il dispositivo è troppo lento perché la finestra di misura contenga abbastanza fotogrammi: i numeri delle altre scene non sono confrontabili con niente.`]
+      : [];
+  }
   const righe = [`Banco standard — terreno asciutto: ${arr(base)} ${unita}${conGpu ? '' : ` (${Math.round(banco.terreno.fps || 0)} fps a schermo)`}, è il fondo della scala.`];
   const extra = SCENE.filter((s) => s.id !== 'terreno')
     .map((s) => ({ nome: s.nome, v: metrica(banco[s.id]), fps: banco[s.id] && banco[s.id].fps }))
