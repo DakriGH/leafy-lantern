@@ -30,8 +30,8 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms7zdnfp';
-import { CHUNK } from '../world/world.js?v=ms7zdnfp';
+import { paletteBlocco } from '../world/stagioni.js?v=ms85rw9m';
+import { CHUNK } from '../world/world.js?v=ms85rw9m';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -49,6 +49,20 @@ const LAMELLE_MAX = 8;
 // per hash — uno largo (macchie da otto celle) e uno fine (cella per cella) —
 // bastano a rompere la regolarità senza inventare una simulazione.
 const CHIAZZA_LARGA = 8;
+
+// QUANTI CHUNK GIÀ SEMINATI SI TENGONO DA PARTE. Il ring più largo è 11×11 =
+// 121 chunk, e lo stesso chunk può stare in cache a due passi di diradamento
+// diversi mentre lo si attraversa: 320 lascia margine senza far crescere la
+// memoria (una voce media sono poche decine di KB).
+const CACHE_CHUNK = 320;
+
+/** Colonna senza niente sopra, nell'array piatto delle quote. */
+const SENZA_CIMA = -32768;
+
+// QUANTO PUÒ DURARE LA SEMINA IN UN FRAME. Mezzo millisecondo: su un telefono
+// che ne ha undici per fotogramma è il 5%, e la coda si svuota comunque in poche
+// decine di frame perché la maggior parte dei chunk arriva dalla cache.
+const BUDGET_MS = 0.5;
 
 /** Hash deterministico: stessa cella, stesso ciuffo, per sempre. */
 function hash(x, z, s) {
@@ -170,6 +184,7 @@ export class Erba {
     this._coda = [];          // chunk da seminare, in ordine di distanza
     this._n = 0;              // lamelle scritte nel buffer di scorta
     this._quote = new Map();  // riuso fra i chunk della stessa passata
+    this._cache = new Map();  // chunk già seminati: vedi _seminaChunk
 
     const g = new THREE.InstancedBufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(
@@ -221,30 +236,96 @@ export class Erba {
    * chunk ha davvero — che sono quelli e basta — tenendo il più alto di ognuna.
    */
   _quoteChunk(mondo, kc) {
-    const q = this._quote;
-    q.clear();
+    // UN ARRAY PIATTO, NON UNA MAPPA. Un chunk ha 256 colonne e basta: indicizzarle
+    // per posizione locale costa un moltiplicatore, mentre la Map costava una
+    // chiave impacchettata + un hash + un oggetto {y,tipo} PER BLOCCO — e i
+    // blocchi di un chunk sono migliaia. Sparisce anche l'offset +2048 con cui
+    // si impacchettavano le coordinate negative: era il posto dove i ciuffi
+    // finivano a mezz'aria dall'altra parte del mondo, e ora non esiste più.
+    const N = CHUNK * CHUNK;
+    if (!this._qy) { this._qy = new Int16Array(N); this._qt = new Array(N); }
+    const qy = this._qy, qt = this._qt;
+    qy.fill(SENZA_CIMA);
+    const virgola = kc.indexOf(',');
+    const ox = +kc.slice(0, virgola) * CHUNK, oz = +kc.slice(virgola + 1) * CHUNK;
     for (const b of mondo.blocchiDelChunk(kc)) {
-      // ⚠ CON L'OFFSET, se no le coordinate NEGATIVE si sbriciolano: senza,
-      // (−17, −16) tornava indietro come (−18, 4080) e i ciuffi finivano a
-      // mezz'aria dall'altra parte del mondo. Stesso impacchettamento del mondo.
-      const k = (b.x + 2048) * 4096 + (b.z + 2048);
-      const v = q.get(k);
-      if (v === undefined || b.y > v.y) q.set(k, { y: b.y, tipo: b.tipo });
+      const i = (b.x - ox) * CHUNK + (b.z - oz);
+      if (i < 0 || i >= N) continue;
+      if (b.y > qy[i]) { qy[i] = b.y; qt[i] = b.tipo; }
     }
-    return q;
+    return { qy, qt, ox, oz };
   }
 
-  /** Semina un chunk nel buffer di scorta. Ritorna quante lamelle ha scritto. */
+  /**
+   * IL CHUNK GIÀ SEMINATO NON SI RISEMINA. È la cura del difetto peggiore di
+   * questo sistema, ed era invisibile finché non si è misurato: attraversando un
+   * confine di chunk — cioè ogni sedici passi — `_apriCoda` buttava via TUTTO e
+   * rifaceva da capo tutti gli 81 chunk del ring. Misurato camminando sul mondo
+   * aperto: picchi da 3,5 ms sull'erba e 2,1 sulle foglie, con mediana ZERO. Su
+   * un telefono cinque volte più lento sono i trenta millisecondi che il
+   * committente vedeva come scatto.
+   *
+   * Dei 81 chunk, attraversando un confine ne cambiano una ventina: gli altri
+   * sessanta hanno lo stesso contenuto di un attimo prima. Qui si tengono le
+   * lamelle già calcolate e si ricopiano — una memcpy invece di rifare hash,
+   * palette e quote.
+   *
+   * LA CHIAVE PORTA DENTRO LA REVISIONE DEL CHUNK (mondo.revisione), quindi
+   * scavare una cella rende irraggiungibile la voce vecchia: la cache non ha
+   * bisogno di essere svuotata da nessuno, si invalida da sola. E porta dentro
+   * anche il PASSO di diradamento, perché lo stesso chunk visto da lontano ha
+   * meno ciuffi di quando lo si ha addosso.
+   *
+   * EFFETTO COLLATERALE CHE VALE DA SOLO: l'istante di nascita viaggia con la
+   * lamella. Prima ogni riseminata rimetteva `nascita = adesso` su TUTTO il
+   * prato, cioè ogni sedici passi l'intero campo ricresceva da scala zero sotto
+   * gli occhi. Adesso ricresce solo l'erba davvero nuova.
+   *
+   * @returns quante lamelle ha scritto nel buffer di scorta
+   */
   _seminaChunk(mondo, kc, dc) {
     const passo = passoPerDistanza(dc);
-    const quote = this._quoteChunk(mondo, kc);
+    const ck = kc + '|' + passo + '|' + (mondo.revisione ? mondo.revisione(kc) : 0);
+    const pronto = this._cache.get(ck);
+    if (pronto) {
+      if (this._n + pronto.n > this.max) return 0;
+      this.sPos.set(pronto.pos, this._n * 4);
+      this.sDati.set(pronto.dati, this._n * 4);
+      this.sCol.set(pronto.col, this._n * 3);
+      this._n += pronto.n;
+      return pronto.n;
+    }
+    const i0 = this._n;
+    const scritte = this._seminaVero(mondo, kc, passo);
+    this._ricorda(ck, i0, scritte);
+    return scritte;
+  }
+
+  /** Mette da parte le lamelle appena seminate. La cache è a coda: le voci più
+   *  vecchie sono quelle dei chunk che ci si è lasciati alle spalle. */
+  _ricorda(ck, i0, n) {
+    if (n <= 0) return;
+    this._cache.set(ck, {
+      n,
+      pos: this.sPos.slice(i0 * 4, (i0 + n) * 4),
+      dati: this.sDati.slice(i0 * 4, (i0 + n) * 4),
+      col: this.sCol.slice(i0 * 3, (i0 + n) * 3),
+    });
+    while (this._cache.size > CACHE_CHUNK) {
+      this._cache.delete(this._cache.keys().next().value);
+    }
+  }
+
+  _seminaVero(mondo, kc, passo) {
+    const { qy, qt, ox, oz } = this._quoteChunk(mondo, kc);
     const { sPos, sDati, sCol } = this;
     let n = this._n;
     const col = new THREE.Color();
-    for (const [k, cima] of quote) {
+    for (let i = 0; i < qy.length; i++) {
       if (n >= this.max - LAMELLE_MAX) break;
-      if (cima.tipo !== 'erba') continue;
-      const x = Math.floor(k / 4096) - 2048, z = (k % 4096) - 2048;
+      if (qy[i] === SENZA_CIMA || qt[i] !== 'erba') continue;
+      const x = ox + ((i / CHUNK) | 0), z = oz + (i % CHUNK);
+      const cima = { y: qy[i], tipo: qt[i] };
       // il diradamento è per POSIZIONE, non a caso: allontanandosi il prato si
       // dirada sempre negli stessi punti e non «brulica» mentre cammini
       if (passo > 1 && ((x % passo) + passo) % passo !== 0) continue;
@@ -347,18 +428,22 @@ export class Erba {
       this._ccx = ccx; this._ccz = ccz;
       this._apriCoda(ccx, ccz);
     }
-    // UN PO' PER FRAME. Il ritmo si ADATTA alla coda: se è corta bastano due
-    // chunk, se è lunga se ne fanno di più — se no, correndo forte, il giocatore
-    // esce dal ring prima che la semina finisca e il prato non si aggiorna MAI.
-    // Il prato vecchio resta a schermo finché il nuovo non è pronto, quindi la
-    // progressività non si vede.
-    // due chunk bastano: a velocità di gioco (sei blocchi al secondo) il ring si
-    // completa in mezzo secondo, molto prima del prossimo confine. Si sale a tre
-    // solo se la coda è ancora lunghissima — cioè se qualcuno sta correndo.
-    const quanti = this._coda.length > 60 ? 3 : 2;
-    for (let i = 0; i < quanti && this._coda.length; i++) {
+    // UN BUDGET DI TEMPO, NON UN NUMERO DI CHUNK. È la differenza fra sperare e
+    // sapere: «due chunk per frame» è un tetto sul CONTEGGIO, e i chunk non
+    // costano uguale — uno pieno d'erba costa dieci volte uno di roccia, e uno
+    // già in cache costa una memcpy. Il tetto sul conteggio lasciava passare
+    // picchi da tre millisecondi e mezzo (misurati camminando sul mondo aperto);
+    // il tetto sul TEMPO li taglia dove sono, e nelle passate fatte di sole
+    // copie fa scorrere la coda molto più in fretta di prima.
+    //
+    // SEMPRE ALMENO UNO, altrimenti su un dispositivo lentissimo il budget
+    // sarebbe già finito prima di cominciare e la coda non scorrerebbe mai.
+    const t0 = performance.now();
+    let fatti = 0;
+    while (this._coda.length && (fatti === 0 || performance.now() - t0 < BUDGET_MS)) {
       const c = this._coda.shift();
       this._seminaChunk(mondo, c.kc, c.dc);
+      fatti++;
     }
     if (!this._coda.length && this._n !== this.fili) this._scambia();
   }

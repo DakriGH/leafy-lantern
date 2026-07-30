@@ -24,7 +24,7 @@
 // niente. Con la raffica scivolano nella direzione del vento e tornano.
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=ms7zdnfp';
+import { CHUNK } from '../world/world.js?v=ms85rw9m';
 
 // I due tipi di mucchio. Le secche sono la regola, il ciliegio la sorpresa.
 const TIPI = [
@@ -34,6 +34,9 @@ const TIPI = [
 const FOGLIE_MAX_CELLA = 12;
 const AMMASSO_PASSO = 7;        // ogni quante celle si tenta un mucchio
 const AMMASSO_QUANTI = 0.34;    // frazione di celle grosse che ne ospitano uno
+const CACHE_CHUNK = 320;        // chunk già seminati tenuti da parte (vedi fx/erba.js)
+const SENZA_CIMA = -32768;      // colonna vuota nell'array piatto delle quote
+const BUDGET_MS = 0.35;         // quanto può durare la semina in un frame
 
 /** Hash deterministico: stessa cella, stesso mucchio, per sempre. */
 function hash(x, z, s) {
@@ -164,6 +167,7 @@ export class Foglie {
     this._coda = [];
     this._n = 0;
     this._quote = new Map();
+    this._cache = new Map();  // chunk già seminati: vedi _seminaChunk
     this.foglie = 0;
 
     // LE CELLE GIÀ CALPESTATE. Senza questo elenco il mucchio ricresce al primo
@@ -217,29 +221,78 @@ export class Foglie {
   imposta(on) { this.attiva = on; this.mesh.visible = on; }
   risemina() { this._ccx = 1e9; this._ccz = 1e9; }
 
-  /** Quote per colonna del chunk, in una passata sola (come fa l'erba). */
+  /** Quote per colonna del chunk in un array piatto: vedi il perché in fx/erba.js. */
   _quoteChunk(mondo, kc) {
-    const q = this._quote;
-    q.clear();
+    const N = CHUNK * CHUNK;
+    if (!this._qy) { this._qy = new Int16Array(N); this._qt = new Array(N); }
+    const qy = this._qy, qt = this._qt;
+    qy.fill(SENZA_CIMA);
+    const virgola = kc.indexOf(',');
+    const ox = +kc.slice(0, virgola) * CHUNK, oz = +kc.slice(virgola + 1) * CHUNK;
     for (const b of mondo.blocchiDelChunk(kc)) {
-      const k = chiave(b.x, b.z);
-      const v = q.get(k);
-      if (v === undefined || b.y > v.y) q.set(k, { y: b.y, tipo: b.tipo });
+      const i = (b.x - ox) * CHUNK + (b.z - oz);
+      if (i < 0 || i >= N) continue;
+      if (b.y > qy[i]) { qy[i] = b.y; qt[i] = b.tipo; }
     }
-    return q;
+    return { qy, qt, ox, oz };
   }
 
+  /**
+   * Come nell'erba: il chunk già seminato non si risemina, si ricopia. Vedi il
+   * commento lungo in fx/erba.js — stessa misura, stessa cura. Qui c'è una
+   * ragione IN PIÙ per invalidare bene: la mappa cella→istanze (_sPerCella) deve
+   * seguire le lamelle copiate, se no il calpestio spegnerebbe le foglie
+   * sbagliate. Per questo la voce di cache si porta dietro anche le celle.
+   */
   _seminaChunk(mondo, kc, dc) {
     const passo = passoPerDistanza(dc);
-    const quote = this._quoteChunk(mondo, kc);
+    const ck = kc + '|' + passo + '|' + (mondo.revisione ? mondo.revisione(kc) : 0);
+    const pronto = this._cache.get(ck);
+    // una cella calpestata DOPO che il chunk è finito in cache renderebbe la
+    // voce bugiarda: si scarta e si risemina, che è il caso raro
+    if (pronto && !pronto.celle.some(([k]) => this._pesta.has(k))) {
+      if (this._n + pronto.n > this.max) return 0;
+      this.sPos.set(pronto.pos, this._n * 4);
+      this.sDati.set(pronto.dati, this._n * 4);
+      this.sCol.set(pronto.col, this._n * 3);
+      for (const [k, v] of pronto.celle) {
+        this._sPerCella.set(k, { i0: this._n + v.i0, n: v.n, tipo: v.tipo });
+      }
+      this._n += pronto.n;
+      return pronto.n;
+    }
+    const i0 = this._n;
+    const scritte = this._seminaVero(mondo, kc, passo);
+    if (scritte > 0) {
+      const celle = [];
+      for (const [k, v] of this._sPerCella) {
+        if (v.i0 >= i0) celle.push([k, { i0: v.i0 - i0, n: v.n, tipo: v.tipo }]);
+      }
+      this._cache.set(ck, {
+        n: scritte, celle,
+        pos: this.sPos.slice(i0 * 4, (i0 + scritte) * 4),
+        dati: this.sDati.slice(i0 * 4, (i0 + scritte) * 4),
+        col: this.sCol.slice(i0 * 3, (i0 + scritte) * 3),
+      });
+      while (this._cache.size > CACHE_CHUNK) {
+        this._cache.delete(this._cache.keys().next().value);
+      }
+    }
+    return scritte;
+  }
+
+  _seminaVero(mondo, kc, passo) {
+    const { qy, qt, ox, oz } = this._quoteChunk(mondo, kc);
     const { sPos, sDati, sCol } = this;
     let n = this._n;
     const col = new THREE.Color();
-    for (const [k, cima] of quote) {
+    for (let idx = 0; idx < qy.length; idx++) {
       if (n >= this.max - FOGLIE_MAX_CELLA) break;
-      if (cima.tipo !== 'erba') continue;
+      if (qy[idx] === SENZA_CIMA || qt[idx] !== 'erba') continue;
+      const x = ox + ((idx / CHUNK) | 0), z = oz + (idx % CHUNK);
+      const k = chiave(x, z);
       if (this._pesta.has(k)) continue;                  // già spazzata via
-      const x = Math.floor(k / 4096) - 2048, z = (k % 4096) - 2048;
+      const cima = { y: qy[idx], tipo: qt[idx] };
       if (passo > 1 && ((x % passo) + passo) % passo !== 0) continue;
       if (passo > 1 && ((z % passo) + passo) % passo !== 0) continue;
       const am = ammassoDi(x, z);
@@ -359,10 +412,13 @@ export class Foglie {
       this._apriCoda(ccx, ccz);
     }
     if (this._coda.length) {
-      const quanti = this._coda.length > 40 ? 3 : 2;
-      for (let i = 0; i < quanti && this._coda.length; i++) {
+      // budget di TEMPO, non di chunk: vedi il perché in fx/erba.js
+      const t0 = performance.now();
+      let fatti = 0;
+      while (this._coda.length && (fatti === 0 || performance.now() - t0 < BUDGET_MS)) {
         const c = this._coda.shift();
         this._seminaChunk(mondo, c.kc, c.dc);
+        fatti++;
       }
       if (!this._coda.length) this._scambia();
     }

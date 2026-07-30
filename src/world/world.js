@@ -2,7 +2,7 @@
 // così il mesher ricostruisce solo i chunk sporchi — fondamento per la
 // generazione procedurale. Ogni modifica emette un evento (pronto per il netcode).
 
-import { BLOCCHI, defDi } from './blocks.js?v=ms7zdnfp';
+import { BLOCCHI, defDi } from './blocks.js?v=ms85rw9m';
 
 export const CHUNK = 16;
 // Celle oltre le quali conviene il ricalcolo pieno della luce.
@@ -45,6 +45,7 @@ export class Mondo {
     this.chunks = new Map();         // "cx,cz" → Map("x,y,z" → tipo)
     this.sporchi = new Set();        // chunk da rimeshare per intero
     this.sporchiAcqua = new Set();   // chunk dove è cambiata SOLO acqua (rebuild leggero)
+    this._rev = new Map();           // kc → quante volte è cambiato (vedi revisione)
     this.furni = new Map();          // "x,y,z" → istanza furni che occupa la cella
     // L'INGOMBRO CHE FA OMBRA AL SOLE, che NON è la stessa cosa di `furni`:
     // quello è la hitbox (il tronco dell'albero, 1×1×3), questo è il volume del
@@ -120,12 +121,27 @@ export class Mondo {
   _sporca(x, z, dove = this.sporchi) {
     const lx = ((x % CHUNK) + CHUNK) % CHUNK;
     const lz = ((z % CHUNK) + CHUNK) % CHUNK;
-    dove.add(chiaveChunk(x, z));
-    if (lx === 0) dove.add(chiaveChunk(x - 1, z));
-    if (lx === CHUNK - 1) dove.add(chiaveChunk(x + 1, z));
-    if (lz === 0) dove.add(chiaveChunk(x, z - 1));
-    if (lz === CHUNK - 1) dove.add(chiaveChunk(x, z + 1));
+    this._tocca(chiaveChunk(x, z), dove);
+    if (lx === 0) this._tocca(chiaveChunk(x - 1, z), dove);
+    if (lx === CHUNK - 1) this._tocca(chiaveChunk(x + 1, z), dove);
+    if (lz === 0) this._tocca(chiaveChunk(x, z - 1), dove);
+    if (lz === CHUNK - 1) this._tocca(chiaveChunk(x, z + 1), dove);
   }
+
+  _tocca(kc, dove) {
+    dove.add(kc);
+    this._rev.set(kc, (this._rev.get(kc) || 0) + 1);
+  }
+
+  /**
+   * QUANTE VOLTE QUESTO CHUNK È CAMBIATO. Serve a chi tiene una cache DERIVATA
+   * dal contenuto — l'erba e le foglie tengono i ciuffi già seminati — per
+   * invalidarsi da sola: appende questo numero alla propria chiave e una cella
+   * scavata basta a rendere la voce vecchia irraggiungibile. Il mondo non sa chi
+   * siano quelle cache e non deve saperlo: `sporchi` invece è un elenco che
+   * qualcuno consuma e svuota, quindi non va bene per due lettori diversi.
+   */
+  revisione(kc) { return this._rev.get(kc) || 0; }
 
   metti(x, y, z, tipo, silenzioso = false) {
     const kc = chiaveChunk(x, z);
@@ -218,6 +234,11 @@ export class Mondo {
     this.furni.clear();
     this.sporchi.clear();
     this.sporchiAcqua.clear();
+    // NON si azzera: le revisioni devono solo CRESCERE. Azzerandole, una cache
+    // che ha in mano «chunk 3,4 revisione 7» tornerebbe valida su un mondo nuovo
+    // dove quel chunk è tutt'altra cosa — e si vedrebbero i ciuffi del mondo di
+    // prima. Un contatore che sale e basta non ha questo problema.
+    for (const kc of this._rev.keys()) this._rev.set(kc, this._rev.get(kc) + 1);
     this.scordaCambi();
     this.contaBlocchi = 0;
   }
