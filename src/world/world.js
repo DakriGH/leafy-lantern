@@ -2,7 +2,7 @@
 // così il mesher ricostruisce solo i chunk sporchi — fondamento per la
 // generazione procedurale. Ogni modifica emette un evento (pronto per il netcode).
 
-import { BLOCCHI, defDi } from './blocks.js?v=ms4didtp';
+import { BLOCCHI, defDi } from './blocks.js?v=ms7x2mdx';
 
 export const CHUNK = 16;
 // Celle oltre le quali conviene il ricalcolo pieno della luce.
@@ -15,7 +15,29 @@ export const CHUNK = 16;
 // Il costo per cella qui è di due numeri in un array: 256 sono 3 KB.
 const TETTO_CAMBI = 256;
 
-const chiave = (x, y, z) => x + ',' + y + ',' + z;
+// LA CHIAVE DI CELLA È UN NUMERO, e questa riga sola vale più di mezza giornata
+// di ottimizzazioni altrove. `tipo()` è la funzione più calda del gioco — la
+// chiamano fisica, mesher, sim dell'acqua, mira e A* — e ognuna delle sue
+// chiamate costruiva DUE stringhe («x,y,z» e «cx,cz») da dare in pasto a due
+// Map, cioè due allocazioni e due hash di stringa per una domanda che è
+// aritmetica pura. Un clic di cammino a ottanta blocchi ne faceva duecentomila.
+//
+// L'IMPACCHETTAMENTO: x e z in [−2048, 2047] (12 bit), y in [−64, 191] (8 bit).
+// Il totale sta sotto 2^32, cioè dentro gli interi ESATTI del double: nessuna
+// perdita, e le Map diventano numeriche. Chi sfora quei limiti sta costruendo
+// un mondo più largo di quattromila blocchi, e a quel punto il problema è un
+// altro (vedi `dentroLimiti`).
+const OFF_XZ = 2048, OFF_Y = 64;
+const chiave = (x, y, z) => ((x + OFF_XZ) * 4096 + (z + OFF_XZ)) * 256 + (y + OFF_Y);
+const dax = (k) => Math.floor(k / (256 * 4096)) - OFF_XZ;
+const daz = (k) => Math.floor(k / 256) % 4096 - OFF_XZ;
+const day = (k) => k % 256 - OFF_Y;
+/** Le coordinate ci stanno nella chiave? Fuori da qui l'impacchettamento mente. */
+export const dentroLimiti = (x, y, z) =>
+  x >= -OFF_XZ && x < OFF_XZ && z >= -OFF_XZ && z < OFF_XZ && y >= -OFF_Y && y < 256 - OFF_Y;
+
+// La chiave di CHUNK resta una stringa: la leggono altri moduli (mesher, debug)
+// e si costruisce una volta per chunk, non una per blocco.
 const chiaveChunk = (x, z) => Math.floor(x / CHUNK) + ',' + Math.floor(z / CHUNK);
 
 export class Mondo {
@@ -24,6 +46,13 @@ export class Mondo {
     this.sporchi = new Set();        // chunk da rimeshare per intero
     this.sporchiAcqua = new Set();   // chunk dove è cambiata SOLO acqua (rebuild leggero)
     this.furni = new Map();          // "x,y,z" → istanza furni che occupa la cella
+    // L'INGOMBRO CHE FA OMBRA AL SOLE, che NON è la stessa cosa di `furni`:
+    // quello è la hitbox (il tronco dell'albero, 1×1×3), questo è il volume del
+    // MODELLO (la chioma, che sborda). Un albero che proiettasse l'ombra del suo
+    // tronco sarebbe più strano che non proiettarne affatto.
+    // Il valore è un CONTATORE: due furni vicini possono coprire la stessa cella,
+    // e togliere il primo non deve cancellare l'ombra del secondo.
+    this.ombreFurni = new Map();     // "x,y,z" → {x, y, z, n}
     this.contaBlocchi = 0;
     this.onEvento = null;
     // CELLE cambiate (x,y,z appiattiti), non chunk: la maschera d'occlusione si aggiorna
@@ -31,7 +60,8 @@ export class Mondo {
     // L'acqua non entra qui: non ferma la luce e non ne emette, e la sua
     // simulazione tocca celle di continuo.
     this.cambiate = [];
-    this.troppiCambi = false;        // oltre il tetto conviene rifare tutto
+    this.troppiCambi = false;
+    this._memoCx = 0; this._memoCz = 0; this._memoChunk = null;        // oltre il tetto conviene rifare tutto
   }
 
   // Tetto: una generazione di mondo passa di qui decine di migliaia di volte, e
@@ -45,8 +75,24 @@ export class Mondo {
   /** Il mesher ha assorbito i cambi: si riparte da zero. */
   scordaCambi() { this.cambiate.length = 0; this.troppiCambi = false; }
 
+  /** IL MEMO DEL CHUNK: chi interroga il mondo lo fa quasi sempre nello stesso
+   *  posto due volte di fila (i sei vicini di una cella, i passi di un raggio,
+   *  l'intorno del gatto). Ricordare l'ultimo chunk risparmia la costruzione
+   *  della sua chiave-stringa e la ricerca nella Map. Si azzera a ogni cambio
+   *  STRUTTURALE (chunk creato o cancellato): il contenuto può cambiare quanto
+   *  vuole, la mappa del chunk resta quella. */
+  _scordaMemo() { this._memoKc = null; this._memoChunk = null; }
+
+  _chunkDi(x, z) {
+    const cx = Math.floor(x / CHUNK), cz = Math.floor(z / CHUNK);
+    if (this._memoChunk !== null && this._memoCx === cx && this._memoCz === cz) return this._memoChunk;
+    const c = this.chunks.get(cx + ',' + cz) || null;
+    this._memoCx = cx; this._memoCz = cz; this._memoChunk = c;
+    return c;
+  }
+
   tipo(x, y, z) {
-    const c = this.chunks.get(chiaveChunk(x, z));
+    const c = this._chunkDi(x, z);
     return c ? (c.get(chiave(x, y, z)) || null) : null;
   }
 
@@ -84,7 +130,7 @@ export class Mondo {
   metti(x, y, z, tipo, silenzioso = false) {
     const kc = chiaveChunk(x, z);
     let c = this.chunks.get(kc);
-    if (!c) { c = new Map(); this.chunks.set(kc, c); }
+    if (!c) { c = new Map(); this.chunks.set(kc, c); this._scordaMemo(); }
     const k = chiave(x, y, z);
     const prima = c.get(k);
     if (prima === undefined) this.contaBlocchi++;
@@ -105,7 +151,7 @@ export class Mondo {
     const prima = c.get(k);
     if (!c.delete(k)) return false;
     this.contaBlocchi--;
-    if (c.size === 0) this.chunks.delete(kc);
+    if (c.size === 0) { this.chunks.delete(kc); this._scordaMemo(); }
     const eraAcqua = !!(prima && prima.startsWith('acqua'));
     this._sporca(x, z, eraAcqua ? this.sporchiAcqua : this.sporchi);
     if (!eraAcqua) this._cambiata(x, y, z);
@@ -117,6 +163,48 @@ export class Mondo {
   liberaFurni(celle) { for (const [x, y, z] of celle) this.furni.delete(chiave(x, y, z)); }
   furniIn(x, y, z) { return this.furni.get(chiave(x, y, z)) || null; }
 
+  /** Accende l'ombra su queste celle. Le segna anche CAMBIATE, così il giro
+   *  incrementale del mesher le ricarica in GPU senza rifare la griglia.
+   *
+   *  `opaca` = il furni NON porta una sorgente di luce, quindi il suo ingombro
+   *  ferma anche le lampade (un albero fa ombra alla luce del lampione accanto).
+   *  Chi la luce ce l'ha addosso resta trasparente, se no si spegne da solo.
+   *  Il conto è DOPPIO perché le celle si sovrappongono: finché almeno un furni
+   *  opaco insiste sulla cella, la cella resta opaca. */
+  occupaOmbra(celle, opaca = false) {
+    for (const [x, y, z] of celle) {
+      const k = chiave(x, y, z);
+      const v = this.ombreFurni.get(k);
+      if (v) {
+        v.n++;
+        if (opaca && v.op++ === 0) this._cambiata(x, y, z);   // da trasparente a opaca
+        continue;
+      }
+      this.ombreFurni.set(k, { x, y, z, n: 1, op: opaca ? 1 : 0 });
+      this._cambiata(x, y, z);
+    }
+  }
+
+  liberaOmbra(celle, opaca = false) {
+    for (const [x, y, z] of celle) {
+      const k = chiave(x, y, z);
+      const v = this.ombreFurni.get(k);
+      if (!v) continue;
+      if (opaca && v.op > 0 && --v.op === 0 && v.n > 1) this._cambiata(x, y, z);
+      if (--v.n > 0) continue;
+      this.ombreFurni.delete(k);
+      this._cambiata(x, y, z);
+    }
+  }
+
+  /** Questa cella ferma il sole per via di un furni? 0 = no · 1 = ingombro di un
+   *  furni luminoso (ferma il sole e basta) · 2 = ingombro opaco (ferma anche le
+   *  lampade). I valori sono quelli che si aspetta luce.applicaCambi. */
+  ombraFurniIn(x, y, z) {
+    const v = this.ombreFurni.get(chiave(x, y, z));
+    return v ? (v.op > 0 ? 2 : 1) : 0;
+  }
+
   appoggioInColonna(x, z, yDa, profondita = 8) {
     for (let y = yDa; y > yDa - profondita; y--) {
       if (this.calpestabile(x, y, z)) return y;
@@ -126,6 +214,7 @@ export class Mondo {
 
   svuota() {
     this.chunks.clear();
+    this._scordaMemo();
     this.furni.clear();
     this.sporchi.clear();
     this.sporchiAcqua.clear();
@@ -136,8 +225,7 @@ export class Mondo {
   *tutti() {
     for (const c of this.chunks.values()) {
       for (const [k, tipo] of c) {
-        const [x, y, z] = k.split(',').map(Number);
-        yield { x, y, z, tipo };
+        yield { x: dax(k), y: day(k), z: daz(k), tipo };
       }
     }
   }
@@ -148,19 +236,13 @@ export class Mondo {
    *  mondo intero (la griglia di luce) la differenza è tutto il costo. */
   perOgni(cb) {
     for (const c of this.chunks.values()) {
-      for (const [k, tipo] of c) {
-        const i1 = k.indexOf(','), i2 = k.indexOf(',', i1 + 1);
-        cb(+k.slice(0, i1), +k.slice(i1 + 1, i2), +k.slice(i2 + 1), tipo);
-      }
+      for (const [k, tipo] of c) cb(dax(k), day(k), daz(k), tipo);
     }
   }
 
   *blocchiDelChunk(kc) {
     const c = this.chunks.get(kc);
     if (!c) return;
-    for (const [k, tipo] of c) {
-      const [x, y, z] = k.split(',').map(Number);
-      yield { x, y, z, tipo };
-    }
+    for (const [k, tipo] of c) yield { x: dax(k), y: day(k), z: daz(k), tipo };
   }
 }

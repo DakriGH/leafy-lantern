@@ -1,68 +1,72 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms4didtp';
-import { Rig } from './engine/renderer.js?v=ms4didtp';
-import { Input } from './engine/input.js?v=ms4didtp';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms4didtp';
-import { Cadenza } from './engine/cadenza.js?v=ms4didtp';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms4didtp';
-import { componiDiagnostica } from './engine/diagnostica.js?v=ms4didtp';
-import { SCENE } from './engine/banco.js?v=ms4didtp';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms4didtp';
-import { Mondo } from './world/world.js?v=ms4didtp';
-import { SimAcqua } from './world/acqua.js?v=ms4didtp';
-import { Lobby } from './net/lobby.js?v=ms4didtp';
-import { Segnalatore } from './net/segnalatore.js?v=ms4didtp';
-import { Bolla } from './ui/bolla.js?v=ms4didtp';
-import { Scelta } from './ui/scelta.js?v=ms4didtp';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms4didtp';
-import { Zaino } from './ui/zaino.js?v=ms4didtp';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=ms4didtp';
-import { generaIsola, generaArcipelago, generaOpenWorld, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms4didtp';
-import { generaMostra } from './world/mostra.js?v=ms4didtp';
-import { generaCollaudo } from './world/collaudo.js?v=ms4didtp';
-import { generaTestLuci } from './world/testLuci.js?v=ms4didtp';
-import { generaTestMacchine } from './world/testMacchine.js?v=ms4didtp';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=ms4didtp';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms4didtp';
-import { Meteo } from './fx/meteo.js?v=ms4didtp';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms4didtp';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms4didtp';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=ms4didtp';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms4didtp';
-import { CicloGiorno } from './fx/daynight.js?v=ms4didtp';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbrePg, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo } from './fx/materials.js?v=ms4didtp';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms4didtp';
-import { ModalitaAR } from './ar/ar.js?v=ms4didtp';
-import { Nuvole } from './fx/nuvole.js?v=ms4didtp';
-import { SegnaPercorso } from './fx/percorso.js?v=ms4didtp';
-import { ComandiTouch } from './ui/comandi-touch.js?v=ms4didtp';
-import { RiflessoAcqua } from './fx/riflesso.js?v=ms4didtp';
-import { Pioggia } from './fx/pioggia.js?v=ms4didtp';
-import { Particelle } from './fx/particelle.js?v=ms4didtp';
-import { Audio } from './fx/audio.js?v=ms4didtp';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms4didtp';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms4didtp';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms4didtp';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms4didtp';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms4didtp';
-import { Registro } from './ecs/registro.js?v=ms4didtp';
-import { Orologio, Rng } from './ecs/orologio.js?v=ms4didtp';
-import { Sistemi } from './ecs/sistemi.js?v=ms4didtp';
-import { Agenda } from './ecs/agenda.js?v=ms4didtp';
-import { Gatto } from './player/player.js?v=ms4didtp';
-import { ManoStrumento } from './player/mano.js?v=ms4didtp';
-import { dropDi } from './gioco/drop.js?v=ms4didtp';
-import { Controller } from './player/controller.js?v=ms4didtp';
-import { FURNI, centroide } from './furniture/registry.js?v=ms4didtp';
-import { caricaModelli } from './furniture/loader.js?v=ms4didtp';
-import { Arredo } from './furniture/furniture.js?v=ms4didtp';
-import { HUD } from './ui/hud.js?v=ms4didtp';
-import { MenuDebug } from './ui/debug.js?v=ms4didtp';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms4didtp';
-import { ModalitaXR } from './ar/ar-xr.js?v=ms4didtp';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms4didtp';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms7x2mdx';
+import { Rig } from './engine/renderer.js?v=ms7x2mdx';
+import { Input } from './engine/input.js?v=ms7x2mdx';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms7x2mdx';
+import { Cadenza } from './engine/cadenza.js?v=ms7x2mdx';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms7x2mdx';
+import { componiDiagnostica } from './engine/diagnostica.js?v=ms7x2mdx';
+import { SCENE } from './engine/banco.js?v=ms7x2mdx';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms7x2mdx';
+import { Mondo } from './world/world.js?v=ms7x2mdx';
+import { SimAcqua } from './world/acqua.js?v=ms7x2mdx';
+import { Lobby } from './net/lobby.js?v=ms7x2mdx';
+import { Segnalatore } from './net/segnalatore.js?v=ms7x2mdx';
+import { Bolla } from './ui/bolla.js?v=ms7x2mdx';
+import { Scelta } from './ui/scelta.js?v=ms7x2mdx';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms7x2mdx';
+import { Zaino } from './ui/zaino.js?v=ms7x2mdx';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=ms7x2mdx';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms7x2mdx';
+import { generaMostra } from './world/mostra.js?v=ms7x2mdx';
+import { generaCollaudo } from './world/collaudo.js?v=ms7x2mdx';
+import { generaTestLuci } from './world/testLuci.js?v=ms7x2mdx';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=ms7x2mdx';
+import { generaTestMacchine } from './world/testMacchine.js?v=ms7x2mdx';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=ms7x2mdx';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms7x2mdx';
+import { Meteo } from './fx/meteo.js?v=ms7x2mdx';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms7x2mdx';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms7x2mdx';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=ms7x2mdx';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms7x2mdx';
+import { CicloGiorno } from './fx/daynight.js?v=ms7x2mdx';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, ambienteAttuale } from './fx/materials.js?v=ms7x2mdx';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms7x2mdx';
+import { ModalitaAR } from './ar/ar.js?v=ms7x2mdx';
+import { Nuvole } from './fx/nuvole.js?v=ms7x2mdx';
+import { SagomaVista } from './fx/sagomaVista.js?v=ms7x2mdx';
+import { Erba } from './fx/erba.js?v=ms7x2mdx';
+import { Foglie } from './fx/foglie.js?v=ms7x2mdx';
+import { SegnaPercorso } from './fx/percorso.js?v=ms7x2mdx';
+import { ComandiTouch } from './ui/comandi-touch.js?v=ms7x2mdx';
+import { RiflessoAcqua } from './fx/riflesso.js?v=ms7x2mdx';
+import { Pioggia } from './fx/pioggia.js?v=ms7x2mdx';
+import { Particelle } from './fx/particelle.js?v=ms7x2mdx';
+import { Audio } from './fx/audio.js?v=ms7x2mdx';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms7x2mdx';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms7x2mdx';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms7x2mdx';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms7x2mdx';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms7x2mdx';
+import { Registro } from './ecs/registro.js?v=ms7x2mdx';
+import { Orologio, Rng } from './ecs/orologio.js?v=ms7x2mdx';
+import { Sistemi } from './ecs/sistemi.js?v=ms7x2mdx';
+import { Agenda } from './ecs/agenda.js?v=ms7x2mdx';
+import { Gatto } from './player/player.js?v=ms7x2mdx';
+import { ManoStrumento } from './player/mano.js?v=ms7x2mdx';
+import { dropDi } from './gioco/drop.js?v=ms7x2mdx';
+import { Controller } from './player/controller.js?v=ms7x2mdx';
+import { FURNI, centroide } from './furniture/registry.js?v=ms7x2mdx';
+import { caricaModelli } from './furniture/loader.js?v=ms7x2mdx';
+import { Arredo } from './furniture/furniture.js?v=ms7x2mdx';
+import { HUD } from './ui/hud.js?v=ms7x2mdx';
+import { MenuDebug } from './ui/debug.js?v=ms7x2mdx';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms7x2mdx';
+import { ModalitaXR } from './ar/ar-xr.js?v=ms7x2mdx';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms7x2mdx';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -344,6 +348,8 @@ async function _diagBanco(prog, passoBase, N) {
       s.costruisci(mondo, arredo);
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
+      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
+      foglie.risemina();
       ricostruisciBlocchiSpeciali();
       // condizioni: ora, pioggia, e gli anelli d'impatto messi A MANO (la sim
       // dell'acqua non li produrrebbe in una vasca ferma, e sono il caso che ha
@@ -2104,6 +2110,125 @@ arredo.onEvento = eventoLocale;
 
 // GATTI REMOTI (multi-lobby a stella): id → {gatto, pos, posa, visto, inAcqua}
 // L'host relay-a le pose degli ospiti agli altri; l'id 'h' è l'host stesso.
+// LE SAGOME CHE SI VEDONO ATTRAVERSO (fx/sagomaVista.js). Quella del gatto che
+// guidi nasce subito; quelle degli amici in rete nascono col loro gatto e si
+// accendono solo se l'opzione «anche degli altri» è su — in una stanza affollata
+// dieci sagome sovrapposte sono rumore, non aiuto.
+let sagomaMia = null;
+
+// ---- L'OCCHIO DI BUE: dove sta il gatto sullo schermo ----------------------
+// Il buco lo disegna lo shader (fx/materials.js, foroOcchioDiBue), ma il CENTRO
+// e la distanza li deve sapere qualcuno: proiettare un punto è aritmetica, e
+// farlo una volta per frame invece che per pixel è tutta la differenza.
+//
+// IN PIXEL DEL BUFFER, non della finestra: gl_FragCoord vive lì, e con la scala
+// di rendering dinamica (0.45–1) le due cose non coincidono affatto. Prendere
+// le misure dal canvas invece che da innerWidth è il motivo per cui il cerchio
+// resta centrato anche quando la qualità automatica abbassa la risoluzione.
+//
+// IL RAGGIO CRESCE COL VICINO: da lontano il gatto è piccolo e un cerchio largo
+// sarebbe un buco nel paesaggio; addosso serve spazio per vederlo muoversi.
+const _foroP = new THREE.Vector3();
+const _foroDir = new THREE.Vector3();
+let _foroForza = 0;
+
+/** Quanti BLOCCHI stanno fra l'obiettivo e il gatto. Un albero non conta: la
+ *  sua fronda non è un blocco, e infatti non copre — mentre un muro sì. È la
+ *  differenza fra «si apre sempre» e «si apre quando serve». */
+function bloccatoDavanti() {
+  _foroDir.copy(rig.camera.position).sub(_foroP);
+  const dist = _foroDir.length();
+  if (dist < 1.5) return 0;
+  _foroDir.divideScalar(dist);
+  let n = 0;
+  // si campiona ogni mezzo blocco, saltando le due estremità (il terreno sotto
+  // i piedi del gatto e il pelo dell'obiettivo non sono ostacoli)
+  for (let t = 1.0; t < dist - 0.8; t += 0.5) {
+    const x = Math.floor(_foroP.x + _foroDir.x * t);
+    const y = Math.floor(_foroP.y + _foroDir.y * t);
+    const z = Math.floor(_foroP.z + _foroDir.z * t);
+    if (mondo.solido(x, y, z)) n++;
+  }
+  return n;
+}
+
+// ---- L'OCCHIO DI BUE: dove sta il gatto sullo schermo ----------------------
+// Il velo lo disegna lo shader (fx/materials.js, velaOcchioDiBue), ma il CENTRO,
+// la distanza e soprattutto QUANTO APRIRE li decide qui: proiettare un punto e
+// contare i blocchi davanti è aritmetica, e farlo una volta per frame invece
+// che per pixel è tutta la differenza.
+//
+// IN PIXEL DEL BUFFER, non della finestra: gl_FragCoord vive lì, e con la scala
+// di rendering dinamica (0.45–1) le due cose non coincidono affatto.
+//
+// LA FORZA SALE E SCENDE PIANO (inseguimento, non salto): con due blocchi che
+// entrano ed escono dalla linea di vista camminando, un interruttore secco
+// farebbe lampeggiare mezzo schermo.
+function aggiornaForo(dt) {
+  if (opzioni.foro === false) { _foroForza = 0; impostaForo(0, 0, 0, 1, 1, 0); return; }
+  _foroP.copy(controller.pos); _foroP.y += 0.55;          // altezza del busto
+  // SOGLIA: uno o due blocchi non aprono niente (è il caso di uno spigolo che
+  // sfiora), da tre in su si apre tutto — «non 1-2 alberi ma se ci sono blocchi»
+  const n = bloccatoDavanti();
+  const voluta = n <= 1 ? 0 : Math.min(1, (n - 1) / 2);
+  const k = Math.min(1, (dt || 0.016) * 8);
+  _foroForza += (voluta - _foroForza) * k;
+  if (_foroForza < 0.01) { _foroForza = 0; impostaForo(0, 0, 0, 1, 1, 0); return; }
+
+  const dist = _foroP.distanceTo(rig.camera.position);
+  _foroP.project(rig.camera);
+  const cv = rig.renderer.domElement;
+  const px = (_foroP.x * 0.5 + 0.5) * cv.width;
+  const py = (_foroP.y * 0.5 + 0.5) * cv.height;          // gl_FragCoord: y in su
+  const scala = cv.height / 720;                          // il raggio è tarato su 720p
+  const r = (opzioni.foroRaggio ?? 110) * scala * Math.min(1.6, 14 / Math.max(4, dist));
+  impostaForo(px, py, dist, r, r * 0.55, _foroForza);
+}
+
+function aggiornaSagome() {
+  const on = opzioni.sagoma !== false;
+  if (on && !sagomaMia) sagomaMia = new SagomaVista(rig.scena, gatto.gruppo);
+  if (sagomaMia) sagomaMia.imposta(on);
+  for (const g of gattiRemoti.values()) {
+    if (on && opzioni.sagomaTutti && !g.sagoma) g.sagoma = new SagomaVista(rig.scena, g.gatto.gruppo, 0xffd9a0);
+    if (g.sagoma) g.sagoma.imposta(on && opzioni.sagomaTutti);
+  }
+}
+
+// L'ERBA nel vento: un solo oggetto, l'animazione tutta nel vertex shader.
+const erba = new Erba(rig.scena);
+// LE FOGLIE: mucchi tondi sparsi sul prato, e si spazzano via camminandoci
+// dentro. Stessa architettura dell'erba (istanze + semina a chunk), ma la
+// distribuzione è a mucchi e il calpestio LEVA le foglie invece di piegarle.
+const foglie = new Foglie(rig.scena);
+let _cellaFoglie = 0;   // ultima cella calpestata: si controlla solo quando cambia
+
+/**
+ * IL MUCCHIO CHE SI SPAZZA. Si guarda SOLO quando il giocatore cambia cella —
+ * a sessanta fotogrammi al secondo la stessa cella tornerebbe sessanta volte, e
+ * il mucchio esploderebbe sessanta volte di fila. Le foglie che partono sono
+ * particelle vere, del colore di QUEL mucchio: quelle che restano a terra le
+ * toglie foglie.calpesta(), e non ricrescono dietro le spalle.
+ */
+function calpestaFoglie() {
+  if (!foglie.attiva || !controller.aTerra) return;
+  const cx = Math.floor(controller.pos.x), cz = Math.floor(controller.pos.z);
+  const k = (cx + 2048) * 4096 + (cz + 2048);
+  if (k === _cellaFoglie) return;
+  _cellaFoglie = k;
+  const b = foglie.calpesta(cx, cz);
+  if (!b) return;
+  const y = controller.pos.y + 0.12;
+  const quante = Math.min(7, b.quante);
+  for (let i = 0; i < quante; i++) {
+    const a = Math.random() * 6.283, vr = 0.7 + Math.random() * 1.3;
+    particelle.emetti(cx + 0.5 + (Math.random() - 0.5) * 0.7, y,
+      cz + 0.5 + (Math.random() - 0.5) * 0.7,
+      Math.cos(a) * vr, 1.1 + Math.random() * 0.9, Math.sin(a) * vr,
+      0.75, 0.6, 0, b.colore);
+  }
+}
+
 const gattiRemoti = new Map();
 const COLORI_GATTI = [[0xf5a742, 0xc07a20], [0xe36bb4, 0xb44a8e], [0x9b6bf0, 0x7648c9], [0x5bd0d0, 0x3aa8a8], [0xd6e26b, 0xb1bd44]];
 let mioIdRete = null;             // assegnato dall'host nel benvenuto
@@ -2114,12 +2239,20 @@ function gattoRemotoDi(id) {
     g = { gatto: new Gatto(c1, c2), pos: new THREE.Vector3(), posa: null, visto: 0, inAcqua: false };
     rig.scena.add(g.gatto.gruppo);
     gattiRemoti.set(id, g);
+    if (opzioni.sagoma !== false && opzioni.sagomaTutti) {
+      g.sagoma = new SagomaVista(rig.scena, g.gatto.gruppo, 0xffd9a0);
+      g.sagoma.imposta(true);
+    }
   }
   return g;
 }
 function rimuoviGattoRemoto(id) {
   const g = gattiRemoti.get(id);
-  if (g) { rig.scena.remove(g.gatto.gruppo); gattiRemoti.delete(id); }
+  if (g) {
+    rig.scena.remove(g.gatto.gruppo);
+    if (g.sagoma) g.sagoma.smonta(rig.scena);
+    gattiRemoti.delete(id);
+  }
 }
 function svuotaGattiRemoti() { for (const id of [...gattiRemoti.keys()]) rimuoviGattoRemoto(id); }
 
@@ -2518,6 +2651,8 @@ const menuDebug = new MenuDebug({
       const r = generaMostra(mondo);
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
+      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
+      foglie.risemina();
       ricostruisciBlocchiSpeciali();
       // spawn vuole una CELLA [x,y,z], non un Vector3 (passarne uno dava NaN)
       controller.spawn([r.spawn.x, r.spawn.y, r.spawn.z]);
@@ -2533,6 +2668,8 @@ const menuDebug = new MenuDebug({
       const r = generaCollaudo(mondo);
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
+      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
+      foglie.risemina();
       ricostruisciBlocchiSpeciali();
       for (const c of r.acqua) sim.pianificaAttorno(c);   // sveglia la cascata
       controller.spawn(r.spawn);
@@ -2557,6 +2694,8 @@ const menuDebug = new MenuDebug({
       const r = generaTestLuci(mondo);
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
+      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
+      foglie.risemina();
       ricostruisciBlocchiSpeciali();
       controller.spawn(r.spawn);
       rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
@@ -2574,6 +2713,54 @@ const menuDebug = new MenuDebug({
       hud.toast(`💡 Test luci: ${r.totale.toLocaleString('it')} blocchi · ${r.lampade.pesanti} lampade pesanti (tutte con ombra, nessun tetto) · ${r.lampade.leggere} leggere · griglia dei muri ${kb} KB`, 7000);
       return r;
     }),
+    // BANCO OMBRE E LUCI: le sagome contro il sole, le terrazze, gli ingombri e
+    // la MATRICE delle sorgenti (raggio × intensità × colore × ombra), che è la
+    // carta dei campioni da guardare prima di scrivere un numero nell'Officina.
+    // Arreda: i mobili glieli piazza qui chi chiama, il generatore non conosce
+    // l'arredo e non deve conoscerlo.
+    // MONDO GIGANTE: il banco di CARICO — montagne alte, mezzo milione di
+    // blocchi, dimensionato per stare appena sotto il paracadute della griglia
+    // luce, così le prestazioni si misurano CON le ombre accese.
+    mondoGigante: () => conCaricamento('⛰ Genero il mondo gigante…', () => {
+      salvaSnapshot(false);
+      arredo.svuota();
+      const r = generaMondoGigante(mondo, (Math.random() * 1e4) | 0);
+      mesher.ricostruisciTutto(mondo);
+      ricostruisciLuciBlocchi();
+      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
+      foglie.risemina();
+      ricostruisciBlocchiSpeciali();
+      for (const [x, y, z] of r.alberi) arredo.piazza('albero', [x, y, z], 0, true);
+      for (const [x, y, z] of r.lampioni) arredo.piazza('lampione', [x, y, z], 0, true);
+      const y0 = mondo.appoggioInColonna(0, 0, 40, 40) ?? 8;
+      controller.spawn([0, y0 + 1, 0]);
+      rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
+      segnaSalvataggio();
+      const st = mesher.statistiche || {};
+      hud.toast('⛰ Mondo gigante: montagne fino a quota ~35, ombre accese — è il banco delle prestazioni (G per i numeri)', 6000);
+      return r;
+    }),
+    bancoOmbre: () => conCaricamento('🌗 Preparo il banco delle ombre…', () => {
+      salvaSnapshot(false);
+      arredo.svuota();
+      const r = generaBancoOmbre(mondo);
+      for (const f of r.furni) arredo.piazza(f.id, f.cella, f.rot, true);
+      mesher.ricostruisciTutto(mondo);
+      ricostruisciLuciBlocchi();
+      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
+      foglie.risemina();
+      ricostruisciBlocchiSpeciali();
+      controller.spawn(r.spawn);
+      rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
+      segnaSalvataggio();
+      menuDebug.mostraZone(r.zone, (piedi) => {
+        controller.spawn(piedi);
+        rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
+      });
+      hud.toast(`🌗 Banco ombre: ${r.furni.length} mobili e ${r.sorgenti.length} sorgenti di prova`
+        + ' — le sagome si guardano di giorno, la matrice di notte (tasto T per l\'ora)', 7000);
+      return r;
+    }),
     // Mondo «test dei macchinari»: TUTTE le macchine già montate, ognuna col
     // contorno che le serve per lavorare (acqua per la pompa, spiazzo per la
     // palla, catena allineata). Unico mondo di prova che arreda: `arredo` va
@@ -2583,6 +2770,8 @@ const menuDebug = new MenuDebug({
       const r = generaTestMacchine(mondo, arredo);
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
+      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
+      foglie.risemina();
       ricostruisciBlocchiSpeciali();
       for (const c of r.acqua) sim.pianificaAttorno(c);   // assesta il pelo della pozza
       // il reconcile SUBITO: senza, le macchine appena posate restano furni muti
@@ -2604,6 +2793,8 @@ const menuDebug = new MenuDebug({
       nuovaIsola();
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
+      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
+      foglie.risemina();
       ricostruisciBlocchiSpeciali();
       segnaSalvataggio();
       hud.toast('🏝 Isola demo — il mondo di prima è nello snapshot');
@@ -2615,6 +2806,8 @@ const menuDebug = new MenuDebug({
       generaArcipelago(mondo, seme, est);
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
+      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
+      foglie.risemina();
       ricostruisciBlocchiSpeciali();
       respawn();
       segnaSalvataggio();
@@ -2627,6 +2820,8 @@ const menuDebug = new MenuDebug({
       const { alberi, lampioni, fiume } = generaOpenWorld(mondo, seme, est);
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
+      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
+      foglie.risemina();
       ricostruisciBlocchiSpeciali();
       for (const c of alberi) if (arredo.puoiPiazzare('albero', c, 0).ok) arredo.piazza('albero', c, 0, true);
       for (const c of lampioni) if (arredo.puoiPiazzare('lampione', c, 0).ok) arredo.piazza('lampione', c, 0, true);
@@ -2773,6 +2968,8 @@ async function avvia() {
         conCaricamento('🛠 Applico le modifiche…', () => {
           mesher.ricostruisciTutto(mondo);
           ricostruisciLuciBlocchi();
+      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
+      foglie.risemina();
           ricostruisciBlocchiSpeciali();
         });
       }
@@ -2843,6 +3040,66 @@ let _tPasso = 0;
 let _tPalle = 0;
 let _tPartFlussi = 0, _tPartAnelli = 0;
 const _ombrePg = [];
+
+// ---- LE SAGOME DEI MOBILI CHE PROIETTANO AL SOLE ---------------------------
+// Ogni mobile porta un pugno di scatole (furniture.js) e lo shader le prova una
+// per una: è così che l'ombra di un albero ha la forma dell'albero invece del
+// passo della griglia. Il budget però è finito, quindi si mandano le PIÙ VICINE
+// a quello che stai guardando — è una scala di dettaglio, e come tutte le scale
+// di dettaglio deve essere STABILE: si rifà la scelta solo quando il bersaglio
+// si è spostato davvero o quando i mobili cambiano, se no la lista si rimescola
+// a ogni frame e le ombre in fondo sfarfallano.
+const SCATOLE_BUDGET = 32;
+// L'AREA DELLE OMBRE È LARGA IL DOPPIO DI PRIMA, ed è la diagnosi dell'utente:
+// «le ombre vengono caricate ma l'area è troppo piccola». A 34 blocchi le
+// sagome entravano nel budget praticamente addosso al gatto, e camminando le si
+// vedeva comparire. Il costo non è la distanza ma il BUDGET (quante scatole
+// finiscono nello shader), quindi allargare il raggio si paga solo con la
+// scelta — che è un ordinamento ogni due blocchi di cammino, non per frame.
+const SCATOLE_PORTATA = 70;
+const SCATOLE_DETTAGLIO = 20;      // entro questa distanza, la sagoma per intero
+// LA FASCIA IN CUI L'OMBRA NASCE. Chi sta oltre `portata` non proietta; chi sta
+// negli ultimi metri prima del confine proietta a forza ridotta, così l'ombra
+// SI FA invece di apparire. È la stessa idea della nebbia: un confine netto si
+// vede sempre, uno sfumato non lo nota nessuno.
+const SCATOLE_SFUMA = 18;
+let _scatole = [];
+let _scatoleX = 1e9, _scatoleZ = 1e9, _scatoleN = -1;
+const _scatoleVicine = [];
+function scatoleVicine() {
+  const b = rig.bersaglio;
+  const n = arredo.versione;
+  // il passo di ricalcolo cresce col raggio: con 70 blocchi di portata, due
+  // blocchi di cammino non cambiano niente di quello che si vede
+  if (n === _scatoleN && Math.abs(b.x - _scatoleX) + Math.abs(b.z - _scatoleZ) < 3) return _scatole;
+  _scatoleX = b.x; _scatoleZ = b.z; _scatoleN = n;
+  _scatoleVicine.length = 0;
+  for (const ist of arredo.istanze) {
+    if (!ist.scatoleOmbra || !ist.scatoleOmbra.length) continue;
+    const dx = ist.cella[0] + 0.5 - b.x, dz = ist.cella[2] + 0.5 - b.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 > SCATOLE_PORTATA * SCATOLE_PORTATA) continue;
+    const d = Math.sqrt(d2);
+    // il peso: pieno fin quasi al confine, poi scende a zero nella fascia
+    const peso = Math.min(1, (SCATOLE_PORTATA - d) / SCATOLE_SFUMA);
+    // DUE LIVELLI DI DETTAGLIO: da vicino la sagoma intera (la chioma che si
+    // stringe, il palo sottile), da lontano corpo e chioma. Un albero in fondo
+    // occupa dieci pixel: pagargli cinque scatole vorrebbe dire toglierle a uno
+    // che si vede.
+    _scatoleVicine.push({ d2, peso, s: d < SCATOLE_DETTAGLIO ? ist.scatoleOmbra : ist.scatolaOmbra });
+  }
+  _scatoleVicine.sort((p, q) => p.d2 - q.d2);
+  _scatole = [];
+  for (const v of _scatoleVicine) {
+    for (const s of v.s) {
+      if (_scatole.length >= SCATOLE_BUDGET) return _scatole;
+      // il peso viaggia con la scatola: `impostaOmbre` lo mette in uDinMez.w
+      _scatole.push(v.peso >= 1 ? s : { ...s, peso: v.peso });
+    }
+  }
+  return _scatole;
+}
+
 const _ctxResa = { ecs, alpha: 0, dtFrame: 0, notte: false };   // ctx della resa (palle+creature), riusato ogni frame
 const _dimBuffer = new THREE.Vector2();
 
@@ -2968,9 +3225,14 @@ const LIVELLI_Q = rig.mobile ? [
   { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scala: 0.55, dist: 280 },
   { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.45, dist: 220 },
 ] : [
-  { tilt: 2.2, rifl: true, ombre: true, schiuma: true, acquaRicca: true, maxOmbre: 8, sole: 16, scala: 1, dist: 900 },
-  { tilt: 2.2, rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 12, scala: 1, dist: 700 },
-  { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 8, scala: 1, dist: 500 },
+  // `dinamiche` sta SOLO qui, in cima: le ombre dei corpi in movimento si provano
+  // scatola per scatola a ogni frammento, ed è il termine più caro di tutti.
+  // `sole` è la PORTATA dell'ombra del cielo in blocchi, e 13 è il tetto vero
+  // (SOLE_RAGGIO_MAX in fx/materials.js): oltre, il cammino finisce i passi
+  // prima della distanza e l'orlo dell'ombra torna a denti di sega.
+  { tilt: 2.2, rifl: true, ombre: true, schiuma: true, acquaRicca: true, maxOmbre: 8, sole: 13, dinamiche: true, scala: 1, dist: 900, erba: 1.3, erbaR: 6 },
+  { tilt: 2.2, rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 12, scala: 1, dist: 700, erba: 1, erbaR: 5 },
+  { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 8, scala: 1, dist: 500, erba: 0.6, erbaR: 3 },
   { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 0, scala: 0.82, dist: 500 },
   { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scala: 0.66, dist: 360 },
 ];
@@ -2978,6 +3240,7 @@ let qLivello = 0;
 let qManuale = false;        // qualità auto spenta: comandano le Impostazioni
 let riflessiUtente = true;
 let _schiumaQ = true;        // la passata schiuma se la può permettere questo livello?
+let _dinamicheOn = false;    // ombre dinamiche concesse (utente E livello)
 let _partiQ = 127;           // termini dello shader concessi dal livello di qualità
 
 // ---- Impostazioni utente (⚙️): persistenti, applicate subito -------------------
@@ -2988,7 +3251,7 @@ const OPZ_CHIAVE = 'lantern.opzioni.v1';
 // del ~30%. Restano un opt-in per chi vuole e può permettersele; su desktop
 // restano accese. Chi ha un salvataggio vecchio con le ombre on: glielo dico,
 // oppure «Ripristina» le riporta al default giusto per il suo dispositivo.
-const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, tilt: !rig.mobile, autoQ: true, luceCotta: !rig.mobile, cameraFantasma: false, scala: 1, riflForza: 1, tiltQ: 2.2, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.mobile, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale', nitido: true, ombraSole: !rig.mobile, solePassi: 12 };
+const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, tilt: !rig.mobile, autoQ: true, luceCotta: !rig.mobile, cameraFantasma: false, erba: true, foro: true, foroRaggio: 110, sagoma: false, sagomaTutti: false, scala: 1, riflForza: 1, tiltQ: 2.2, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.mobile, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale', nitido: true, ombraSole: !rig.mobile, solePassi: 12, soleTerm: true, soleForza: 1, ombreDin: false };
 const opzioni = Object.assign({}, OPZ_DEFAULT, JSON.parse(localStorage.getItem(OPZ_CHIAVE) || '{}'));
 
 // preset grafici: un tocco e la macchina va — comodi per testare
@@ -3021,7 +3284,25 @@ function applicaQualita() {
   // più — e la diagnostica, finito il giro, torna qui invece che a "tutto".
   impostaMaxOmbre(qManuale ? 8 : (q.maxOmbre ?? 6));
   // l'ombra del cielo la vuole l'utente E se la deve poter permettere il livello
-  impostaPassiCielo(opzioni.ombraSole === false ? 0 : (qManuale ? (opzioni.solePassi ?? 12) : (q.sole ?? 0)));
+  const soleOn = opzioni.ombraSole !== false;
+  impostaPassiCielo(!soleOn ? 0 : (qManuale ? (opzioni.solePassi ?? 12) : (q.sole ?? 0)));
+  // il terminatore è dentro la stessa opzione madre: da solo non ha senso
+  impostaTerminatore(soleOn && opzioni.soleTerm !== false);
+  // OMBRE DINAMICHE: le chiede l'utente E il livello deve poterle reggere. È il
+  // termine più caro dell'ombra del cielo (una scatola alla volta, per
+  // frammento), quindi vive solo in cima alla scala.
+  _dinamicheOn = soleOn && !!opzioni.ombreDin && (qManuale || q.dinamiche === true);
+  ciclo.forzaOmbra = Math.max(0, Math.min(1.5, opzioni.soleForza ?? 1));
+  // L'ERBA SEGUE LA QUALITÀ: diradare i fili è meglio che spegnerli tutti — un
+  // prato con la metà dei fili è ancora un prato, un prato spento è una moquette.
+  erba.densita = qManuale ? 1 : (q.erba ?? 1);
+  erba.raggioChunk = qManuale ? 5 : (q.erbaR ?? 5);
+  erba.risemina();
+  // le foglie seguono la stessa manopola: sono meno dell'erba, quindi il raggio
+  // resta più corto anche al massimo — un mucchio si guarda da vicino
+  foglie.densita = qManuale ? 1 : (q.erba ?? 1);
+  foglie.raggioChunk = Math.min(4, qManuale ? 4 : (q.erbaR ?? 4));
+  foglie.risemina();
   _partiQ = (qManuale || q.acquaRicca !== false)
     ? PARTI.tutte
     : (PARTI.tutte & ~PARTI.riflesso & ~PARTI.silhouette);
@@ -3050,6 +3331,19 @@ function applicaOpzioni(salva = true) {
   rig.camera.far = opzioni.dist;
   rig.camera.updateProjectionMatrix();
   rig.fantasma = opzioni.cameraFantasma;
+  // LA SAGOMA E LA CAMERA SONO LA STESSA DECISIONE, presa da due parti: se il
+  // gatto si vede attraverso gli ostacoli, la camera non ha piu' motivo di
+  // rientrare — ed e' proprio il rientro che dava fastidio. Accendendo la
+  // sagoma la camera smette di essere spinta dai muri; la si puo' comunque
+  // rimettere a mano spegnendo la sagoma.
+  // OCCHIO DI BUE E SAGOMA fanno lo stesso mestiere in due modi opposti: l'uno
+  // buca quello che copre, l'altra disegna il gatto sopra. Tutt'e due tolgono
+  // il motivo per cui la camera rientrava davanti agli ostacoli — ed era il
+  // rientro a dare fastidio.
+  if (opzioni.foro || opzioni.sagoma) rig.fantasma = true;
+  erba.imposta(opzioni.erba !== false);
+  foglie.imposta(opzioni.erba !== false);
+  aggiornaSagome();
   meteo.attivaAuto(opzioni.meteoAuto !== false);
   comandiTouch.mostra(!!opzioni.comandiTouch);
   document.body.classList.toggle('comandi-touch', !!opzioni.comandiTouch);  // sposta la GUI per non sovrapporsi
@@ -3122,7 +3416,13 @@ function aggiornaUIOpzioni() {
   document.getElementById('opzAutoQ').classList.toggle('attivo', opzioni.autoQ);
   document.getElementById('opzNitido').classList.toggle('attivo', opzioni.nitido !== false);
   document.getElementById('opzSole').classList.toggle('attivo', opzioni.ombraSole !== false);
+  document.getElementById('opzTerm').classList.toggle('attivo', opzioni.soleTerm !== false);
+  document.getElementById('opzDin').classList.toggle('attivo', !!opzioni.ombreDin);
   document.getElementById('opzCamera').classList.toggle('attivo', opzioni.cameraFantasma);
+  document.getElementById('opzErba').classList.toggle('attivo', opzioni.erba !== false);
+  document.getElementById('opzForo').classList.toggle('attivo', opzioni.foro !== false);
+  document.getElementById('opzSagoma').classList.toggle('attivo', opzioni.sagoma !== false);
+  document.getElementById('opzSagomaTutti').classList.toggle('attivo', !!opzioni.sagomaTutti);
   document.getElementById('opzTouch').classList.toggle('attivo', !!opzioni.comandiTouch);
   document.getElementById('opzMeteo').classList.toggle('attivo', opzioni.meteoAuto !== false);
   document.getElementById('opzVol').value = Math.round((opzioni.vol ?? 0.6) * 100);
@@ -3136,6 +3436,10 @@ function aggiornaUIOpzioni() {
   }
 }
 document.getElementById('opzCamera').addEventListener('click', () => { opzioni.cameraFantasma = !opzioni.cameraFantasma; applicaOpzioni(); });
+document.getElementById('opzErba').addEventListener('click', () => { opzioni.erba = opzioni.erba === false; applicaOpzioni(); });
+document.getElementById('opzForo').addEventListener('click', () => { opzioni.foro = opzioni.foro === false; applicaOpzioni(); });
+document.getElementById('opzSagoma').addEventListener('click', () => { opzioni.sagoma = opzioni.sagoma === false; applicaOpzioni(); });
+document.getElementById('opzSagomaTutti').addEventListener('click', () => { opzioni.sagomaTutti = !opzioni.sagomaTutti; applicaOpzioni(); });
 document.getElementById('opzTouch').addEventListener('click', () => { opzioni.comandiTouch = !opzioni.comandiTouch; applicaOpzioni(); });
 document.getElementById('opzVol').addEventListener('input', (e) => { opzioni.vol = e.target.value / 100; applicaOpzioni(); });
 document.getElementById('opzMuto').addEventListener('click', () => { opzioni.muto = !opzioni.muto; applicaOpzioni(); });
@@ -3292,6 +3596,11 @@ document.getElementById('opzTilt').addEventListener('click', () => { opzioni.til
 document.getElementById('opzAutoQ').addEventListener('click', () => { opzioni.autoQ = !opzioni.autoQ; applicaOpzioni(); });
 document.getElementById('opzNitido').addEventListener('click', () => { opzioni.nitido = opzioni.nitido === false; applicaOpzioni(); });
 document.getElementById('opzSole').addEventListener('click', () => { opzioni.ombraSole = opzioni.ombraSole === false; applicaOpzioni(); });
+document.getElementById('opzTerm').addEventListener('click', () => { opzioni.soleTerm = opzioni.soleTerm === false; applicaOpzioni(); });
+// le ombre dinamiche pretendono la qualità in cima: accenderle con la qualità
+// auto attiva vorrebbe dire vederle sparire al primo calo, che si legge come un
+// bug. Quindi accenderle passa in manuale, esattamente come fa il tilt-shift.
+document.getElementById('opzDin').addEventListener('click', () => { opzioni.ombreDin = !opzioni.ombreDin; if (opzioni.ombreDin) opzioni.autoQ = false; applicaOpzioni(); });
 document.getElementById('opzPioggia').addEventListener('click', () => { meteo.manuale(); pioggia.imposta(!pioggia.attiva); aggiornaUIOpzioni(); });
 document.getElementById('opzMeteo').addEventListener('click', () => {
   opzioni.meteoAuto = !opzioni.meteoAuto;
@@ -3442,18 +3751,36 @@ function passo(adesso, frameXR) {
   const _vx = controller.seduto && controller.sguardo ? controller.sguardo.x : controller.vel.x;
   const _vz = controller.seduto && controller.sguardo ? controller.sguardo.z : controller.vel.z;
   gatto.aggiorna(dt, controller.pos, _vx, _vz, controller.aTerra || controller.inAcqua);
+  // le sagome copiano la posa DOPO l'animazione: prima sarebbero indietro di un
+  // frame, e su un gatto che salta un frame si vede
+  if (sagomaMia) sagomaMia.aggiorna();
+  if (opzioni.sagomaTutti) for (const g of gattiRemoti.values()) if (g.sagoma) g.sagoma.aggiorna();
+  aggiornaForo(dt);
+  erba.aggiorna(dt, mondo, controller.pos, ambienteAttuale());
+  foglie.aggiorna(dt, mondo, controller.pos, ambienteAttuale());
+  calpestaFoglie();
+  mesher.aggiornaMaterialeMondo();   // opaco quando il buco è chiuso: early-z
 
-  // ombre-cono alla Bedrock: player + gatto remoto + palle (proiettate nello shader)
+  // I CORPI CHE FANNO OMBRA: player + gatti in rete + palle. `y` è la BASE e `h`
+  // l'altezza — servono alle ombre DINAMICHE, che proiettano la scatola vera
+  // lungo il raggio del sole; ai coni alla Bedrock basta il raggio.
+  // Le SAGOME DEI MOBILI viaggiano nella stessa lista (vedi scatoleVicine).
   _ombrePg.length = 0;
-  _ombrePg.push({ x: controller.pos.x, y: controller.pos.y + 0.06, z: controller.pos.z, r: 0.42 });
-  for (const g of gattiRemoti.values()) _ombrePg.push({ x: g.pos.x, y: g.pos.y + 0.06, z: g.pos.z, r: 0.42 });
-  for (const e of ecs.ognuna('sfera', 'vista')) { const v = ecs.leggi(e, 'vista'), s = ecs.leggi(e, 'sfera'); _ombrePg.push({ x: v.mesh.position.x, y: v.mesh.position.y, z: v.mesh.position.z, r: s.raggio }); }
-  impostaOmbrePg(_ombrePg);
+  _ombrePg.push({ x: controller.pos.x, y: controller.pos.y + 0.06, z: controller.pos.z, r: 0.42, h: 0.95 });
+  for (const g of gattiRemoti.values()) _ombrePg.push({ x: g.pos.x, y: g.pos.y + 0.06, z: g.pos.z, r: 0.42, h: 0.95 });
+  // la palla: `y` resta il centro (è l'ancora del cono, non toccarla) e `y0` dice
+  // dove comincia la scatola — il cono e la scatola non misurano la stessa cosa
+  for (const e of ecs.ognuna('sfera', 'vista')) { const v = ecs.leggi(e, 'vista'), s = ecs.leggi(e, 'sfera'); _ombrePg.push({ x: v.mesh.position.x, y: v.mesh.position.y, z: v.mesh.position.z, r: s.raggio, y0: v.mesh.position.y - s.raggio, h: s.raggio * 2 }); }
+  impostaOmbre(scatoleVicine(), _ombrePg, _dinamicheOn);
   aggiornaTempo(adesso / 1000);          // orologio degli shader (acqua)
   impostaPioggia(pioggia.aggiorna(dt, adesso / 1000, rig.bersaglio));
 
   // meteo automatico (rovesci e schiarite; neve d'inverno)
   const avvisoMeteo = meteo.aggiorna(dt, stagioneCorrente() === 'inverno');
+  // LE RAFFICHE SEGUONO IL TEMPO CHE FA: col rovescio il prato si piega davvero,
+  // ed è la richiesta («voglio proprio vedere le raffiche quando c'è il meteo»).
+  erba.forzaMeteo = meteo.stato === 'rovescio' || pioggia.attiva ? 1 : 0;
+  foglie.forzaMeteo = erba.forzaMeteo;
   if (avvisoMeteo) { hud.toast(avvisoMeteo); aggiornaUIOpzioni(); }
 
   // transizione stagionale morbida: ritinta delle cime d'erba a 10Hz

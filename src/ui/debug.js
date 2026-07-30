@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=ms4didtp';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=ms4didtp';
-import { FISICA } from '../config.js?v=ms4didtp';
+import { CHUNK } from '../world/world.js?v=ms7x2mdx';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=ms7x2mdx';
+import { FISICA } from '../config.js?v=ms7x2mdx';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -72,6 +72,8 @@ const HTML = /* html */`
       <button data-az="open">⛰ Open world</button>
       <button data-az="mostra" title="Mondo piatto con TUTTI i blocchi separati, per provarli">🧪 Sala prove</button>
       <button data-az="collaudo" title="Sei zone per guardare luci e acqua: terrazze, grotta, tettoia, muro, cascata, piano nudo">🔦 Collaudo luci</button>
+      <button data-az="mondoGigante" title="Montagne alte e mezzo milione di blocchi: il banco delle PRESTAZIONI, con le ombre accese">⛰ Mondo gigante</button>
+      <button data-az="bancoOmbre" title="Sagome contro il sole, terrazze, ingombri e la MATRICE delle sorgenti: raggio, intensita, colore, con e senza ombra">🌗 Banco ombre</button>
       <button data-az="testLuci" title="Mondo di SOLA luce: pesante vs leggera, occlusione difficile, colori che si mescolano, fuochi fatui e il tetto delle 48 piastrelle">💡 Test delle luci</button>
       <button data-az="testMacchine" title="Banco dei MACCHINARI: tutti montati e già funzionanti, ognuno col contorno che gli serve (acqua per la pompa, catena allineata). Tocca per usarli, tieni premuto per le manopole">⚙️ Test macchinari</button>
       <label>seme <input data-el="seme" type="number" value="42" min="0" max="99999"></label>
@@ -261,6 +263,8 @@ export class MenuDebug {
     else if (az === 'mostra') this.azioni.salaProve();
     else if (az === 'collaudo') this.azioni.collaudo();
     else if (az === 'testLuci') this.azioni.testLuci();
+    else if (az === 'bancoOmbre') this.azioni.bancoOmbre();
+    else if (az === 'mondoGigante') this.azioni.mondoGigante();
     else if (az === 'testMacchine') this.azioni.testMacchine();
     else if (az === 'fog') this.azioni.fog(Number(b.getAttribute('data-f')));
     else if (az === 'ts') this.azioni.tiltShift(Number(b.getAttribute('data-q')));

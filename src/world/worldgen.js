@@ -149,6 +149,7 @@ export function generaOpenWorld(mondo, seme = 1, estensione = 64) {
   }
 
   const letto = scavaFiumi(mondo, H, seme, candidati, estensione);
+  // (segue in fondo al file: generaMondoGigante, il banco di carico)
   // niente arredo dentro il letto del fiume
   const libero = (c) => !letto.has(c[0] + '|' + c[2]);
   const fiume = [...letto].map((k) => {
@@ -250,3 +251,57 @@ export const ARREDO_INIZIALE = [
   { id: 'albero',  cella: [2, 4, -3], rot: 1 },
   { id: 'lampione', cella: [3, 2, 5], rot: 0 },
 ];
+
+/**
+ * MONDO GIGANTE — il banco di CARICO: montagne vere (fino a ~46 di quota, cioè
+ * sei volte l'open world), vallate, laghi alpini, neve in cresta. Serve a
+ * misurare le prestazioni su un mondo grande e ALTO, non a giocarci carino.
+ *
+ * L'ESTENSIONE DI DEFAULT NON È UN CASO: 90 dà una griglia luce di ~1.9M celle,
+ * appena SOTTO il paracadute di 2M oltre il quale le ombre voxel si spengono —
+ * quindi il carico si misura CON le ombre accese, che è il caso vero. Chi vuole
+ * vedere il paracadute scattare (e il pannello dirlo) passi 150.
+ *
+ * «Infinito» qui non esiste ancora, e va detto onesto: il mondo vive tutto in
+ * memoria e la griglia delle ombre è UNA texture 3D — l'infinito vero vuole lo
+ * streaming dei chunk e una griglia che segue la camera, ed è un lavoro a sé.
+ */
+export function generaMondoGigante(mondo, seme = 1, estensione = 90) {
+  mondo.svuota();
+  const alberi = [], lampioni = [];
+  const RILIEVO = 44;
+  for (let x = -estensione; x <= estensione; x++) {
+    for (let z = -estensione; z <= estensione; z++) {
+      // fbm a 4 ottave + una CRESTA (ridge: |2n−1| ribaltato) per le pareti ripide
+      const n =
+        0.45 * rumore(x * 0.016, z * 0.016, seme) +
+        0.28 * rumore(x * 0.042, z * 0.042, seme + 11) +
+        0.17 * rumore(x * 0.1, z * 0.1, seme + 29) +
+        0.10 * rumore(x * 0.21, z * 0.21, seme + 47);
+      const cresta = 1 - Math.abs(2 * rumore(x * 0.012, z * 0.012, seme + 83) - 1);
+      let h = Math.max(2, 1 + Math.round(
+        Math.pow(Math.max(0, n), 1.5) * RILIEVO * (0.45 + 0.75 * cresta * cresta)));
+      const bordo = Math.max(Math.abs(x), Math.abs(z));
+      const t = Math.min(1, Math.max(0, (estensione - 2 - bordo) / 10));
+      const s = t * t * (3 - 2 * t);
+      h = Math.round(h * s + (LIVELLO_ACQUA + 1) * (1 - s));
+      const spiaggia = h <= LIVELLO_ACQUA + 1;
+      for (let y = 0; y < h; y++) {
+        const cima = y === h - 1;
+        // per quota: neve in cresta, pietra sui fianchi alti, erba in valle
+        const tipo = cima
+          ? (h >= 34 ? 'neve' : h >= 24 ? 'pietra' : spiaggia ? 'sabbia' : 'erba')
+          : (y < h - 3 ? 'roccia' : h >= 24 ? 'pietra' : 'terra');
+        mondo.metti(x, y, z, tipo, true);
+      }
+      if (h <= LIVELLO_ACQUA) {
+        for (let y = h; y <= LIVELLO_ACQUA; y++) mondo.metti(x, y, z, 'acqua', true);
+      } else if (!spiaggia && h < 24) {
+        const r = hash2(x * 3 + 1, z * 3 + 7, seme + 101);
+        if (r > 0.992 && alberi.length < 160) alberi.push([x, h, z]);
+        else if (r < 0.003 && lampioni.length < 20) lampioni.push([x, h, z]);
+      }
+    }
+  }
+  return { alberi, lampioni };
+}

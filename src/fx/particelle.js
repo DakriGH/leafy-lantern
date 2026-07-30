@@ -5,7 +5,7 @@
 // Un solo THREE.Points, buffer riciclato: costo CPU e GPU irrisorio.
 
 import * as THREE from 'three';
-import { ambienteAttuale } from './materials.js?v=ms4didtp';
+import { ambienteAttuale } from './materials.js?v=ms7x2mdx';
 
 const MAX = 180;
 
@@ -56,8 +56,12 @@ export class Particelle {
         varying vec3 vCol;
         uniform vec3 uAmbiente;
         void main() {
+          // DISCO NETTO, non batuffolo sfumato. La sfumatura andava da 0.5 a
+          // 0.32 — mezzo raggio di sfocatura — e in mezzo a un mondo dai bordi
+          // netti le particelle erano l'unica cosa molle. Il velo resta largo
+          // quanto basta a non far vedere la scala dei pixel.
           vec2 d = gl_PointCoord - 0.5;
-          float m = smoothstep(0.5, 0.32, length(d));
+          float m = smoothstep(0.5, 0.44, length(d));
           gl_FragColor = vec4(vCol * uAmbiente, vAlfa * m);
         }`,
     });

@@ -142,11 +142,15 @@ export const SCENE = [
     nome: 'ombra del sole (cel shading)',
     perche: 'il cammino verso il sole per OGNI pixel: è l\'unica ombra che tocca tutto lo schermo, non solo una pozza',
     condizioni: { ora: 0.35, pioggia: 0, luci: 0, ombraCielo: true },
-    // sole basso di metà mattina + roba che sporge. GLI OSTACOLI SONO BLOCCHI, e
-    // non è un dettaglio: l'ombra del cielo si cammina nella griglia dei solidi,
-    // che contiene i BLOCCHI e non i mobili. Un bosco di alberi (che sono furni
-    // FBX) non proietterebbe niente e la scena misurerebbe zero — c'è cascato
-    // pure il primo tentativo di questa scena.
+    // Sole basso di metà mattina + roba che sporge. GLI OSTACOLI SONO BLOCCHI
+    // apposta: qui si vuole misurare il CAMMINO NELLA GRIGLIA da solo, pulito.
+    // (Storicamente questa scena era nata sbagliata con un bosco di alberi,
+    // quando i furni non entravano in griglia e misurava zero. Adesso ci
+    // entrano — vedi ombreFurni — e infatti la scena «bosco fitto» misura anche
+    // quelli; ma tenerle separate è il punto: una passata, una causa.)
+    // NOTA: le ombre DINAMICHE (corpi in movimento) non sono in nessuna scena
+    // del banco. Il ciclo di gioco riscrive le loro uniform a ogni frame,
+    // quindi una scena che le inventasse misurerebbe una scena che non esiste.
     costruisci(mondo) {
       piano(mondo, 'erba'); collina(mondo, -10, -10, 8);
       for (let x = -16; x <= 16; x += 8) {

@@ -1,8 +1,34 @@
 // A* sulle colonne calpestabili — SPEC-TECNICA.md §4.
 // Salite di +1 (salto automatico), discese fino a −4, diagonali senza tagli d'angolo.
+//
+// DUE COSE LO RENDONO VELOCE, e nascono dalla stessa misura: un clic a ottanta
+// blocchi costava 69 ms, cioè quattro frame persi in un colpo, e un clic su una
+// meta IRRAGGIUNGIBILE bruciava tutto il budget per poi non muovere il gatto.
+//
+//   1. LE CHIAVI SONO NUMERI. Ogni nodo visitato costruiva una stringa "x,y,z" e
+//      la cercava in due Map diverse: la costruzione della stringa e l'hash di
+//      una stringa sono il costo dominante di un A* su griglia. Impacchettando
+//      le tre coordinate in UN intero (x e z 12 bit, y 8) le Map diventano
+//      numeriche, e i tre dizionari si riducono a uno solo di record.
+//   2. NON SI TORNA MAI A MANI VUOTE. Se la meta non si raggiunge (o finisce il
+//      budget) si rende il percorso fino al nodo esplorato PIÙ VICINO alla meta.
+//      È quello che fanno i giochi seri: clicchi di là dal burrone e il
+//      personaggio ci si avvicina invece di ignorarti. Ed è anche ciò che
+//      permette di tenere il budget BASSO senza che si veda: prima l'unica
+//      difesa contro l'attesa era sperare che la meta fosse vicina.
+//
+// LE STRUTTURE SI RIUSANO fra una chiamata e l'altra: un percorso si cerca a
+// ogni clic e la spazzatura di tremila record a colpo si sente. Non è
+// rientrante, e va bene: il pathfinding gira in un thread solo.
 
 const CARDINALI = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const DIAGONALI = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+
+// impacchettamento: x,z in [−2048, 2047] · y in [−64, 191]. Resta sotto 2^32,
+// cioè dentro gli interi esatti del double: una Map numerica è molto più
+// veloce di una a stringhe, ed è tutto il trucco.
+const OFF_XZ = 2048, OFF_Y = 64;
+const chiave = (x, y, z) => ((x + OFF_XZ) * 4096 + (z + OFF_XZ)) * 256 + (y + OFF_Y);
 
 class Heap {
   constructor() { this.v = []; }
@@ -34,17 +60,24 @@ class Heap {
     return top;
   }
   get vuoto() { return this.v.length === 0; }
+  svuota() { this.v.length = 0; }
 }
-
-const chiave = (x, y, z) => x + ',' + y + ',' + z;
 
 function euristica(x, y, z, gx, gy, gz) {
   const dx = Math.abs(x - gx), dz = Math.abs(z - gz);
   return Math.max(dx, dz) + 0.41 * Math.min(dx, dz) + 0.6 * Math.abs(y - gy);
 }
 
-/** Percorso da `da` ad `a` (celle [x,y,z] dei piedi). Ritorna lista di celle o null. */
-export function trovaPercorso(mondo, da, a, maxNodi = 6000) {
+const _aperti = new Heap();
+const _nodi = new Map();     // chiave → { g, h, da, x, y, z }
+
+/**
+ * Percorso da `da` ad `a` (celle [x,y,z] dei piedi). Ritorna la lista di celle,
+ * oppure null solo se non si è potuto fare NEMMENO un passo.
+ * @param parziale se true (default) e la meta non si raggiunge, rende il
+ *   percorso fino al punto esplorato più vicino alla meta.
+ */
+export function trovaPercorso(mondo, da, a, maxNodi = 2500, parziale = true) {
   let [gx, gy, gz] = a;
   if (!mondo.calpestabile(gx, gy, gz)) {
     const y2 = mondo.appoggioInColonna(gx, gz, gy + 2, 12);
@@ -54,42 +87,48 @@ export function trovaPercorso(mondo, da, a, maxNodi = 6000) {
   const [sx, sy, sz] = da;
   if (sx === gx && sy === gy && sz === gz) return [];
 
-  const aperti = new Heap();
-  const arrivo = new Map();   // chiave → {da: chiave|null, cella}
-  const costoG = new Map();
+  _aperti.svuota();
+  _nodi.clear();
 
   const kStart = chiave(sx, sy, sz);
-  costoG.set(kStart, 0);
-  arrivo.set(kStart, { da: null, cella: [sx, sy, sz] });
-  aperti.push({ f: euristica(sx, sy, sz, gx, gy, gz), g: 0, x: sx, y: sy, z: sz });
+  const hStart = euristica(sx, sy, sz, gx, gy, gz);
+  _nodi.set(kStart, { g: 0, h: hStart, da: 0, x: sx, y: sy, z: sz });
+  _aperti.push({ f: hStart, g: 0, k: kStart, x: sx, y: sy, z: sz });
 
+  // il miglior ripiego: il nodo che si è avvicinato di più alla meta
+  let miglior = kStart, migliorH = hStart;
   let esplorati = 0;
-  while (!aperti.vuoto && esplorati < maxNodi) {
-    const n = aperti.pop();
-    const kN = chiave(n.x, n.y, n.z);
-    if (n.g > (costoG.get(kN) ?? Infinity)) continue;
+
+  const ricostruisci = (k) => {
+    const percorso = [];
+    while (k) {
+      const n = _nodi.get(k);
+      percorso.push([n.x, n.y, n.z]);
+      k = n.da;
+    }
+    percorso.reverse();
+    percorso.shift();               // la cella di partenza non serve
+    return percorso;
+  };
+
+  while (!_aperti.vuoto && esplorati < maxNodi) {
+    const n = _aperti.pop();
+    const rec = _nodi.get(n.k);
+    if (n.g > rec.g) continue;      // voce vecchia rimasta nell'heap
     esplorati++;
 
-    if (n.x === gx && n.y === gy && n.z === gz) {
-      const percorso = [];
-      let k = kN;
-      while (k) {
-        const nodo = arrivo.get(k);
-        percorso.push(nodo.cella);
-        k = nodo.da;
-      }
-      percorso.reverse();
-      percorso.shift(); // la cella di partenza non serve
-      return percorso;
-    }
+    if (n.x === gx && n.y === gy && n.z === gz) return ricostruisci(n.k);
+    if (rec.h < migliorH) { migliorH = rec.h; miglior = n.k; }
 
     const prova = (nx, ny, nz, costo) => {
       const k = chiave(nx, ny, nz);
       const g = n.g + costo;
-      if (g >= (costoG.get(k) ?? Infinity)) return;
-      costoG.set(k, g);
-      arrivo.set(k, { da: kN, cella: [nx, ny, nz] });
-      aperti.push({ f: g + euristica(nx, ny, nz, gx, gy, gz), g, x: nx, y: ny, z: nz });
+      const vecchio = _nodi.get(k);
+      if (vecchio !== undefined && g >= vecchio.g) return;
+      const h = euristica(nx, ny, nz, gx, gy, gz);
+      if (vecchio === undefined) _nodi.set(k, { g, h, da: n.k, x: nx, y: ny, z: nz });
+      else { vecchio.g = g; vecchio.da = n.k; }
+      _aperti.push({ f: g + h, g, k, x: nx, y: ny, z: nz });
     };
 
     for (const [dx, dz] of CARDINALI) {
@@ -120,5 +159,8 @@ export function trovaPercorso(mondo, da, a, maxNodi = 6000) {
       prova(nx, n.y, nz, 1.41);
     }
   }
+
+  // meta irraggiungibile (o budget finito): ci si avvicina il più possibile
+  if (parziale && miglior !== kStart) return ricostruisci(miglior);
   return null;
 }

@@ -120,16 +120,24 @@ export const CATEGORIE_BLOCCHI = [
 
 export const CATEGORIA_OFFICINA = { id: 'officina', nome: 'Officina', emoji: '🛠️', blocchi: [] };
 CATEGORIE_BLOCCHI.push(CATEGORIA_OFFICINA);
+// I CAMPIONI dei mondi di prova (la matrice del Banco ombre) stanno in una
+// scheda TUTTA LORO: registrarli nell'Officina metteva «Raggio 3», «Lastra di
+// prova» eccetera in mezzo ai blocchi creati dall'utente, in OGNI mondo, appena
+// si apriva il banco una volta — «la creativa è rotta», e in effetti lo era.
+export const CATEGORIA_PROVE = { id: 'prove', nome: 'Prove', emoji: '🌗', blocchi: [] };
+CATEGORIE_BLOCCHI.push(CATEGORIA_PROVE);
 
-export function registraBlocco(id, def) {
+export function registraBlocco(id, def, categoria = CATEGORIA_OFFICINA) {
   BLOCCHI[id] = def;
-  if (!CATEGORIA_OFFICINA.blocchi.includes(id)) CATEGORIA_OFFICINA.blocchi.push(id);
+  if (!categoria.blocchi.includes(id)) categoria.blocchi.push(id);
 }
 
 export function rimuoviBlocco(id) {
   delete BLOCCHI[id];
-  const i = CATEGORIA_OFFICINA.blocchi.indexOf(id);
-  if (i >= 0) CATEGORIA_OFFICINA.blocchi.splice(i, 1);
+  for (const cat of [CATEGORIA_OFFICINA, CATEGORIA_PROVE]) {
+    const i = cat.blocchi.indexOf(id);
+    if (i >= 0) cat.blocchi.splice(i, 1);
+  }
 }
 
 // un blocco custom cancellato può restare nei mondi salvati: si mostra come

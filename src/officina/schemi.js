@@ -6,9 +6,9 @@
 // Tipi di campo gestiti dall'editor: testo · colore · scelta · numero ·
 // interruttore · facce (i 6 lati dipinti singolarmente).
 
-import { registraBlocco } from '../world/blocks.js?v=ms4didtp';
-import { ATTREZZI } from '../gioco/inventario.js?v=ms4didtp';
-import { MOTIVI } from '../world/motivi.js?v=ms4didtp';
+import { registraBlocco } from '../world/blocks.js?v=ms7x2mdx';
+import { ATTREZZI } from '../gioco/inventario.js?v=ms7x2mdx';
+import { MOTIVI } from '../world/motivi.js?v=ms7x2mdx';
 
 export const hexInt = (h) => parseInt(String(h).slice(1), 16);
 export const intHex = (n) => '#' + (n || 0).toString(16).padStart(6, '0');
@@ -60,6 +60,17 @@ export const SCHEMI = {
       {
         id: 'solido', tipo: 'interruttore', etichetta: 'Ci si può camminare sopra', def: true,
         aiuto: 'Spegnilo per erbe e fiori che si attraversano. Le forme non piene non nascondono mai le facce dei vicini.',
+      },
+
+      { sezione: '🌒 Ombra e trasparenza' },
+      {
+        id: 'ombra', tipo: 'scelta', etichetta: 'Che ombra fa', def: 'piena',
+        opzioni: [
+          ['piena', '🧱 Piena (ferma sole e lampade)'],
+          ['soloLampade', '🌫 Solo alle lampade (il sole ci passa)'],
+          ['vetro', '🫧 Nessuna: la luce lo attraversa tutta'],
+        ],
+        aiuto: 'Riguarda la LUCE, non l’aspetto: «nessuna» vuol dire che né il sole né i lampioni si fermano lì, quindi il blocco non proietta ombra e non spegne una stanza — ma resta pieno da vedere (per farlo anche trasparente serve un materiale, che qui ancora non c’è). «Solo alle lampade» è per un blocco che spegne la luce artificiale senza buttare un rettangolo scuro sul prato: è la stessa regola con cui il terreno a terrazze ha smesso di seghettarsi.',
       },
 
       { sezione: '🌦 Reagisce all’ambiente' },
@@ -137,6 +148,9 @@ export function fabbricaBlocco(d) {
     cima: hexInt(d.cima), lato: hexInt(d.lato), fondo: hexInt(d.fondo),
     solido: d.solido !== false, nav: 10, fam: d.fam, salute: d.salute,
   };
+  // ombra: 'piena' non scrive niente (è il default del motore)
+  if (d.ombra === 'vetro') def.vetro = true;
+  else if (d.ombra === 'soloLampade') def.ombraSole = false;
   const facce = facceDa(d);
   if (facce) def.facce = facce;
   if (d.forma === 'cappello') def.cappello = true;

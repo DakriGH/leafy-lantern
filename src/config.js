@@ -62,7 +62,10 @@ export const ACQUA = {
 export const NET = { posaMs: 100 };   // presenza P2P a 10 Hz
 
 export const NUVOLE = {
-  numero: 7,
+  // erano 7 per non moltiplicare le draw call: ogni scatola era una Mesh. Ora
+  // tutte le nuvole stanno in UNA geometria sola (fx/nuvole.js), quindi il
+  // numero non si paga più a chiamate ma solo a triangoli — e sono 80 a nuvola.
+  numero: 10,
   ombra: 0.28,       // quanto scurisce la texture sotto la nuvola
   quotaMin: 15, quotaMax: 21,
   raggio: 55,        // oltre questo drift, la nuvola rientra dall'altro lato

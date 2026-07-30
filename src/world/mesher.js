@@ -9,13 +9,13 @@
 // Il mondo è a chunk: si ricostruiscono solo i chunk sporchi.
 
 import * as THREE from 'three';
-import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=ms4didtp';
-import { paletteBlocco, coloreFaccia } from './stagioni.js?v=ms4didtp';
-import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=ms4didtp';
-import { tintaPalette } from './motivi.js?v=ms4didtp';
-import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=ms4didtp';
-import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel } from '../fx/materials.js?v=ms4didtp';
-import { CHUNK } from './world.js?v=ms4didtp';
+import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=ms7x2mdx';
+import { paletteBlocco, coloreFaccia } from './stagioni.js?v=ms7x2mdx';
+import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=ms7x2mdx';
+import { tintaPalette } from './motivi.js?v=ms7x2mdx';
+import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=ms7x2mdx';
+import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel, mondoVelato } from '../fx/materials.js?v=ms7x2mdx';
+import { CHUNK } from './world.js?v=ms7x2mdx';
 
 const U = 1 / 16;                 // 1 pixel in unità mondo
 const COPPIE_SMUSSO = [[0, 1], [0, 2], [1, 2]];
@@ -599,6 +599,7 @@ export class Mesher {
     this.statistiche = { ultimaMs: 0, chunkAttivi: 0, occMs: 0, occCelle: 0, occLocali: 0, occTroppoGrande: 0, voxTroppoLarga: 0 };
     this.luce = null;              // GrigliaLuce (i muri), rifatta prima dei chunk
     this.occlusioneAttiva = true;  // interruttore delle Impostazioni
+    this._velato = false;          // il mondo sta usando il materiale dell'occhio di bue?
     // QUI STAVA MEZZO SISTEMA, e vale la pena dire cosa se n'è andato con le
     // mappe d'ombra cotte: l'atlante delle piastrelle, la mappa cella→piastrella,
     // il contatore delle lampade rimaste senza, l'elenco delle sorgenti che NON
@@ -636,21 +637,38 @@ export class Mesher {
     let minX = Infinity, minY = Infinity, minZ = Infinity;
     let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
     const solidi = [];
+    // blocchi che fermano le lampade ma NON il sole (Officina: «solo alle
+    // lampade»). Elenco a parte perche' sono rari: cosi' il ciclo caldo resta
+    // quello di prima e questi si applicano dopo, in una passata sua.
+    const senzaSole = [];
     mondo.perOgni((x, y, z, tipo) => {
       if (x < minX) minX = x; if (x > maxX) maxX = x;
       if (y < minY) minY = y; if (y > maxY) maxY = y;
       if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
       const d = defDi(tipo);
       // Stessa regola del culling: acqua e forme non piene NON fermano la luce
-      // (una pianta o una lastra non fanno ombra). I furni nemmeno: non sono
-      // blocchi, e un tavolo che proietta un quadrato nero sarebbe peggio.
-      if (!d.acqua && !FORME_VUOTE.has(d.forma)) solidi.push(x, y, z);
+      // (una pianta o una lastra non fanno ombra). `vetro` (Officina) esce di
+      // qui per la stessa porta: non ferma niente, quindi non entra in griglia.
+      if (!d.acqua && !d.vetro && !FORME_VUOTE.has(d.forma)) {
+        solidi.push(x, y, z);
+        if (d.ombraSole === false) senzaSole.push(x, y, z);
+      }
       // LE LAMPADE NON SI RACCOLGONO PIÙ, ed è la semplificazione più grossa di
       // tutta la riscrittura: la griglia serve a dire dove sono i MURI, e i muri
       // non sanno niente di chi li illumina. Prima qui si metteva da parte ogni
       // sorgente pesante per poterle cuocere una mappa a testa.
     });
     if (!isFinite(minX)) { this._spegniOmbre(); return; }   // mondo vuoto
+
+    // GLI INGOMBRI DEI FURNI ALLARGANO LA SCATOLA, e non è pignoleria: la chioma
+    // di un albero piantato sul blocco più alto del mondo sta SOPRA il mondo, e
+    // fuori dalla scatola marcaOmbra() scarta in silenzio — cioè l'albero più
+    // visibile del diorama sarebbe l'unico senza ombra.
+    for (const c of mondo.ombreFurni.values()) {
+      if (c.x < minX) minX = c.x; if (c.x > maxX) maxX = c.x;
+      if (c.y < minY) minY = c.y; if (c.y > maxY) maxY = c.y;
+      if (c.z < minZ) minZ = c.z; if (c.z > maxZ) maxZ = c.z;
+    }
 
     const scatola = scatolaPerMondo(minX, minY, minZ, maxX, maxY, maxZ);
     const celle = scatola.larghezza * scatola.altezza * scatola.profondita;
@@ -673,6 +691,23 @@ export class Mesher {
     // una volta, e la traversata legge un indice che si porta dietro (vedi
     // distanzaSolido in luce.js).
     for (let i = 0; i < solidi.length; i += 3) g.marcaSolido(solidi[i], solidi[i + 1], solidi[i + 2]);
+    // QUI C'ERA LA REGOLA DELLA «BUCCIA»: un blocco con aria sopra e solido
+    // sotto non proiettava il sole, per togliere le linguette d'ombra dei
+    // gradini da un blocco. TOLTA DOPO UN GIRO SOLO, e la lezione merita di
+    // restare scritta: curava un difetto vero ma ne apriva uno peggiore, cioe'
+    // che QUELLO CHE COSTRUISCE IL GIOCATORE smetteva di fare ombra. Una colonna
+    // da due blocchi e' fatta di un blocco «interno» e uno di buccia: con quella
+    // regola proiettava mezza cella, cioe' niente. Chi posa un cubo e non vede
+    // l'ombra non pensa «bella scelta stilistica», pensa che sia rotto — e aveva
+    // ragione. La regola resta disponibile per chi la CHIEDE (Officina, «solo
+    // alle lampade»), che e' un'altra cosa: li' e' una decisione dell'autore.
+    // Il seghettato delle terrazze si cura dove nasce davvero: sulla FORZA del
+    // chiaroscuro (vedi uSoleTermForza in fx/materials.js).
+    //
+    // chi l'ha dichiarato nell'Officina non proietta il sole, comunque sia messo
+    for (let i = 0; i < senzaSole.length; i += 3) g.marcaSolido(senzaSole[i], senzaSole[i + 1], senzaSole[i + 2], true);
+    // DOPO i blocchi: marcaOmbra non declassa un muro, quindi l'ordine conta
+    for (const c of mondo.ombreFurni.values()) g.marcaOmbra(c.x, c.y, c.z, c.op > 0);
     // LA GPU HA UN TETTO SUL LATO di una texture 3D (il minimo garantito da
     // WebGL2 e' 256; le schede vere danno 2048). E' l'unico limite rimasto di
     // tutto il sistema, e a differenza del tetto di 48 lampade non lo si
@@ -689,7 +724,7 @@ export class Mesher {
     const lato = latoMassimoVoxel();
     const piu = Math.max(scatola.larghezza, scatola.altezza, scatola.profondita);
     if (piu > lato) { this.statistiche.voxTroppoLarga = piu; return false; }
-    impostaVoxel(g.solidi, scatola);
+    impostaVoxel(g.solidi, scatola, g.cimaY);
     return true;
   }
 
@@ -794,6 +829,22 @@ export class Mesher {
       }
     }
     aggiornaCielo(colonne);
+  }
+
+  /**
+   * IL MONDO OPACO O VELATO, deciso una volta per frame. L'occhio di bue ha
+   * bisogno di un materiale trasparente, ma tenerlo trasparente SEMPRE costa
+   * l'early-z su tutti i chunk — e questo gioco è fill-rate bound: vuol dire
+   * ridisegnare più volte gli stessi pixel per niente. Qui si scambia il
+   * riferimento (una scrittura, non una ricompilazione) solo quando il velo si
+   * apre o si chiude davvero.
+   */
+  aggiornaMaterialeMondo() {
+    const velato = mondoVelato();
+    if (velato === this._velato) return;
+    this._velato = velato;
+    const m = materialeMondo();
+    for (const e of this.chunks.values()) e.solidi.material = m;
   }
 
   _chunk(mondo, kc, soloAcqua = false) {
@@ -904,14 +955,37 @@ export class Mesher {
     const t0 = performance.now();
     const visto = new Set(), cambi = [];
     const c = mondo.cambiate;
+    const defIn = (x, y, z) => {
+      const t = mondo.tipo(x, y, z);
+      return t ? defDi(t) : null;
+    };
+    const solidoIn = (x, y, z) => {
+      const d = defIn(x, y, z);
+      return !!(d && !d.acqua && !d.vetro && !FORME_VUOTE.has(d.forma));
+    };
+    const esamina = (x, y, z) => {
+      const k = x + ',' + y + ',' + z;
+      if (visto.has(k)) return;
+      visto.add(k);
+      const solido = solidoIn(x, y, z);
+      const d = solido ? defIn(x, y, z) : null;
+      cambi.push({
+        x, y, z,
+        solido,
+        // pelle = ferma le lampade ma non proietta il sole. SOLO su richiesta
+        // dell'autore del blocco (Officina, «solo alle lampade»): la vecchia
+        // regola automatica sulla buccia del terreno e' stata tolta, vedi il
+        // commento lungo nella ricostruzione piena.
+        pelle: solido && !!(d && d.ombraSole === false),
+        ombra: mondo.ombraFurniIn(x, y, z),
+      });
+    };
     for (let i = 0; i < c.length; i += 3) {
       const x = c[i], y = c[i + 1], z = c[i + 2];
-      const k = x + ',' + y + ',' + z;
-      if (visto.has(k)) continue;
-      visto.add(k);
-      const t = mondo.tipo(x, y, z);
-      const d = t ? defDi(t) : null;
-      cambi.push({ x, y, z, solido: !!(d && !d.acqua && !FORME_VUOTE.has(d.forma)) });
+      // UNA CELLA, UNA VOCE: la classe di un blocco dipende solo da se' stesso.
+      // (Per un giro ha dipeso anche dai vicini in verticale — la regola della
+      // buccia — e allora qui se ne esaminavano tre per ogni cambio.)
+      esamina(x, y, z);
     }
     mondo.scordaCambi();
 
@@ -920,7 +994,7 @@ export class Mesher {
     // perche' e' l'unico modo che three offre di aggiornare una Data3DTexture, e
     // costa quanto la griglia (52 KB sul diorama, 291 KB sul mondo di test).
     // Si paga a blocco POSATO, non per frame — camminare non passa di qui.
-    impostaVoxel(this.luce.solidi, this.luce.scatola());
+    impostaVoxel(this.luce.solidi, this.luce.scatola(), this.luce.cimaY);
     this.statistiche.occMs = performance.now() - t0;
     this.statistiche.occLocali = cambi.length;
   }

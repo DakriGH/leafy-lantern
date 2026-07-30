@@ -1,80 +1,292 @@
-// Nuvole toon: cluster di scatole bianche in drift lento sopra il diorama.
-// Le loro OMBRE sono l'unione dei RETTANGOLI delle scatole proiettati a terra
-// (impostaOmbreNuvole): la forma dell'ombra è esattamente quella della nuvola
-// — boxy, niente cerchi. Calcolo puramente analitico: nessun render-target,
-// nessuno stato del renderer da sporcare. La heightmap del cielo (nel materiale)
-// limita l'ombra alle superfici. Di notte le nuvole si tingono con l'ambiente.
+// Nuvole CEL SHADING, e NON di scatole. La versione a cubi è stata bocciata per
+// una ragione di stile precisa: il mondo è di voxel, il cielo no. Nuvole,
+// particellari e roba d'ambiente devono avere una forma loro — tonda, disegnata
+// — se no il gioco sembra fatto di un materiale solo.
+//
+// COME SONO FATTE. Ogni nuvola è UN quadrato che guarda la camera, e la forma
+// vera si ritaglia nel fragment shader: l'unione morbida di sei cerchi (una
+// distanza con segno) tagliata di netto sotto. Da qui vengono le tre cose che
+// una nuvola a cubi non può avere:
+//   · il PROFILO è tondo e continuo a qualsiasi distanza — non ha spigoli da
+//     mostrare, perché non ci sono facce;
+//   · il FONDO è piatto, come nei cumuli veri, ma è un taglio netto sulla
+//     silhouette, non una fila di scatole allineate;
+//   · costa DUE TRIANGOLI a nuvola. Tutte insieme sono un draw call e venti
+//     triangoli: il cielo intero pesa meno di un albero.
+//
+// LA LUCE È CEL: tre toni piatti scelti da quanto si è dalla parte dell'astro,
+// più due bordi netti — la CRESTA accesa sul lato del sole e l'ORLO in ombra
+// sotto. I bordi si misurano sulla stessa distanza con segno che ritaglia la
+// nuvola, quindi seguono il profilo tondo senza costare niente in più.
+//
+// Le OMBRE a terra sono l'unione degli stessi cerchi (impostaOmbreNuvole), con
+// una penombra a un gradino: la sagoma dell'ombra è la sagoma della nuvola.
+// Calcolo analitico, nessun render-target. La heightmap del cielo limita l'ombra
+// alle superfici. Di notte le nuvole si tingono con l'ambiente.
 
 import * as THREE from 'three';
-import { NUVOLE } from '../config.js?v=ms4didtp';
-import { impostaOmbreNuvole, ambienteAttuale } from './materials.js?v=ms4didtp';
+import { NUVOLE } from '../config.js?v=ms7x2mdx';
+import { impostaOmbreNuvole, ambienteAttuale, sbiecoAstro, direzioneAstro } from './materials.js?v=ms7x2mdx';
 
 function hash(n) {
   const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
   return x - Math.floor(x);
 }
 
+// I BATUFFOLI, in coordinate della nuvola: x e y in −1..1, r = raggio.
+// UNA SOLA FONTE DI VERITÀ: da qui si genera il codice GLSL che ritaglia la
+// sagoma E si calcolano i cerchi dell'ombra a terra. Prima la stessa forma era
+// scritta due volte — a mano — ed è esattamente il posto dove le due copie
+// divergono senza che nessuno se ne accorga.
+// I RAGGI SONO PICCOLI RISPETTO ALLA DISTANZA fra i centri, ed è la regola che
+// decide tutto: con cerchi larghi e centri vicini l'unione è una cupola sola —
+// una collina, non una nuvola. Qui i tre di sopra stanno a quote diverse e
+// distanti quanto il proprio raggio, così restano tre GOBBE riconoscibili.
+const PUFF = [
+  { x: -0.52, y: -0.14, r: 0.26 },
+  { x: -0.26, y: 0.08, r: 0.34 },
+  { x: 0.02, y: 0.24, r: 0.28 },   // la gobba alta, spostata dal centro
+  { x: 0.30, y: 0.04, r: 0.32 },
+  { x: 0.58, y: -0.14, r: 0.24 },
+  { x: 0.10, y: -0.16, r: 0.32 },  // il corpo, sotto le gobbe
+];
+// IL TAGLIO DEVE PASSARE SOTTO A TUTTI, non solo a qualcuno: con la riga più in
+// basso i batuffoli esterni la sfioravano appena e il fondo veniva smerlato —
+// tondo di qua, dritto di là. Qui ogni cerchio ci arriva sotto, quindi la base è
+// una riga sola da un capo all'altro.
+const FONDO = -0.24;
+// QUANTO SI FONDONO. A 0.16 i sei batuffoli diventavano una cupola sola; qui
+// restano attaccati ma distinti. Sotto questa soglia ricompaiono le strozzature
+// a clessidra fra un cerchio e l'altro.
+const FUSIONE = 0.06;
+
+// QUANTO POSSONO GONFIARSI E SCHIACCIARSI le nuvole. Non sono numeri sparsi nel
+// costruttore perché sono un VINCOLO: la sagoma più gonfia e più schiacciata
+// deve ancora stare dentro il cartello, se no il quadrato la taglia dritta e la
+// riga si vede. Il test LIMITI lo verifica su questi valori.
+export const LIMITI = {
+  rMin: 0.88, rDelta: 0.30,          // raggio dei batuffoli: 0.88 … 1.18
+  schiaccioMin: 0.80, schiaccioDelta: 0.40,   // schiacciamento: 0.80 … 1.20
+  fusione: FUSIONE,
+};
+
+const GLSL_SAGOMA = PUFF.map(p =>
+  `    d = smin(d, length(uv - vec2(${p.x.toFixed(3)}, ${p.y.toFixed(3)})) - ${p.r.toFixed(3)} * f.x, ${FUSIONE});`
+).join('\n');
+
+const VERT = /* glsl */`
+  attribute vec3 iOrig;     // origine: x di partenza, quota, z
+  attribute float iVel;     // deriva (unità/s)
+  attribute vec2 iDim;      // larghezza e altezza in unità di mondo
+  attribute vec3 iForma;    // (raggio dei batuffoli, schiacciamento, riserva)
+  uniform float uTempo;
+  uniform float uRaggio;
+  uniform vec3 uSole;
+  varying vec2 vUv;
+  varying vec2 vLuce;
+  varying vec3 vForma;
+  #include <fog_pars_vertex>
+  void main() {
+    // L'AVVOLGIMENTO SI CALCOLA SULL'ORIGINE della nuvola: tutti e quattro i
+    // vertici del quadrato condividono iOrig, quindi rientrano INSIEME. Col mod
+    // applicato al vertice la nuvola si spezzerebbe mentre attraversa il bordo.
+    float g = uRaggio * 2.0;
+    float x = mod(iOrig.x + uTempo * iVel + uRaggio, g) - uRaggio;
+    vec3 centro = vec3(x, iOrig.y, iOrig.z);
+
+    // CARTELLO CHE GUARDA LA CAMERA. Gli assi si leggono dalla matrice di vista:
+    // la nuvola non ha un davanti, quindi non c'è niente da ruotare.
+    vec3 destra = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+    vec3 su     = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+    vec3 p = centro + destra * (position.x * iDim.x) + su * (position.y * iDim.y);
+
+    vUv = position.xy * 2.0;                   // −1..1 dentro il quadrato
+    // la direzione dell'astro PROIETTATA sul cartello: è lì che il cel shading
+    // deve tagliare, ed è la stessa per tutte le nuvole (stessa camera)
+    vec2 l = vec2(dot(uSole, destra), dot(uSole, su));
+    float ll = length(l);
+    vLuce = ll > 1e-4 ? l / ll : vec2(0.0, 1.0);
+    vForma = iForma;
+
+    vec4 mvPosition = viewMatrix * vec4(p, 1.0);
+    gl_Position = projectionMatrix * mvPosition;
+    #include <fog_vertex>
+  }
+`;
+
+const FRAG = /* glsl */`
+  precision mediump float;
+  varying vec2 vUv;
+  varying vec2 vLuce;
+  varying vec3 vForma;
+  uniform vec3 uAmb;
+  uniform float uOpacita;
+  #include <fog_pars_fragment>
+
+  // unione MORBIDA: due cerchi che si toccano diventano un batuffolo solo,
+  // senza la strozzatura che lascia l'unione secca
+  float smin(float a, float b, float k) {
+    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+    return mix(b, a, h) - k * h * (1.0 - h);
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec3 f = vForma;
+    uv.y /= max(f.y, 0.05);                    // schiacciamento della nuvola
+    float d = 1e3;
+${GLSL_SAGOMA}
+    // FONDO PIATTO: un cumulo poggia su un piano. È un taglio netto, non una
+    // fusione — la riga dritta sotto è metà del carattere di una nuvola.
+    d = max(d, ${FONDO.toFixed(3)} - uv.y);
+    if (d > 0.0) discard;                      // fuori sagoma: profilo tondo e netto
+
+    // ---- CEL: tre toni piatti e due bordi ------------------------------------
+    // s dice quanto si sta dalla parte dell'astro dentro la sagoma. I toni sono
+    // TUTTI chiari di proposito: una nuvola si guarda quasi sempre di lato o da
+    // sotto, e un'ombra scura la fa sembrare sporca. Il salto sta nella TINTA
+    // (caldo → freddo), non nella luminosità.
+    // Le soglie sono BASSE di proposito: una nuvola è bianca, con l'ombra sotto
+    // la pancia. Tenendole al centro il tono di mezzo si prendeva due terzi
+    // della sagoma e il cielo si riempiva di nuvole grigio-azzurre.
+    float s = dot(uv, vLuce) * 0.85 + uv.y * 0.30;
+    vec3 c = s > 0.06 ? vec3(1.00, 0.99, 0.95)
+           : s > -0.16 ? vec3(0.84, 0.88, 0.98)
+                       : vec3(0.64, 0.72, 0.92);
+    // la CRESTA: un orlo acceso sul lato dell'astro, che segue il profilo tondo
+    // perché si misura sulla stessa distanza con segno. È la riga che fa leggere
+    // il volume in un disegno piatto — senza, restano tre macchie di colore.
+    if (-d < 0.05 && s > 0.14) c = vec3(1.0, 1.0, 0.99);
+    // e l'ORLO FREDDO sotto, dalla parte opposta
+    if (-d < 0.07 && s < -0.24) c = vec3(0.56, 0.66, 0.90);
+
+    gl_FragColor = vec4(c * uAmb, uOpacita);
+    #include <colorspace_fragment>
+    // NEBBIA A METÀ FORZA. Le nuvole stanno a settanta-novanta unità: con la
+    // nebbia piena diventano macchie azzurre indistinguibili dal cielo proprio
+    // quando la camera si allarga. Un po' ne prendono — restano lontane — ma non
+    // fino a sparire.
+    #if defined(USE_FOG) && defined(FOG_EXP2)
+      float fF = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+      gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fF * 0.55);
+    #else
+      #include <fog_fragment>
+    #endif
+  }
+`;
+
 export class Nuvole {
   constructor(scena, numero = NUVOLE.numero) {
     this.gruppo = new THREE.Group();
     scena.add(this.gruppo);
-    this.materiale = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.94 });
-    this.nuvole = [];        // { mesh(group), vel, scatole:[{ox,oz,hw,hd}] }
+    this.nuvole = [];        // { x0, y, z, vel, largo, alto, raggio, schiaccio }
 
+    const orig = [], vel = [], dim = [], forma = [];
     for (let i = 0; i < numero; i++) {
       const seme = i * 7.31 + 2;
-      const nuvola = new THREE.Group();
-      const pezzi = 2 + Math.floor(hash(seme) * 3);
-      const scatole = [];
-      for (let p = 0; p < pezzi; p++) {
-        const w = 2.2 + hash(seme + p * 1.7) * 3.2;
-        const d = 1.6 + hash(seme + p * 2.3) * 2.2;
-        const h = 0.7 + hash(seme + p * 3.1) * 0.6;
-        const ox = (p - (pezzi - 1) / 2) * w * 0.55;
-        const oz = (hash(seme + p * 5) - 0.5) * 1.6;
-        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), this.materiale);
-        m.position.set(ox, hash(seme + p) * 0.5, oz);
-        nuvola.add(m);
-        scatole.push({ ox, oz, hw: w / 2, hd: d / 2 });
-      }
       const angolo = hash(seme + 11) * Math.PI * 2;
       const raggio = 8 + hash(seme + 13) * (NUVOLE.raggio - 12);
-      nuvola.position.set(
-        Math.cos(angolo) * raggio,
-        NUVOLE.quotaMin + hash(seme + 17) * (NUVOLE.quotaMax - NUVOLE.quotaMin),
-        Math.sin(angolo) * raggio,
-      );
-      this.gruppo.add(nuvola);
-      this.nuvole.push({ mesh: nuvola, vel: 0.25 + hash(seme + 19) * 0.35, scatole });
+      const largo = 9 + hash(seme + 23) * 9;
+      const nv = {
+        x0: Math.cos(angolo) * raggio,
+        y: NUVOLE.quotaMin + hash(seme + 17) * (NUVOLE.quotaMax - NUVOLE.quotaMin),
+        z: Math.sin(angolo) * raggio,
+        vel: 0.25 + hash(seme + 19) * 0.35,
+        largo,
+        alto: largo * (0.46 + hash(seme + 29) * 0.16),
+        // ogni nuvola gonfia i batuffoli e si schiaccia a modo suo: sei cerchi
+        // fissi darebbero dieci nuvole identiche, e in cielo si nota subito
+        rBatuffolo: LIMITI.rMin + hash(seme + 31) * LIMITI.rDelta,
+        schiaccio: LIMITI.schiaccioMin + hash(seme + 37) * LIMITI.schiaccioDelta,
+      };
+      this.nuvole.push(nv);
+      orig.push(nv.x0, nv.y, nv.z);
+      vel.push(nv.vel);
+      dim.push(nv.largo, nv.alto);
+      forma.push(nv.rBatuffolo, nv.schiaccio, 0);
     }
 
-    // buffer riutilizzato per i rettangoli d'ombra
+    const g = new THREE.InstancedBufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(
+      [-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3));
+    g.setIndex([0, 1, 2, 0, 2, 3]);
+    g.setAttribute('iOrig', new THREE.InstancedBufferAttribute(new Float32Array(orig), 3));
+    g.setAttribute('iVel', new THREE.InstancedBufferAttribute(new Float32Array(vel), 1));
+    g.setAttribute('iDim', new THREE.InstancedBufferAttribute(new Float32Array(dim), 2));
+    g.setAttribute('iForma', new THREE.InstancedBufferAttribute(new Float32Array(forma), 3));
+    g.instanceCount = numero;
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, NUVOLE.quotaMax, 0), NUVOLE.raggio * 2);
+
+    this.materiale = new THREE.ShaderMaterial({
+      uniforms: {
+        uTempo: { value: 0 },
+        uRaggio: { value: NUVOLE.raggio },
+        uSole: { value: direzioneAstro() },       // per RIFERIMENTO: segue il ciclo
+        uAmb: { value: new THREE.Color(1, 1, 1) },
+        uOpacita: { value: 0.96 },
+        fogColor: { value: new THREE.Color() },   // li riempie il renderer
+        fogDensity: { value: 0 },
+        fogNear: { value: 1 },
+        fogFar: { value: 1000 },
+      },
+      vertexShader: VERT,
+      fragmentShader: FRAG,
+      transparent: true,
+      fog: true,
+      side: THREE.DoubleSide,
+    });
+    this.mesh = new THREE.Mesh(g, this.materiale);
+    this.mesh.frustumCulled = false;               // sempre in cielo, sempre visibili
+    this.gruppo.add(this.mesh);
+
+    this._t = 0;
     this._box = [];
-    for (let i = 0; i < 40; i++) this._box.push(new THREE.Vector4());
+    for (let i = 0; i < numero * PUFF.length; i++) this._box.push(new THREE.Vector4());
     this._tOmbra = 0;   // maschera d'ombra a ~30 Hz: a 8 Hz i bordi netti SCATTAVANO
   }
 
+  /** X della nuvola adesso: STESSA formula del vertex shader, altrimenti l'ombra
+   *  si stacca dalla nuvola proprio nel momento in cui rientra dal bordo. */
+  _x(nv) {
+    const g = NUVOLE.raggio * 2;
+    return ((nv.x0 + this._t * nv.vel + NUVOLE.raggio) % g + g) % g - NUVOLE.raggio;
+  }
+
   aggiorna(dt) {
-    for (const nv of this.nuvole) {
-      nv.mesh.position.x += nv.vel * dt;
-      if (nv.mesh.position.x > NUVOLE.raggio) nv.mesh.position.x = -NUVOLE.raggio;
-    }
+    this._t += dt;
+    this.materiale.uniforms.uTempo.value = this._t;
     // le nuvole vanno a 0.25-0.6 unità/s: in 0.12s si spostano di ~0.05 unità,
     // ridisegnare la maschera più spesso sarebbe lavoro (e upload) buttato
     this._tOmbra -= dt;
     if (this._tOmbra <= 0) {
       this._tOmbra = this.intervalloOmbra || 0.033;   // mobile: 15Hz (main lo imposta)
+      // OGNI NUVOLA SI PROIETTA CON LA PROPRIA QUOTA. Il raggio dell'astro è
+      // obliquo: una nuvola non oscura quello che ha sotto ma quello che ha
+      // dalla parte opposta al sole, tanto più lontano quanto è alta — e qui le
+      // quote vanno da 15 a 21, quindi una quota media falserebbe di parecchio.
+      // Si scrive la maschera sul piano y=0 (togliendo sbieco×quota) e lo shader
+      // ci riporta il frammento allo stesso modo: i conti tornano per qualsiasi
+      // altezza del terreno, senza sapere niente del terreno.
+      //
+      // L'OMBRA È FATTA DEGLI STESSI BATUFFOLI della sagoma, non di un rettangolo:
+      // una nuvola tonda che fa un'ombra squadrata era la cosa che tradiva tutto.
+      // Il cartello gira con la camera, l'ombra NO: si stende sempre lungo X e si
+      // stringe in Z, cioè si comporta come il volume che il cartello finge.
+      const sb = sbiecoAstro();
       let n = 0;
       for (const nv of this.nuvole) {
-        const cx = nv.mesh.position.x, cz = nv.mesh.position.z;
-        for (const s of nv.scatole) {
+        const cx = this._x(nv) - sb.x * nv.y, cz = nv.z - sb.y * nv.y;
+        const semi = nv.largo / 2;
+        for (const p of PUFF) {
           if (n >= this._box.length) break;
-          const bx = cx + s.ox, bz = cz + s.oz;
-          this._box[n++].set(bx - s.hw, bz - s.hd, bx + s.hw, bz + s.hd);
+          const rx = p.r * nv.rBatuffolo * semi;
+          this._box[n++].set(cx + p.x * semi, cz + p.y * semi * 0.7, rx, rx * 0.72);
         }
       }
       impostaOmbreNuvole(this._box.slice(0, n), NUVOLE.ombra);
     }
-    this.materiale.color.copy(ambienteAttuale());   // di notte le nuvole si spengono
+    this.materiale.uniforms.uAmb.value.copy(ambienteAttuale());   // di notte si spengono
   }
 }
+
+export { PUFF };
