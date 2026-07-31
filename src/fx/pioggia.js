@@ -190,6 +190,20 @@ export class Pioggia {
           vec3 tinta = mix(vec3(0.75, 0.85, 0.98), vec3(0.99, 0.99, 1.0), uNeve);
           float a = mix(uAlpha * (0.15 + 0.5 * vV), uAlpha * 1.4, uNeve);
           gl_FragColor = vec4(tinta, a * vSotto);
+          // ⚠ LA CURVA sRGB LA FA IL MATERIALE, non una passata in fondo. three
+          // definisce linearToOutputTexel nel prologo di OGNI programma, anche dei
+          // ShaderMaterial scritti a mano, e la fa diventare l'identita' quando si
+          // disegna dentro un render target lineare: cioe' questa riga fa la cosa
+          // giusta in tutt'e due i casi, da sola.
+          //
+          // E' la correzione di una correzione. Il bug era vero — erba, foglie,
+          // nuvole, pioggia e cielo cambiavano colore a seconda che il frame passasse
+          // o no dal composer — ma la cura era sproporzionata: avevo messo una
+          // passata a schermo intero OBBLIGATORIA per tutti, e su una GPU a tile
+          // (telefoni) quella e' una scrittura e una rilettura dell'intero schermo in
+          // piu' a ogni fotogramma. Una riga per materiale costa zero e risolve
+          // uguale.
+          #include <colorspace_fragment>
         }`,
     });
     this.mesh = new THREE.Mesh(g, this.materiale);

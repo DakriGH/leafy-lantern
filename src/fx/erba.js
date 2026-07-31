@@ -30,9 +30,9 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms9b0zbn';
-import { CHUNK } from '../world/world.js?v=ms9b0zbn';
-import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=ms9b0zbn';
+import { paletteBlocco } from '../world/stagioni.js?v=ms9bzr2i';
+import { CHUNK } from '../world/world.js?v=ms9bzr2i';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=ms9bzr2i';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -306,6 +306,20 @@ const GLSL_FRAGMENT = /* glsl */`
     // che ci cresce sopra restava blu notte
     vec3 amb = uAmbienteErba * mix(uOmbraFatt, vec3(1.0), vSole) + vLuce;
     gl_FragColor = vec4(col * amb, 1.0);
+    // ⚠ LA CURVA sRGB LA FA IL MATERIALE, non una passata in fondo. three
+    // definisce linearToOutputTexel nel prologo di OGNI programma, anche dei
+    // ShaderMaterial scritti a mano, e la fa diventare l'identita' quando si
+    // disegna dentro un render target lineare: cioe' questa riga fa la cosa
+    // giusta in tutt'e due i casi, da sola.
+    //
+    // E' la correzione di una correzione. Il bug era vero — erba, foglie,
+    // nuvole, pioggia e cielo cambiavano colore a seconda che il frame passasse
+    // o no dal composer — ma la cura era sproporzionata: avevo messo una
+    // passata a schermo intero OBBLIGATORIA per tutti, e su una GPU a tile
+    // (telefoni) quella e' una scrittura e una rilettura dell'intero schermo in
+    // piu' a ogni fotogramma. Una riga per materiale costa zero e risolve
+    // uguale.
+    #include <colorspace_fragment>
   }
 `;
 

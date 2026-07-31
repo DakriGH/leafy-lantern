@@ -5,7 +5,7 @@
 // Un solo THREE.Points, buffer riciclato: costo CPU e GPU irrisorio.
 
 import * as THREE from 'three';
-import { ambienteAttuale, uniformiOmbraSole, uniformiScatole, GLSL_SCATOLE_VERTICE } from './materials.js?v=ms9b0zbn';
+import { ambienteAttuale, uniformiOmbraSole, uniformiScatole, GLSL_SCATOLE_VERTICE } from './materials.js?v=ms9bzr2i';
 
 const MAX = 180;
 
@@ -148,6 +148,20 @@ ${GLSL_SCATOLE_VERTICE}
           }
           vec3 amb = uAmbiente * mix(uOmbraFatt, vec3(1.0), vSole);
           gl_FragColor = vec4(vCol * amb, vAlfa * m);
+          // ⚠ LA CURVA sRGB LA FA IL MATERIALE, non una passata in fondo. three
+          // definisce linearToOutputTexel nel prologo di OGNI programma, anche dei
+          // ShaderMaterial scritti a mano, e la fa diventare l'identita' quando si
+          // disegna dentro un render target lineare: cioe' questa riga fa la cosa
+          // giusta in tutt'e due i casi, da sola.
+          //
+          // E' la correzione di una correzione. Il bug era vero — erba, foglie,
+          // nuvole, pioggia e cielo cambiavano colore a seconda che il frame passasse
+          // o no dal composer — ma la cura era sproporzionata: avevo messo una
+          // passata a schermo intero OBBLIGATORIA per tutti, e su una GPU a tile
+          // (telefoni) quella e' una scrittura e una rilettura dell'intero schermo in
+          // piu' a ogni fotogramma. Una riga per materiale costa zero e risolve
+          // uguale.
+          #include <colorspace_fragment>
         }`,
     });
     this.punti = new THREE.Points(g, this.materiale);

@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { CAMERA } from '../config.js?v=ms9b0zbn';
+import { CAMERA } from '../config.js?v=ms9bzr2i';
 
 /**
  * Il browser sta disegnando via SOFTWARE (niente GPU)?
@@ -24,35 +24,24 @@ export function disegnaInSoftware(gpu) {
   return /\bsoftware\b|basic render/i.test(s);
 }
 
-// LA PASSATA D'USCITA: una sola, e fa DUE cose che devono stare insieme.
+// LA PASSATA D'USCITA: serve SOLO a ingrandire.
 //
-// (1) LA CURVA sRGB. Il gioco disegna in luce LINEARE — sommare due luci vuol
-//     dire sommare due numeri, e questo funziona solo in lineare — ma un monitor
-//     vuole sRGB. La conversione va fatta UNA volta, alla fine, su tutto.
+// Quando la scala di rendering scende sotto 1 la scena si disegna in un
+// bersaglio più piccolo, e questa passata lo stira sul canvas pieno col filtro
+// scelto (`nitido` = NearestFilter: pixel quadrati, a bordo vivo). A scala piena
+// non c'è, e il frame va dritto allo schermo.
 //
-// (2) L'INGRANDIMENTO quando la scala di rendering è sotto 1: la scena si
-//     disegna in un bersaglio più piccolo e questa passata lo stira sul canvas
-//     pieno col filtro scelto (`nitido` = NearestFilter, pixel a bordo vivo).
-//
-// ⚠ ED È SEMPRE NELLA CATENA, sempre, anche a scala piena. Prima ci si entrava
-// solo col tilt-shift acceso o a scala ridotta, e a seconda del caso la scena
-// finiva in due spazi colore DIVERSI. Il motivo è che i materiali scritti a mano
-// (erba, foglie, nuvole, pioggia, cielo, particelle) sono ShaderMaterial grezzi:
-// three non ci infila la conversione d'uscita, quindi scrivono lineare e basta.
-//   · senza composer  → il valore lineare finiva tale e quale sul canvas, che lo
-//                       legge come se fosse già sRGB: erba e foglie SPENTE;
-//   · con il composer → questa passata converte, e tornavano giuste.
-// Cioè accendere il tilt-shift (o abbassare la risoluzione!) cambiava il colore
-// della vegetazione. È il «bug grave che rende l'erba e le foglie scure» — non
-// c'entrava il blur, c'entrava quale delle due strade prendeva il frame.
-// Adesso la strada è una sola e i materiali grezzi vivono tutti in lineare, come
-// il resto della scena.
+// ⚠ E FA ANCHE LA CURVA sRGB, ma solo perché in quel caso la scena è finita in
+// un render target LINEARE e qualcuno deve convertirla. Non è più il posto dove
+// «si sistema il colore di tutti»: quello lo fanno i materiali, con una riga
+// (#include <colorspace_fragment>) che three trasforma nell'identità quando si
+// disegna in un target. Averlo capito è costato un giro: per una settimana
+// questa passata è stata OBBLIGATORIA su ogni dispositivo — la cura giusta per
+// il bug sbagliato, e su una GPU a tile il doppio della banda per niente.
 //
 // (QUI C'ERA IL TILT-SHIFT: kernel 3×3 separabile, banda a fuoco che inseguiva
 // il gatto, intensità nelle Impostazioni. Tolto su richiesta del committente —
-// «per adesso toglierei totalmente il tilt shift» — insieme alle sue opzioni.
-// Con lui se ne va anche l'unico motivo per cui questa passata aveva bisogno di
-// sapere dove guardava la camera.)
+// «per adesso toglierei totalmente il tilt shift» — insieme alle sue opzioni.)
 const ShaderUscita = {
   name: 'UscitaLantern',
   uniforms: { tDiffuse: { value: null } },
@@ -121,12 +110,18 @@ export class Rig {
     this.pitch = CAMERA.pitch;
     this.distanza = CAMERA.distanza;
 
-    // la catena tilt-shift si costruisce SOLO alla prima attivazione: su mobile
-    // (dove parte spento) non si allocano nemmeno i 2 render target full-res
-    // IL COMPOSER C'E' SEMPRE (vedi ShaderUscita): la sua unica passata fa la
-    // curva sRGB e l'ingrandimento. Costa un quad a schermo intero — misurato
-    // sul Chromebook del committente, spegnerlo non risparmiava niente — e in
-    // cambio TUTTA la scena vive in un solo spazio colore.
+    // ⚠ IL COMPOSER SERVE SOLO PER INGRANDIRE, e questa è la correzione di una
+    // correzione mia. Per un giro l'avevo reso OBBLIGATORIO per tenere tutta la
+    // scena in un solo spazio colore — e funzionava, ma il prezzo l'ho capito
+    // solo dopo: su una GPU A TILE (tutti i telefoni, e il Chromebook) una
+    // passata a schermo intero vuol dire SCRIVERE l'intero schermo in memoria e
+    // poi RILEGGERLO, cioè il doppio della banda per un lavoro che non disegna
+    // niente di nuovo. Su desktop non si vede, su un Mali si vede eccome.
+    //
+    // Lo spazio colore adesso se lo aggiustano i materiali da soli — una riga
+    // (`#include <colorspace_fragment>`) che three trasforma nell'identità
+    // quando si disegna in un render target. Quindi a risoluzione piena si va
+    // dritti allo schermo, come prima del pasticcio.
     this.composer = null;
     this._uscita = null;
     // risoluzione INTERNA (0.4…1) e come la si ingrandisce sul canvas pieno
@@ -137,7 +132,6 @@ export class Rig {
     this.solido = null;          // (x,y,z) => bool, iniettato da main
     this.fantasma = false;
 
-    this._creaComposer();          // prima del primo dimensionamento
     this._ridimensiona = this._ridimensiona.bind(this);
     addEventListener('resize', this._ridimensiona);
     document.addEventListener('visibilitychange', this._ridimensiona);
@@ -216,7 +210,10 @@ export class Rig {
     const s = Math.max(0.4, Math.min(1, f));
     if (Math.abs(s - this.scalaInterna) < 0.02) return;
     this.scalaInterna = s;
-    this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));
+    // il composer nasce alla PRIMA volta che serve un ingrandimento, e da lì in
+    // poi resta (ricrearlo vorrebbe dire riallocare due render target)
+    if (s < 0.995 && !this.composer) this._creaComposer();
+    else this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));
   }
 
   orbita(dx, dy) {
@@ -282,9 +279,9 @@ export class Rig {
   // resize. Via anche quello.)
 
   render() {
-    // SEMPRE dal composer: e' lui a fare la curva sRGB, quindi saltarlo
-    // cambierebbe il colore di tutti i materiali scritti a mano
-    if (this.composer) this.composer.render();
+    // A risoluzione piena si va DRITTI allo schermo: niente render target da
+    // scrivere e rileggere. Il composer entra solo quando c'è da ingrandire.
+    if (this.composer && this.scalaInterna < 0.995) this.composer.render();
     else this.renderer.render(this.scena, this.camera);
   }
 }
