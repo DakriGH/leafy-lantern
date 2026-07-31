@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms9duah6';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms9duah6';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms9dzsij';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms9dzsij';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -84,7 +84,14 @@ export function aggiornaCielo(colonne) {
 // riusa la stessa uv per entrambe le texture.
 // 2 texel per unità (512² sul dominio da 256): a 1 texel il bordo NETTO delle
 // ombre avanzava a scatti di una cella intera
-const OMBRA_DIM = 512;
+// ⚠ LA MASCHERA DELLE OMBRE DELLE NUVOLE E' PIU' PICCOLA SU MOBILE, e non e'
+// un dettaglio: questa texture si RIDISEGNA e si RICARICA a 15 Hz — un canvas
+// 2D riempito con una sessantina di ellissi e poi spedito alla scheda. A 512²
+// sono 1 MB per volta, cioe' 15 MB al secondo di traffico piu' la
+// rasterizzazione software del canvas, che su un telefono e' lenta. A 256² sono
+// quattro volte meno, e l'ombra di una nuvola e' una macchia larga metri: la
+// differenza di nitidezza non la vede nessuno.
+const OMBRA_DIM = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) ? 256 : 512;
 const PENOMBRA = 1.2;                          // unità di alone attorno alla sagoma
 const _ombraCanvas = document.createElement('canvas');
 _ombraCanvas.width = _ombraCanvas.height = OMBRA_DIM;

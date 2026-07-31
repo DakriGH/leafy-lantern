@@ -30,9 +30,9 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms9duah6';
-import { CHUNK } from '../world/world.js?v=ms9duah6';
-import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=ms9duah6';
+import { paletteBlocco } from '../world/stagioni.js?v=ms9dzsij';
+import { CHUNK } from '../world/world.js?v=ms9dzsij';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=ms9dzsij';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -63,7 +63,10 @@ const SENZA_CIMA = -32768;
 // QUANTO PUÒ DURARE LA SEMINA IN UN FRAME. Mezzo millisecondo: su un telefono
 // che ne ha undici per fotogramma è il 5%, e la coda si svuota comunque in poche
 // decine di frame perché la maggior parte dei chunk arriva dalla cache.
-const BUDGET_MS = 0.5;
+// SU MOBILE META': mezzo millisecondo e' il 5% di un frame a 90 Hz, e la coda si
+// svuota comunque in qualche decina di fotogrammi perche' quasi tutti i chunk
+// arrivano dalla cache. Meglio seminare piu' piano che rubare tempo al frame.
+const BUDGET_MS = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) ? 0.25 : 0.5;
 
 /** Chiave numerica di cella, con offset per le coordinate NEGATIVE. */
 function chiaveCella(x, z) { return (x + 2048) * 4096 + (z + 2048); }
