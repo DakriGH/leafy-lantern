@@ -25,8 +25,8 @@
 // alle superfici. Di notte le nuvole si tingono con l'ambiente.
 
 import * as THREE from 'three';
-import { NUVOLE } from '../config.js?v=ms87ar6v';
-import { impostaOmbreNuvole, ambienteAttuale, sbiecoAstro, direzioneAstro } from './materials.js?v=ms87ar6v';
+import { NUVOLE } from '../config.js?v=ms889ojq';
+import { impostaOmbreNuvole, ambienteAttuale, sbiecoAstro, direzioneAstro } from './materials.js?v=ms889ojq';
 
 function hash(n) {
   const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
@@ -308,6 +308,24 @@ export class Nuvole {
     this._box = [];
     for (let i = 0; i < numero * PUFF.length; i++) this._box.push(new THREE.Vector4());
     this._tOmbra = 0;   // maschera d'ombra a ~30 Hz: a 8 Hz i bordi netti SCATTAVANO
+  }
+
+  /**
+   * I DISCHI DELLE NUVOLE ADESSO, in coordinate mondo: (x, z, raggio).
+   * Li usa la pioggia per sapere DOVE piove: sotto una nuvola, e non addosso al
+   * giocatore. Il raggio è quello del cartello, cioè la larghezza vera della
+   * sagoma — un rovescio largo quanto la nuvola che lo fa.
+   *
+   * NON è la stessa cosa dei rettangoli d'ombra: quelli sono proiettati LUNGO IL
+   * RAGGIO DELL'ASTRO (obliqui, e a mezzogiorno cadono altrove), la pioggia cade
+   * a piombo. Confonderli farebbe piovere di fianco alla nuvola.
+   */
+  dischi(fuori = []) {
+    fuori.length = 0;
+    for (const nv of this.nuvole) {
+      fuori.push({ x: this._x(nv), z: nv.z, r: nv.largo * 0.5 });
+    }
+    return fuori;
   }
 
   /** X della nuvola adesso: STESSA formula del vertex shader, altrimenti l'ombra

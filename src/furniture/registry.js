@@ -9,9 +9,9 @@
 // Generatore (che PRIMA era cablato in main come `sincronizzaPalle`) e lo
 // Scintillatore-demo (nato solo per provare che il gancio regge).
 
-import { creaEntitaPalla, distruggiPalla } from '../gioco/palla.js?v=ms87ar6v';
-import { svegliaMacchina, impostaConfig } from '../gioco/macchine.js?v=ms87ar6v';
-import { defDi } from '../world/blocks.js?v=ms87ar6v';
+import { creaEntitaPalla, distruggiPalla } from '../gioco/palla.js?v=ms889ojq';
+import { svegliaMacchina, impostaConfig } from '../gioco/macchine.js?v=ms889ojq';
+import { defDi } from '../world/blocks.js?v=ms889ojq';
 
 // ---- COMODITÀ PER LE MANOPOLE ---------------------------------------------
 // Tre ritmi con gli stessi tre nomi ovunque: chi impara "🐌 / 🚶 / ⚡" su una
@@ -82,6 +82,10 @@ export const FURNI = {
     layers: [{ y: 0, celle: [[0, 0]] }, { y: 1, celle: [[0, 0]] }, { y: 2, celle: [[0, 0]] }],
     ruotabile: true,
     allineaBase: true,            // centra il TRONCO sulla cella, non il bbox della chioma
+    // SI PIEGA COL VENTO e sobbalza se ci sbatti dentro (fx/materials.js,
+    // GLSL_VENTO). E' una proprieta' del MODELLO, non del materiale: un albero
+    // ondeggia, una panchina no, e la differenza non si puo' dedurre dal file.
+    vento: true,
   },
   panchina: {
     id: 'panchina', nome: 'Panchina', icona: '🪑',

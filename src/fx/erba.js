@@ -30,8 +30,8 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms87ar6v';
-import { CHUNK } from '../world/world.js?v=ms87ar6v';
+import { paletteBlocco } from '../world/stagioni.js?v=ms889ojq';
+import { CHUNK } from '../world/world.js?v=ms889ojq';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -442,7 +442,7 @@ export class Erba {
    * il vento, copia la posizione del giocatore, e — se serve — semina AL PIÙ
    * due chunk. Tutto il resto lo fa la GPU.
    */
-  aggiorna(dt, mondo, pos, ambiente) {
+  aggiorna(dt, mondo, pos, ambiente, occhio) {
     if (!this.attiva) return;
     this._t += dt;
     const u = this.materiale.uniforms;
@@ -459,12 +459,16 @@ export class Erba {
     // il giocatore è sempre il primo; gli altri li mette main (gatti, palle)
     u.uMobili.value[0].set(pos.x, pos.y, pos.z, 1.1);
     if (ambiente) u.uAmbienteErba.value.copy(ambiente);
-    // il congedo si misura dal GIOCATORE, non dalla camera: girando attorno con
-    // lo zoom l'erba non deve accorciarsi e riallungarsi sotto i piedi
-    u.uCamera.value.copy(pos);
+    // IL CONGEDO SI MISURA DALLA CAMERA, non dal giocatore. L'avevo scritto al
+    // contrario e a schermo il prato spariva del tutto: in vista a diorama la
+    // camera sta a sessanta blocchi e guarda terreno lontano DAL GIOCATORE, che
+    // con la misura sbagliata risultava tutto oltre la soglia. Quello che conta
+    // e' quanto e' lontano dall'OCCHIO, perche' e' li' che una lamella diventa
+    // piu' piccola di un pixel.
+    u.uCamera.value.copy(occhio || pos);
     // e finisce PRIMA del bordo del campo seminato, se no si vedrebbe il taglio
     const bordo = this.raggioChunk * CHUNK;
-    u.uSfuma.value.set(bordo * 0.55, bordo * 0.92);
+    u.uSfuma.value.set(bordo * 0.62, bordo * 0.98);
 
     const ccx = Math.floor(pos.x / CHUNK), ccz = Math.floor(pos.z / CHUNK);
     if (ccx !== this._ccx || ccz !== this._ccz) {

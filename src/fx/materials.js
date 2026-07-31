@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms87ar6v';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms87ar6v';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms889ojq';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms889ojq';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -303,6 +303,9 @@ const uniformi = {
   uCielo: { value: _cieloTex },
   uCieloInfo: { value: new THREE.Vector4(CIELO_ORIGINE, CIELO_ORIGINE, 1 / CIELO_DIM, CIELO_DIM) },
   uTempo: { value: 0 },
+  // il vento che piega gli alberi e l'ultimo urto ricevuto (vedi GLSL_VENTO)
+  uVentoFurni: { value: new THREE.Vector4(1, 0, 0.10, 0.16) },
+  uUrtoFurni: { value: new THREE.Vector4(0, 0, -99, 0) },
   // Interruttore Impostazioni della maschera d'occlusione (world/luce.js):
   // 0 = spenta, e le luci-sfera tornano ad attraversare i muri com'era prima.
   uOcclusione: { value: 1 },
@@ -601,6 +604,54 @@ export function direzioneAstro() { return uniformi.uSoleDir.value; }
 const GLSL_VERTEX = /* glsl */`
   varying vec3 vPosMondo;
   uniform mat4 uMondoInv;
+  uniform float uTempo;
+  uniform vec4 uVentoFurni;   // (dir.x, dir.z, forza di fondo, raffica)
+  uniform vec4 uUrtoFurni;    // (x, z, istante, raggio) — l'ultimo urto
+`;
+
+// IL VENTO SUGLI ALBERI, e l'urto quando ci sbatti dentro.
+//
+// Sta nel VERTEX SHADER e non nella CPU per la stessa ragione dell'erba: muovere
+// un albero costa quanto muoverne cento, perché la CPU scrive due uniform e
+// basta. Un albero mosso a mano vorrebbe dire toccare la sua matrice ogni
+// fotogramma, cioè marcare la scena come cambiata per ogni albero in vista.
+//
+// LA PIEGA CRESCE COL QUADRATO DELL'ALTEZZA sopra la base del modello: il tronco
+// resta piantato e la chioma fa tutto il movimento. È la stessa regola dei
+// ciuffi d'erba, e per lo stesso motivo — è così che si piega una cosa attaccata
+// per il piede.
+//
+// IL VENTO È IN COORDINATE MONDO, il vertice in coordinate locali: si proietta
+// la direzione sugli assi dell'oggetto (le colonne della modelMatrix). Senza,
+// due alberi ruotati di novanta gradi si pieganorebbero in direzioni diverse col
+// lo stesso vento — e i furni si posano ruotati eccome.
+const GLSL_VENTO = /* glsl */`
+  {
+    vec3 orig = modelMatrix[3].xyz;
+    float h = max(transformed.y, 0.0);
+    float k = h * h * 0.020;
+    // due onde sfasate dalla POSIZIONE: il bosco si piega a ondate, non tutto
+    // insieme come un unico oggetto
+    float fase = orig.x * 0.31 + orig.z * 0.27;
+    float onda = sin(uTempo * 1.05 + fase) * 0.72 + sin(uTempo * 2.31 + fase * 1.7) * 0.28;
+    float amp = (uVentoFurni.z + uVentoFurni.w * onda) * k;
+    vec3 vw = vec3(uVentoFurni.x, 0.0, uVentoFurni.y);
+
+    // L'URTO: chi passa scuote l'albero, che oscilla e si ferma da solo.
+    // Una sola botta alla volta — si sbatte contro un albero per volta.
+    float dOrto = distance(orig.xz, uUrtoFurni.xy);
+    if (uUrtoFurni.w > 0.0 && dOrto < uUrtoFurni.w) {
+      float et = uTempo - uUrtoFurni.z;
+      if (et > 0.0 && et < 1.6) {
+        float dec = exp(-et * 2.6) * (1.0 - dOrto / uUrtoFurni.w);
+        vec2 via = dOrto > 0.001 ? (orig.xz - uUrtoFurni.xy) / dOrto : vec2(1.0, 0.0);
+        vw += vec3(via.x, 0.0, via.y) * sin(et * 17.0) * dec * 9.0;
+      }
+    }
+
+    transformed.x += dot(vw, normalize(modelMatrix[0].xyz)) * amp;
+    transformed.z += dot(vw, normalize(modelMatrix[2].xyz)) * amp;
+  }
 `;
 const GLSL_FRAGMENT = /* glsl */`
   varying vec3 vPosMondo;
@@ -1176,11 +1227,22 @@ function iniettaLanterna(shader, ingombro) {
  *  SOGLIA_LUME). Un furni sta DENTRO il proprio ingombro: senza questa
  *  distinzione si annerisce da solo, ed è il difetto più insidioso di tutto il
  *  sistema — se ne accorge chi guarda, non chi scrive. */
-export function patchLuci(materiale, ingombro = false) {
-  materiale.onBeforeCompile = (shader) => iniettaLanterna(shader, ingombro);
+export function patchLuci(materiale, ingombro = false, vento = false) {
+  materiale.onBeforeCompile = (shader) => iniettaLanterna(shader, ingombro, vento);
   // marca per il cache-key: materiali con patch diversa non condividono programma
-  materiale.customProgramCacheKey = () => 'lanterna-luci-' + (ingombro ? 'furni' : 'mondo');
+  materiale.customProgramCacheKey = () =>
+    'lanterna-luci-' + (ingombro ? 'furni' : 'mondo') + (vento ? '-vento' : '');
   return materiale;
+}
+
+/** Il vento che piega la vegetazione. Lo guida il meteo, come per l'erba. */
+export function impostaVentoFurni(dirX, dirZ, fondo, raffica) {
+  uniformi.uVentoFurni.value.set(dirX, dirZ, fondo, raffica);
+}
+/** Qualcuno ha sbattuto qui: la vegetazione nel raggio oscilla e si ferma da
+ *  sola. Una botta alla volta — ci si sbatte contro un albero per volta. */
+export function urtaFurni(x, z, raggio = 1.6) {
+  uniformi.uUrtoFurni.value.set(x, z, uniformi.uTempo.value, raggio);
 }
 
 // ---- acqua (riflessi + cascate + pioggia) -----------------------------------
@@ -1196,7 +1258,10 @@ const GLSL_ACQUA_VERTEX = /* glsl */`
   varying vec2 vRiva;
   varying vec4 vRiflessoUv;
   uniform mat4 uRiflessoMat;
-  uniform float uTempo;
+  // uTempo NON si dichiara qui: lo dichiara gia' GLSL_VERTEX, che patchAcqua
+  // inietta sempre PRIMA di questo blocco (iniettaLanterna e' la prima riga).
+  // Dichiararlo due volte e' un errore di compilazione, e il messaggio del
+  // driver — «uTempo: redefinition» — non dice quale dei due blocchi togliere.
 `;
 const GLSL_ACQUA_FRAGMENT = /* glsl */`
   varying vec3 vAcqua;
@@ -1922,7 +1987,7 @@ export const materialiConMappa = new Set();
  *  mappa e colore. Da qui passano i MODELLI (furni e creature), cioè le cose che
  *  hanno un ingombro nella griglia: ricevono l'ombra dei muri, non quella degli
  *  ingombri — altrimenti l'albero si annerirebbe dentro il proprio (SOGLIA_CIELO). */
-export function convertiUnlit(sorgente, geometria) {
+export function convertiUnlit(sorgente, geometria, vento = false) {
   const mappa = sorgente && sorgente.map ? sorgente.map : null;
   if (mappa) {
     mappa.magFilter = THREE.NearestFilter;
@@ -1939,5 +2004,5 @@ export function convertiUnlit(sorgente, geometria) {
     m.userData.mapOriginale = mappa;
     materialiConMappa.add(m);
   }
-  return patchLuci(m, true);
+  return patchLuci(m, true, vento);
 }

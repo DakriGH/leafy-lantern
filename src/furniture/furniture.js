@@ -4,10 +4,10 @@
 // (finta luce emessa, separata dal fake pointlight), fluttuazione di 1 px.
 
 import * as THREE from 'three';
-import { PX } from '../config.js?v=ms87ar6v';
-import { FURNI, celleOccupate, celleAppoggio, centroide } from './registry.js?v=ms87ar6v';
-import { defDi } from '../world/blocks.js?v=ms87ar6v';
-import { creaLuce, rimuoviLuce } from '../fx/materials.js?v=ms87ar6v';
+import { PX } from '../config.js?v=ms889ojq';
+import { FURNI, celleOccupate, celleAppoggio, centroide } from './registry.js?v=ms889ojq';
+import { defDi } from '../world/blocks.js?v=ms889ojq';
+import { creaLuce, rimuoviLuce } from '../fx/materials.js?v=ms889ojq';
 
 let prossimoId = 1;
 

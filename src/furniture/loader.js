@@ -5,8 +5,8 @@
 
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { MEZZO_SUPER } from '../config.js?v=ms87ar6v';
-import { convertiUnlit, materialiConMappa, patchLuci } from '../fx/materials.js?v=ms87ar6v';
+import { MEZZO_SUPER } from '../config.js?v=ms889ojq';
+import { convertiUnlit, materialiConMappa, patchLuci } from '../fx/materials.js?v=ms889ojq';
 
 const fbx = new FBXLoader();
 
@@ -100,13 +100,13 @@ function bboxMesh(o) {
   return box;
 }
 
-function rendiUnlit(radice) {
+function rendiUnlit(radice, vento = false) {
   radice.traverse((figlio) => {
     if (!figlio.isMesh) return;
     if (Array.isArray(figlio.material)) {
-      figlio.material = figlio.material.map((m) => convertiUnlit(m, figlio.geometry));
+      figlio.material = figlio.material.map((m) => convertiUnlit(m, figlio.geometry, vento));
     } else {
-      figlio.material = convertiUnlit(figlio.material, figlio.geometry);
+      figlio.material = convertiUnlit(figlio.material, figlio.geometry, vento);
     }
   });
 }
@@ -419,7 +419,7 @@ export async function caricaModelli(FURNI, avanza = () => {}) {
     } else {
       try {
         const modello = await caricaFbx(def.modello);
-        rendiUnlit(modello);
+        rendiUnlit(modello, !!def.vento);
         def.modello3d = normalizza(modello, scala, def.allineaBase);
         const c = compatta(def.modello3d);
         console.log(`[lantern] ${def.id}: ${c.prima} mesh → ${c.dopo} draw call (${c.vuote} vuote)`);
