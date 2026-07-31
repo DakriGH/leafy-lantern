@@ -2,9 +2,9 @@
 // t ∈ [0,1): 0 mezzanotte · 0.25 alba · 0.5 mezzogiorno · 0.75 tramonto.
 
 import * as THREE from 'three';
-import { TEMPO } from '../config.js?v=ms8pty9a';
-import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=ms8pty9a';
-import { Cielo } from './cielo.js?v=ms8pty9a';
+import { TEMPO } from '../config.js?v=ms8q8h3a';
+import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=ms8q8h3a';
+import { Cielo } from './cielo.js?v=ms8q8h3a';
 
 // `ambiente` È IL GIORNO E LA NOTTE, e non serve altro: lo shader moltiplica
 // l'albedo per questo colore e ci somma sopra le luci-sfera. Un tentativo aveva
@@ -19,14 +19,25 @@ import { Cielo } from './cielo.js?v=ms8pty9a';
 // in alto), di notte quasi nullo — un cielo notturno è uniforme, sono le stelle
 // a dargli profondità.
 const CHIAVI = [
-  { t: 0.00, cielo: 0x0e1630, alto: 0x05091c, ambiente: new THREE.Color(0.32, 0.36, 0.55), fog: 0.030 },
-  { t: 0.20, cielo: 0x18204a, alto: 0x0a1030, ambiente: new THREE.Color(0.36, 0.40, 0.58), fog: 0.028 },
+  // LA NOTTE E' PIU' SCURA DI PRIMA, ed e' una conseguenza della cupola. Con lo
+  // sfondo piatto il cielo notturno era una tinta sola e il mondo a 0.32
+  // «passava»; con il gradiente e le stelle il cielo e' davvero notte, e un
+  // mondo a 0.32 sotto quel cielo si legge come giorno con la notte incollata
+  // sopra — il committente l'ha chiamato «ciclo giorno notte rotto», e a
+  // schermo aveva ragione: misurato, il verde del prato di notte era il 62% di
+  // quello di giorno. Sceso a 0.20 diventa il 48%, che e' notte.
+  //
+  // NON SI SCENDE PIU' GIU' perche' sotto questa soglia i lampioni non
+  // illuminano piu' NIENTE: sommano luce su un albedo troppo scuro e il loro
+  // cono sparisce. La notte di un diorama dev'essere leggibile, non nera.
+  { t: 0.00, cielo: 0x0e1630, alto: 0x05091c, ambiente: new THREE.Color(0.20, 0.23, 0.38), fog: 0.030 },
+  { t: 0.20, cielo: 0x18204a, alto: 0x0a1030, ambiente: new THREE.Color(0.23, 0.26, 0.41), fog: 0.028 },
   { t: 0.26, cielo: 0xffb787, alto: 0x4a5c9e, ambiente: new THREE.Color(0.92, 0.78, 0.66), fog: 0.020 },
   { t: 0.34, cielo: 0x8fd3ff, alto: 0x3a86d6, ambiente: new THREE.Color(1.04, 1.00, 0.94), fog: 0.012 },
   { t: 0.66, cielo: 0x8fd3ff, alto: 0x3a86d6, ambiente: new THREE.Color(1.04, 1.00, 0.94), fog: 0.012 },
   { t: 0.74, cielo: 0xff9d6e, alto: 0x40538f, ambiente: new THREE.Color(0.95, 0.72, 0.58), fog: 0.018 },
-  { t: 0.82, cielo: 0x1a2148, alto: 0x0b1132, ambiente: new THREE.Color(0.38, 0.42, 0.60), fog: 0.028 },
-  { t: 1.00, cielo: 0x0e1630, alto: 0x05091c, ambiente: new THREE.Color(0.32, 0.36, 0.55), fog: 0.030 },
+  { t: 0.82, cielo: 0x1a2148, alto: 0x0b1132, ambiente: new THREE.Color(0.25, 0.28, 0.43), fog: 0.028 },
+  { t: 1.00, cielo: 0x0e1630, alto: 0x05091c, ambiente: new THREE.Color(0.20, 0.23, 0.38), fog: 0.030 },
 ];
 
 // Quanta ombra resta quando l'astro è appena sopra l'orizzonte, in frazione di

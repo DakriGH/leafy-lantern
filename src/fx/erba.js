@@ -30,9 +30,9 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms8pty9a';
-import { CHUNK } from '../world/world.js?v=ms8pty9a';
-import { uniformiOmbraSole } from './materials.js?v=ms8pty9a';
+import { paletteBlocco } from '../world/stagioni.js?v=ms8q8h3a';
+import { CHUNK } from '../world/world.js?v=ms8q8h3a';
+import { uniformiOmbraSole } from './materials.js?v=ms8q8h3a';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -86,6 +86,8 @@ const GLSL_VERTEX = /* glsl */`
   varying float vSole;
   uniform vec3 uCamera;
   uniform vec2 uSfuma;      // (dove comincia a spegnersi, dove è spenta)
+  uniform vec3 uCentro;     // centro del campo seminato: il GIOCATORE
+  uniform vec2 uBordo;      // (dove comincia il bordo del campo, dove finisce)
   // l'ombra del sole, LE STESSE uniform del mondo (fx/materials.js)
   uniform sampler2D uCielo;
   uniform vec4 uCieloInfo;
@@ -151,8 +153,21 @@ const GLSL_VERTEX = /* glsl */`
     // punto si vedrebbe il passaggio FRA i due, che è lo stesso difetto spostato
     // di dieci metri più in là.
     vSole = erbaAlSole(iPos.xyz);
-    vLontano = clamp((distance(iPos.xz, uCamera.xz) - uSfuma.x)
+    // DUE CONGEDI, E SI PRENDE IL PIU' FORTE. Servono tutti e due, e per un giro
+    // ne ho messo uno solo — ecco perche' i pop-in erano ancora li'.
+    //
+    //  · dalla CAMERA: una lamella lontana dall'occhio e' piu' piccola di un
+    //    pixel e non deve costare ne' brillare;
+    //  · dal CENTRO DEL CAMPO, cioe' dal giocatore: il prato esiste solo dentro
+    //    il ring seminato attorno a LUI. In vista a diorama la camera sta a
+    //    sessanta blocchi e guarda terreno lontano dal giocatore: li' l'erba o
+    //    c'e' o non c'e', e il confine si vedeva come un muro che si sposta
+    //    mentre cammini. Adesso quel confine e' gia' a zero prima di arrivarci.
+    float viaCam = clamp((distance(iPos.xz, uCamera.xz) - uSfuma.x)
                      / max(uSfuma.y - uSfuma.x, 0.001), 0.0, 1.0);
+    float viaBordo = clamp((distance(iPos.xz, uCentro.xz) - uBordo.x)
+                     / max(uBordo.y - uBordo.x, 0.001), 0.0, 1.0);
+    vLontano = max(viaCam, viaBordo);
     eta *= 1.0 - vLontano * vLontano * 0.82;
 
     // RETTANGOLO, non lama: la larghezza si stringe appena in cima (0.82), non
@@ -298,6 +313,8 @@ export class Erba {
         uAmbienteErba: { value: new THREE.Color(1, 1, 1) },
         uCamera: { value: new THREE.Vector3() },
         uSfuma: { value: new THREE.Vector2(30, 52) },
+        uCentro: { value: new THREE.Vector3() },
+        uBordo: { value: new THREE.Vector2(40, 64) },
         // per RIFERIMENTO: restano agganciate al ciclo del giorno da sole
         ...uniformiOmbraSole(),
       },
@@ -512,8 +529,15 @@ export class Erba {
     // e' quanto e' lontano dall'OCCHIO, perche' e' li' che una lamella diventa
     // piu' piccola di un pixel.
     u.uCamera.value.copy(occhio || pos);
-    // e finisce PRIMA del bordo del campo seminato, se no si vedrebbe il taglio
+    u.uCentro.value.copy(pos);
+    // IL BORDO DEL CAMPO. Il ring seminato e' un QUADRATO di chunk attorno al
+    // giocatore: il cerchio inscritto ha raggio raggioChunk·CHUNK, ed e' li' che
+    // il prato finisce di sicuro in tutte le direzioni. Si spegne prima di
+    // arrivarci, se no si vede il muro.
     const bordo = this.raggioChunk * CHUNK;
+    u.uBordo.value.set(bordo * 0.55, bordo * 0.92);
+    // e dalla camera: piu' corto, perche' qui il motivo e' la dimensione a
+    // schermo e non l'esistenza
     u.uSfuma.value.set(bordo * 0.62, bordo * 0.98);
 
     const ccx = Math.floor(pos.x / CHUNK), ccz = Math.floor(pos.z / CHUNK);
