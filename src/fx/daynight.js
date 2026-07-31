@@ -2,9 +2,9 @@
 // t ∈ [0,1): 0 mezzanotte · 0.25 alba · 0.5 mezzogiorno · 0.75 tramonto.
 
 import * as THREE from 'three';
-import { TEMPO } from '../config.js?v=ms93r757';
-import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=ms93r757';
-import { Cielo } from './cielo.js?v=ms93r757';
+import { TEMPO } from '../config.js?v=ms9akp2m';
+import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=ms9akp2m';
+import { Cielo } from './cielo.js?v=ms9akp2m';
 
 // `ambiente` È IL GIORNO E LA NOTTE, e non serve altro: lo shader moltiplica
 // l'albedo per questo colore e ci somma sopra le luci-sfera. Un tentativo aveva
@@ -86,6 +86,12 @@ export class CicloGiorno {
     this._eraNotte = null;
     this.cielo = new Cielo(scena); // cupola: gradiente, astro, bagliore, stelle
     this._nottePiena = 0;
+    // QUANTI GIORNI SONO PASSATI. Serve alla FASE LUNARE, ed e' l'unica memoria
+    // che questo ciclo tiene fra un giro e l'altro: senza, ogni notte avrebbe la
+    // stessa identica luna e le giornate sarebbero indistinguibili.
+    this.giorno = 0;
+    this.mese = 8;                 // notti per un giro completo di lune
+    this._orologio = 0;            // secondi vissuti: scintillio e meteore
     scena.fog = new THREE.FogExp2(0x8fd3ff, 0.012);
     scena.background = new THREE.Color(0x8fd3ff);
   }
@@ -248,7 +254,12 @@ export class CicloGiorno {
   }
 
   aggiorna(dt) {
-    if (this.auto) this.t = (this.t + dt / this.durata) % 1;
+    this._orologio += dt;
+    if (this.auto) {
+      const prima = this.t;
+      this.t = (this.t + dt / this.durata) % 1;
+      if (this.t < prima) this.giorno++;      // e' passata la mezzanotte
+    }
     // campiona i keyframe
     let i = 0;
     while (i < CHIAVI.length - 2 && CHIAVI[i + 1].t < this.t) i++;
@@ -286,7 +297,10 @@ export class CicloGiorno {
       // tutte insieme in un fotogramma
       const notte = this.eNotte ? 1 : 0;
       this._nottePiena += (notte - this._nottePiena) * Math.min(1, dt * 1.5);
-      this.cielo.aggiorna(_cielo, _alto, _sole, this._nottePiena);
+      // la fase avanza di UNA notte alla volta, non di continuo: una luna che
+      // si apre sotto gli occhi mentre la guardi non e' una luna
+      const fase = (this.giorno % this.mese) / this.mese;
+      this.cielo.aggiorna(_cielo, _alto, _sole, this._nottePiena, this._orologio, fase);
     }
 
     if (this._eraNotte !== this.eNotte) {

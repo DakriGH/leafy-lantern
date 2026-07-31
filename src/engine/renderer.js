@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { CAMERA } from '../config.js?v=ms93r757';
+import { CAMERA } from '../config.js?v=ms9akp2m';
 
 /**
  * Il browser sta disegnando via SOFTWARE (niente GPU)?
@@ -235,10 +235,19 @@ export class Rig {
 
   aggiorna() {
     const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
+    // ⚠ GUARDANDO IN SU LA CAMERA SI AVVICINA, e senza questo la funzione «vedi
+    // il cielo» non sta in piedi. Un'orbita di trenta blocchi con l'inclinazione
+    // sotto lo zero mette l'occhio venti blocchi PIÙ IN BASSO del gatto, cioè
+    // dentro la collina: si finiva a guardare la pancia dei blocchi. La distanza
+    // si comprime man mano che si scende sotto l'orizzonte — a picco verso l'alto
+    // resta un terzo — quindi l'occhio sta vicino al gatto, dove c'è aria, e la
+    // collisione dei muri (qui sotto) ha poco da correggere.
+    const sotto = Math.max(0, -this.pitch / 0.55);
+    const dist = this.distanza * (1 - 0.66 * Math.min(1, sotto));
     this.camera.position.set(
-      this.bersaglio.x + this.distanza * cp * Math.sin(this.yaw),
-      this.bersaglio.y + this.distanza * sp,
-      this.bersaglio.z + this.distanza * cp * Math.cos(this.yaw),
+      this.bersaglio.x + dist * cp * Math.sin(this.yaw),
+      this.bersaglio.y + dist * sp,
+      this.bersaglio.z + dist * cp * Math.cos(this.yaw),
     );
     // la camera NON attraversa i muri (solo BLOCCHI: i furni non contano, sono
     // esili — e col clamp secco facevano VIBRARE la camera). La distanza è

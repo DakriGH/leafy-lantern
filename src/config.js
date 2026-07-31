@@ -24,11 +24,17 @@ export const CAMERA = {
   // ⚠ pitchMin È NEGATIVO: la camera può scendere SOTTO il giocatore e guardare
   // in su, cioè si può vedere il cielo. Prima si fermava a +0.15 rad sopra
   // l'orizzonte e il cielo — cupola, gradiente, sole, luna, stelle, nuvole — era
-  // roba che esisteva solo di sfondo, mai inquadrabile. −0.45 rad sono una
-  // ventina di gradi sotto: bastano a mettere il sole in mezzo allo schermo
-  // senza far sprofondare la camera dentro il terreno (che comunque la
-  // collisione dei muri respinge, vedi Rig.aggiorna).
-  yaw: -Math.PI / 4, pitch: 0.62, pitchMin: -0.45, pitchMax: 1.35,
+  // roba che esisteva solo di sfondo, mai inquadrabile: ecco perché per tre giri
+  // il committente ha detto «non hai ancora aggiornato il cielo» mentre il cielo
+  // c'era. Una cosa che non si può guardare non esiste.
+  //
+  // QUANTO IN GIÙ: −0.55 rad sono 32° sotto l'orizzonte, che con mezzo campo
+  // visivo (19°) porta lo sguardo a 51° — mezzo cielo, nuvole comprese, e il
+  // sole per tutta la giornata tranne l'ora attorno al culmine. Più giù non si
+  // va, e l'ho provato: a −0.85 la camera finisce DENTRO la collina e si guarda
+  // la pancia dei blocchi. La compressione della distanza (Rig.aggiorna) tiene
+  // l'occhio vicino al gatto proprio per questo.
+  yaw: -Math.PI / 4, pitch: 0.62, pitchMin: -0.55, pitchMax: 1.35,
   inseguimento: 5,     // lerp verso il player
 };
 
