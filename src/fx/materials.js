@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms8s2vf9';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms8s2vf9';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms8zmku3';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms8zmku3';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -625,32 +625,70 @@ const GLSL_VERTEX = /* glsl */`
 // la direzione sugli assi dell'oggetto (le colonne della modelMatrix). Senza,
 // due alberi ruotati di novanta gradi si pieganorebbero in direzioni diverse col
 // lo stesso vento — e i furni si posano ruotati eccome.
+// ⚠ TUTTO IN COORDINATE MONDO, ED È IL MOTIVO PER CUI PRIMA NON SI VEDEVA.
+// La prima versione misurava l'altezza come `transformed.y`, cioè in coordinate
+// LOCALI del modello, e ci applicava una costante tarata sui blocchi. Ma i
+// modelli FBX arrivano nella scala del loro autore e il loader li ridimensiona:
+// se un albero alto sei BLOCCHI è alto trecento unità nel suo file, `h*h` vale
+// novantamila invece di trentasei e poi lo spostamento — anch'esso locale —
+// viene rimpicciolito dalla stessa scala. I due errori non si annullano, e il
+// risultato misurato a schermo era che la chioma si muoveva per lo 0,65% dei
+// suoi pixel in un secondo: cioè stava ferma. Il committente ha continuato a
+// dire «mancano gli alberi» e aveva ragione, mentre io guardavo i numeri
+// dell'uniform e li trovavo giusti — erano giusti in blocchi, non in unità del
+// modello.
+//
+// Adesso l'altezza si misura sopra la base IN MONDO e lo spostamento si riporta
+// in locale dividendo per la scala della colonna: un albero si piega di tanti
+// BLOCCHI, chiunque l'abbia modellato e in qualunque scala.
 const GLSL_VENTO = /* glsl */`
   {
     vec3 orig = modelMatrix[3].xyz;
-    float h = max(transformed.y, 0.0);
-    float k = h * h * 0.020;
+    vec3 ax = modelMatrix[0].xyz, az = modelMatrix[2].xyz;
+    float sx = max(length(ax), 1e-5), sz = max(length(az), 1e-5);
+    vec4 pw = modelMatrix * vec4(transformed, 1.0);
+    float h = max(pw.y - orig.y, 0.0);       // BLOCCHI sopra la base
+    // ⚠ E LA COSTANTE ERA TARATA SU UN ALBERO CHE NON ESISTE. Misurati i modelli
+    // veri: un albero è alto 2,66 blocchi sopra la sua base, non sei. Siccome la
+    // piega cresce col QUADRATO dell'altezza, tararla su sei significa darne
+    // cinque volte meno a quelli veri — a schermo la chioma muoveva l'1,3% dei
+    // suoi pixel in un secondo, cioè stava ferma. Il tetto serve perché la
+    // stessa legge quadratica, su un modello alto il doppio, lo farebbe frustare.
+    float k = min(h * h * 0.065, 0.85);
     // due onde sfasate dalla POSIZIONE: il bosco si piega a ondate, non tutto
     // insieme come un unico oggetto
     float fase = orig.x * 0.31 + orig.z * 0.27;
     float onda = sin(uTempo * 1.05 + fase) * 0.72 + sin(uTempo * 2.31 + fase * 1.7) * 0.28;
     float amp = (uVentoFurni.z + uVentoFurni.w * onda) * k;
-    vec3 vw = vec3(uVentoFurni.x, 0.0, uVentoFurni.y);
+    // «piega» è lo spostamento in BLOCCHI, in coordinate mondo, sul piano XZ
+    vec3 piega = vec3(uVentoFurni.x, 0.0, uVentoFurni.y) * amp;
 
     // L'URTO: chi passa scuote l'albero, che oscilla e si ferma da solo.
     // Una sola botta alla volta — si sbatte contro un albero per volta.
+    //
+    // ⚠ LA BOTTA HA LA SUA AMPIEZZA, E NON QUELLA DEL VENTO. Prima si sommava
+    // alla DIREZIONE del vento e finiva moltiplicata per «amp»: con tempo calmo
+    // amp vale 0,046 blocchi, cioè un pixel, e sbattere contro un albero non
+    // faceva assolutamente niente. Uno spintone si sente anche quando l'aria è
+    // ferma — dipende da chi spinge, non dal meteo. Resta legata a «k», che è la
+    // legge dell'altezza: il tronco sta fermo e la chioma fa il movimento.
     float dOrto = distance(orig.xz, uUrtoFurni.xy);
     if (uUrtoFurni.w > 0.0 && dOrto < uUrtoFurni.w) {
       float et = uTempo - uUrtoFurni.z;
       if (et > 0.0 && et < 1.6) {
         float dec = exp(-et * 2.6) * (1.0 - dOrto / uUrtoFurni.w);
         vec2 via = dOrto > 0.001 ? (orig.xz - uUrtoFurni.xy) / dOrto : vec2(1.0, 0.0);
-        vw += vec3(via.x, 0.0, via.y) * sin(et * 17.0) * dec * 9.0;
+        // 0.75 = quanto si sposta la punta di un albero alto un blocco; sul
+        // modello vero (k = 0.46) fa un terzo di blocco, che si vede e si ferma
+        // in mezzo secondo.
+        piega += vec3(via.x, 0.0, via.y) * (sin(et * 17.0) * dec * 0.75 * k);
       }
     }
 
-    transformed.x += dot(vw, normalize(modelMatrix[0].xyz)) * amp;
-    transformed.z += dot(vw, normalize(modelMatrix[2].xyz)) * amp;
+    // «piega» è in BLOCCHI: si divide per la scala dell'asse per tornare in
+    // coordinate del modello, così la piega a schermo è la stessa per tutti
+    transformed.x += dot(piega, ax / sx) / sx;
+    transformed.z += dot(piega, az / sz) / sz;
   }
 `;
 const GLSL_FRAGMENT = /* glsl */`
@@ -1212,12 +1250,23 @@ function glslFragmento(ingombro) {
   return s;
 }
 
-function iniettaLanterna(shader, ingombro) {
+// ⚠ IL TERZO ARGOMENTO MANCAVA, e per questo gli alberi non si muovevano.
+// `patchLuci` lo passava, la firma lo buttava via, e GLSL_VENTO — scritto,
+// commentato e collegato a meteo e urti — non è mai finito dentro a uno shader:
+// era codice morto che sembrava una funzionalità. Il committente ha continuato a
+// dire «mancano gli alberi» mentre io controllavo le uniform del vento e le
+// trovavo giuste. Erano giuste: non le leggeva nessuno.
+//
+// Il vento va PRIMA di vPosMondo: quella riga fotografa dove sta davvero il
+// vertice, e la usano luci e ombre. Scritta prima della piega, un albero
+// inclinato si illuminerebbe come se fosse ancora dritto.
+function iniettaLanterna(shader, ingombro, vento) {
   Object.assign(shader.uniforms, uniformi);
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\n' + GLSL_VERTEX)
     .replace('#include <begin_vertex>',
-      '#include <begin_vertex>\nvPosMondo = (uMondoInv * modelMatrix * vec4(transformed, 1.0)).xyz;');
+      '#include <begin_vertex>\n' + (vento ? GLSL_VENTO : '')
+      + 'vPosMondo = (uMondoInv * modelMatrix * vec4(transformed, 1.0)).xyz;');
   shader.fragmentShader = shader.fragmentShader
     .replace('#include <common>', '#include <common>\n' + glslFragmento(ingombro))
     .replace('#include <opaque_fragment>',
