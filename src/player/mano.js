@@ -12,7 +12,7 @@
 // Nel loop non si alloca nulla: si scrivono solo rotazioni e posizioni.
 
 import * as THREE from 'three';
-import { patchLuci } from '../fx/materials.js?v=ms91dkm7';
+import { patchLuci } from '../fx/materials.js?v=ms91g5zy';
 
 const GEO_CUBO = new THREE.BoxGeometry(0.19, 0.19, 0.19);   // condivisa
 const _materiali = new Map();                               // colore → materiale
