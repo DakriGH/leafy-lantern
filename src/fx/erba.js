@@ -30,9 +30,9 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms9akp2m';
-import { CHUNK } from '../world/world.js?v=ms9akp2m';
-import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=ms9akp2m';
+import { paletteBlocco } from '../world/stagioni.js?v=ms9b0zbn';
+import { CHUNK } from '../world/world.js?v=ms9b0zbn';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=ms9b0zbn';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -64,6 +64,9 @@ const SENZA_CIMA = -32768;
 // che ne ha undici per fotogramma è il 5%, e la coda si svuota comunque in poche
 // decine di frame perché la maggior parte dei chunk arriva dalla cache.
 const BUDGET_MS = 0.5;
+
+/** Chiave numerica di cella, con offset per le coordinate NEGATIVE. */
+function chiaveCella(x, z) { return (x + 2048) * 4096 + (z + 2048); }
 
 /** Hash deterministico: stessa cella, stesso ciuffo, per sempre. */
 function hash(x, z, s) {
@@ -331,6 +334,15 @@ export class Erba {
     this._n = 0;              // lamelle scritte nel buffer di scorta
     this._quote = new Map();  // riuso fra i chunk della stessa passata
     this._cache = new Map();  // chunk già seminati: vedi _seminaChunk
+    // ---- I CIUFFI MESSI A MANO ----------------------------------------------
+    // ⚠ IL FURNI «Ciuffo d'erba» NON HA UN MODELLO SUO. La prima versione era un
+    // ventaglio di scatoline costruito a parte, e il committente l'ha bocciata
+    // subito: due sistemi che disegnano la stessa cosa non restano d'accordo, e
+    // quello fatto a mano era il peggiore dei due. Adesso il furni registra la
+    // sua cella qui e a disegnarla e' questo sistema — stesse lamelle, stesso
+    // vento, stessa ombra del sole, stesse luci, stesso congedo con la distanza.
+    this._posati = new Map();  // chiave(x,z) → { y }
+    this._verPosati = 0;
 
     const g = new THREE.InstancedBufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(
@@ -438,7 +450,7 @@ export class Erba {
    */
   _seminaChunk(mondo, kc, dc) {
     const passo = passoPerDistanza(dc);
-    const ck = kc + '|' + passo + '|' + (mondo.revisione ? mondo.revisione(kc) : 0);
+    const ck = kc + '|' + passo + '|' + this._verPosati + '|' + (mondo.revisione ? mondo.revisione(kc) : 0);
     const pronto = this._cache.get(ck);
     if (pronto) {
       if (this._n + pronto.n > this.max) return 0;
@@ -476,20 +488,28 @@ export class Erba {
     const col = new THREE.Color();
     for (let i = 0; i < qy.length; i++) {
       if (n >= this.max - LAMELLE_MAX) break;
-      if (qy[i] === SENZA_CIMA || qt[i] !== 'erba') continue;
       const x = ox + ((i / CHUNK) | 0), z = oz + (i % CHUNK);
-      const cima = { y: qy[i], tipo: qt[i] };
-      // il diradamento è per POSIZIONE, non a caso: allontanandosi il prato si
-      // dirada sempre negli stessi punti e non «brulica» mentre cammini
-      if (passo > 1 && ((x % passo) + passo) % passo !== 0) continue;
-      if (passo > 1 && ((z % passo) + passo) % passo !== 0) continue;
+      const posato = this._posati.get(chiaveCella(x, z));
+      let cima;
+      if (posato) {
+        // MESSO A MANO: sta dove l'hanno messo, su qualunque blocco e senza
+        // passare per radure e diradamento — chi lo posa vuole vederlo lì.
+        cima = { y: posato.y - 1, tipo: 'erba' };
+      } else {
+        if (qy[i] === SENZA_CIMA || qt[i] !== 'erba') continue;
+        cima = { y: qy[i], tipo: qt[i] };
+        // il diradamento è per POSIZIONE, non a caso: allontanandosi il prato si
+        // dirada sempre negli stessi punti e non «brulica» mentre cammini
+        if (passo > 1 && ((x % passo) + passo) % passo !== 0) continue;
+        if (passo > 1 && ((z % passo) + passo) % passo !== 0) continue;
 
-      // LE CHIAZZE: una macchia larga decide le radure, un rumore fine dirada
-      // dentro la macchia. Senza, il prato è una moquette stesa uguale ovunque.
-      const macchia = hash(Math.floor(x / CHIAZZA_LARGA), Math.floor(z / CHIAZZA_LARGA), 91);
-      if (macchia < 0.16) continue;                       // radura
-      const fitto = 0.55 + 0.45 * macchia;                // quanto è fitta QUESTA macchia
-      if (hash(x, z, 57) > fitto) continue;
+        // LE CHIAZZE: una macchia larga decide le radure, un rumore fine dirada
+        // dentro la macchia. Senza, il prato è una moquette stesa uguale ovunque.
+        const macchia = hash(Math.floor(x / CHIAZZA_LARGA), Math.floor(z / CHIAZZA_LARGA), 91);
+        if (macchia < 0.16) continue;                     // radura
+        const fitto = 0.55 + 0.45 * macchia;              // quanto è fitta QUESTA macchia
+        if (hash(x, z, 57) > fitto) continue;
+      }
       const h0 = hash(x, z, 3);
       const tipo = TIPI[(h0 * TIPI.length) | 0];
       const quante = Math.max(1, Math.round(tipo.n * this.densita));
@@ -619,6 +639,20 @@ export class Erba {
   }
 
   /** Il mondo è cambiato sotto i piedi (blocco posato, mondo nuovo). */
+  /** Un ciuffo MESSO A MANO in questa cella (il furni «Ciuffo d'erba»). */
+  posa(x, y, z) {
+    this._posati.set(chiaveCella(x, z), { y });
+    this._verPosati++;
+    this.risemina();
+  }
+
+  /** Via il ciuffo messo a mano. */
+  togliPosa(x, z) {
+    if (!this._posati.delete(chiaveCella(x, z))) return;
+    this._verPosati++;
+    this.risemina();
+  }
+
   risemina() { this._ccx = 1e9; this._ccz = 1e9; }
 
   imposta(on) {

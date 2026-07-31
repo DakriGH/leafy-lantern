@@ -29,8 +29,8 @@
 // ci passa dentro.
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=ms9akp2m';
-import { uniformiLuci, GLSL_LUCI_VERTICE } from './materials.js?v=ms9akp2m';
+import { CHUNK } from '../world/world.js?v=ms9b0zbn';
+import { uniformiLuci, GLSL_LUCI_VERTICE } from './materials.js?v=ms9b0zbn';
 
 // I due tipi di mucchio. Le secche sono la regola, il ciliegio la sorpresa.
 const TIPI = [
@@ -192,6 +192,20 @@ export class Foglie {
     // partire uno sciame continuo camminando avanti e indietro. Le foglie NON
     // vengono più tolte, quindi qui non c'è nessuno stato del mondo da tenere.
     this._ultimo = new Map();
+    // ---- I MUCCHI MESSI A MANO ----------------------------------------------
+    // ⚠ IL FURNI NON HA UN MODELLO SUO, e questa e' la correzione di un errore
+    // che il committente ha visto subito: la prima versione dell'oggetto
+    // piazzabile era un mucchietto di losanghe costruito a parte — «un furni
+    // versione brutta delle particelle». Due sistemi che disegnano la stessa
+    // cosa in due modi non restano MAI d'accordo, e comunque uno dei due era
+    // peggio.
+    //
+    // Adesso il furni e' solo un SEGNAPOSTO: registra la sua cella qui dentro,
+    // e a disegnarla e' questo stesso sistema — stessa sagoma di foglia, stesso
+    // calpestio, stesse foglie che volano via, stesse luci. Un mucchio messo a
+    // mano e uno nato da solo sono letteralmente lo stesso codice.
+    this._posate = new Map();     // chiave(x,z) → { tipo, y }
+    this._verPosate = 0;          // cambia ⇒ la cache dei chunk si invalida
     // dove sta ogni cella nel buffer: serve a spegnere SOLO quelle istanze
     this._perCella = new Map();
     this._sPerCella = new Map();
@@ -234,6 +248,22 @@ export class Foglie {
   imposta(on) { this.attiva = on; this.mesh.visible = on; }
   risemina() { this._ccx = 1e9; this._ccz = 1e9; }
 
+  /** Un mucchio MESSO A MANO in questa cella. `tipo` 0 = secche, 1 = ciliegio.
+   *  Lo chiama main quando si piazza il furni corrispondente: il furni non
+   *  disegna niente, e' questo sistema a disegnarlo. */
+  posa(x, y, z, tipo = 0) {
+    this._posate.set(chiave(x, z), { tipo: tipo | 0, y });
+    this._verPosate++;
+    this.risemina();
+  }
+
+  /** Via il mucchio messo a mano (si e' tolto il furni). */
+  togliPosa(x, z) {
+    if (!this._posate.delete(chiave(x, z))) return;
+    this._verPosate++;
+    this.risemina();
+  }
+
   /** Quote per colonna del chunk in un array piatto: vedi il perché in fx/erba.js. */
   _quoteChunk(mondo, kc) {
     const N = CHUNK * CHUNK;
@@ -259,7 +289,7 @@ export class Foglie {
    */
   _seminaChunk(mondo, kc, dc) {
     const passo = passoPerDistanza(dc);
-    const ck = kc + '|' + passo + '|' + (mondo.revisione ? mondo.revisione(kc) : 0);
+    const ck = kc + '|' + passo + '|' + this._verPosate + '|' + (mondo.revisione ? mondo.revisione(kc) : 0);
     const pronto = this._cache.get(ck);
     if (pronto) {
       if (this._n + pronto.n > this.max) return 0;
@@ -299,16 +329,26 @@ export class Foglie {
     const col = new THREE.Color();
     for (let idx = 0; idx < qy.length; idx++) {
       if (n >= this.max - FOGLIE_MAX_CELLA) break;
-      if (qy[idx] === SENZA_CIMA || qt[idx] !== 'erba') continue;
       const x = ox + ((idx / CHUNK) | 0), z = oz + (idx % CHUNK);
       const k = chiave(x, z);
-      const cima = { y: qy[idx], tipo: qt[idx] };
-      if (passo > 1 && ((x % passo) + passo) % passo !== 0) continue;
-      if (passo > 1 && ((z % passo) + passo) % passo !== 0) continue;
-      const am = ammassoDi(x, z);
-      if (!am) continue;
-      if (hash(x, z, 61) > am.forza * 0.85 + 0.15) continue;   // bordo sfilacciato
-
+      const posata = this._posate.get(k);
+      let am, quota;
+      if (posata) {
+        // UN MUCCHIO MESSO A MANO: sta dove l'hanno messo, su qualunque blocco
+        // (anche pietra o sabbia) e senza passare per il diradamento — chi lo
+        // posa vuole vederlo li', non «forse li'».
+        am = { tipo: posata.tipo, forza: 1 };
+        quota = posata.y - 1;
+      } else {
+        if (qy[idx] === SENZA_CIMA || qt[idx] !== 'erba') continue;
+        quota = qy[idx];
+        if (passo > 1 && ((x % passo) + passo) % passo !== 0) continue;
+        if (passo > 1 && ((z % passo) + passo) % passo !== 0) continue;
+        am = ammassoDi(x, z);
+        if (!am) continue;
+        if (hash(x, z, 61) > am.forza * 0.85 + 0.15) continue;   // bordo sfilacciato
+      }
+      const cima = { y: quota };
       const tipo = TIPI[am.tipo];
       // TANTE E PICCOLE, non poche e grosse: con foglie larghe mezzo blocco il
       // mucchio sembrava un mucchio di patatine. Al centro del mucchio ce ne

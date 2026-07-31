@@ -9,9 +9,9 @@
 // Generatore (che PRIMA era cablato in main come `sincronizzaPalle`) e lo
 // Scintillatore-demo (nato solo per provare che il gancio regge).
 
-import { creaEntitaPalla, distruggiPalla } from '../gioco/palla.js?v=ms9akp2m';
-import { svegliaMacchina, impostaConfig } from '../gioco/macchine.js?v=ms9akp2m';
-import { defDi } from '../world/blocks.js?v=ms9akp2m';
+import { creaEntitaPalla, distruggiPalla } from '../gioco/palla.js?v=ms9b0zbn';
+import { svegliaMacchina, impostaConfig } from '../gioco/macchine.js?v=ms9b0zbn';
+import { defDi } from '../world/blocks.js?v=ms9b0zbn';
 
 // ---- COMODITÀ PER LE MANOPOLE ---------------------------------------------
 // Tre ritmi con gli stessi tre nomi ovunque: chi impara "🐌 / 🚶 / ⚡" su una
@@ -105,7 +105,9 @@ export const FURNI = {
     layers: [{ y: 0, celle: [[0, 0]] }],
     ruotabile: true,
     calpestabile: true,
-    vento: true,          // si piega come gli alberi: è la stessa vegetazione
+    // il vento (e tutto il resto) ce l'ha il sistema dell'erba: qui non c'è
+    // niente da muovere, il modello è vuoto
+    senzaOmbra: true,
   },
   petali: {
     decoro: true,          // scheda «Natura» nello zaino, non «Mobili»
