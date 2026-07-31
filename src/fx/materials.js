@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms85rw9m';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms85rw9m';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms87ar6v';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms87ar6v';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con

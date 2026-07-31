@@ -1,7 +1,7 @@
 // Salvataggio del diorama: localStorage + export/import JSON (SPEC §5).
 
-import { CHIAVE_SALVATAGGIO } from './config.js?v=ms85rw9m';
-import { stagioneCorrente, impostaStagione } from './world/stagioni.js?v=ms85rw9m';
+import { CHIAVE_SALVATAGGIO } from './config.js?v=ms87ar6v';
+import { stagioneCorrente, impostaStagione } from './world/stagioni.js?v=ms87ar6v';
 
 export function serializza(mondo, arredo, ciclo, inventario = null, extra = {}) {
   const blocchi = [];

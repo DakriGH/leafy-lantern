@@ -25,8 +25,8 @@
 // alle superfici. Di notte le nuvole si tingono con l'ambiente.
 
 import * as THREE from 'three';
-import { NUVOLE } from '../config.js?v=ms85rw9m';
-import { impostaOmbreNuvole, ambienteAttuale, sbiecoAstro, direzioneAstro } from './materials.js?v=ms85rw9m';
+import { NUVOLE } from '../config.js?v=ms87ar6v';
+import { impostaOmbreNuvole, ambienteAttuale, sbiecoAstro, direzioneAstro } from './materials.js?v=ms87ar6v';
 
 function hash(n) {
   const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
@@ -42,13 +42,17 @@ function hash(n) {
 // decide tutto: con cerchi larghi e centri vicini l'unione è una cupola sola —
 // una collina, non una nuvola. Qui i tre di sopra stanno a quote diverse e
 // distanti quanto il proprio raggio, così restano tre GOBBE riconoscibili.
+// I numeri sono un filo piu' stretti di quanto il cartello permetterebbe, e non
+// e' timidezza: lo spazio che avanza e' il MARGINE PER LA DEFORMAZIONE. Con la
+// sagoma a filo del bordo ogni nuvola sarebbe uguale alle altre, perche' non ci
+// sarebbe posto per spostare niente.
 const PUFF = [
-  { x: -0.52, y: -0.14, r: 0.26 },
-  { x: -0.26, y: 0.08, r: 0.34 },
-  { x: 0.02, y: 0.24, r: 0.28 },   // la gobba alta, spostata dal centro
-  { x: 0.30, y: 0.04, r: 0.32 },
-  { x: 0.58, y: -0.14, r: 0.24 },
-  { x: 0.10, y: -0.16, r: 0.32 },  // il corpo, sotto le gobbe
+  { x: -0.478, y: -0.14, r: 0.239 },
+  { x: -0.239, y: 0.08, r: 0.313 },
+  { x: 0.018, y: 0.24, r: 0.258 },   // la gobba alta, spostata dal centro
+  { x: 0.276, y: 0.04, r: 0.294 },
+  { x: 0.534, y: -0.14, r: 0.221 },
+  { x: 0.092, y: -0.16, r: 0.294 },  // il corpo, sotto le gobbe
 ];
 // IL TAGLIO DEVE PASSARE SOTTO A TUTTI, non solo a qualcuno: con la riga più in
 // basso i batuffoli esterni la sfioravano appena e il fondo veniva smerlato —
@@ -68,23 +72,65 @@ export const LIMITI = {
   rMin: 0.88, rDelta: 0.30,          // raggio dei batuffoli: 0.88 … 1.18
   schiaccioMin: 0.80, schiaccioDelta: 0.40,   // schiacciamento: 0.80 … 1.20
   fusione: FUSIONE,
+  // quanto ogni nuvola può spostare e gonfiare i propri batuffoli. Sono
+  // DENTRO i limiti apposta: sommati al gonfiore la sagoma deve ancora stare
+  // nel cartello, e il test lo verifica sul caso peggiore di TUTTI insieme.
+  spostaMax: 0.10, gonfiaMax: 0.26,
 };
 
-const GLSL_SAGOMA = PUFF.map(p =>
-  `    d = smin(d, length(uv - vec2(${p.x.toFixed(3)}, ${p.y.toFixed(3)})) - ${p.r.toFixed(3)} * f.x, ${FUSIONE});`
-).join('\n');
+// COME OGNI NUVOLA DIVENTA DIVERSA DALLE ALTRE.
+// Con sei batuffoli fissi e due soli numeri per nuvola (gonfiore e
+// schiacciamento) tutte le nuvole avevano la STESSA sagoma vista da lontano — è
+// il rilievo del committente, ed era vero: cambiava la taglia, non la forma.
+//
+// Qui ogni batuffolo ha la SUA reazione alla deformazione della nuvola: uno si
+// sposta a destra mentre il vicino sale, uno si gonfia mentre un altro si
+// sgonfia. Bastano tre numeri per nuvola (iDeforma) per ottenere sagome che non
+// si somigliano, senza un attributo per batuffolo.
+//
+// I COEFFICIENTI SONO UNA TABELLA, non un hash: la CPU deve calcolare gli
+// STESSI centri per l'ombra a terra, e un hash trigonometrico dà risultati
+// diversi in float32 (shader) e float64 (JS) — la sagoma e la sua ombra si
+// separerebbero. Una tabella scritta a mano è identica dalle due parti.
+const REAZIONE = [
+  { x: -0.9, y: 0.5, r: 0.8 },
+  { x: 0.6, y: -0.8, r: -0.5 },
+  { x: -0.3, y: 1.0, r: 0.6 },
+  { x: 0.8, y: 0.4, r: -0.9 },
+  { x: 1.0, y: -0.5, r: 0.4 },
+  { x: -0.5, y: -1.0, r: -0.7 },
+];
+/** Dove sta e quanto è grosso il batuffolo `i` per una nuvola con questa
+ *  deformazione. LA VERITÀ È QUI: la usa la CPU per l'ombra, e il codice GLSL
+ *  qui sotto è generato da questa stessa formula. */
+export function puffDeformato(i, def) {
+  const p = PUFF[i], r = REAZIONE[i];
+  return {
+    x: p.x + r.x * def.x,
+    y: p.y + r.y * def.y,
+    r: p.r * (1 + r.r * def.z),
+  };
+}
+const GLSL_SAGOMA = PUFF.map((p, i) => {
+  const r = REAZIONE[i];
+  return `    d = smin(d, length(uv - vec2(${p.x.toFixed(3)} + ${r.x.toFixed(2)} * g.x, `
+    + `${p.y.toFixed(3)} + ${r.y.toFixed(2)} * g.y)) `
+    + `- ${p.r.toFixed(3)} * (1.0 + ${r.r.toFixed(2)} * g.z) * f.x, ${FUSIONE});`;
+}).join('\n');
 
 const VERT = /* glsl */`
   attribute vec3 iOrig;     // origine: x di partenza, quota, z
   attribute float iVel;     // deriva (unità/s)
   attribute vec2 iDim;      // larghezza e altezza in unità di mondo
   attribute vec3 iForma;    // (raggio dei batuffoli, schiacciamento, riserva)
+  attribute vec3 iDeforma;  // quanto questa nuvola sposta e gonfia i batuffoli
   uniform float uTempo;
   uniform float uRaggio;
   uniform vec3 uSole;
   varying vec2 vUv;
   varying vec2 vLuce;
   varying vec3 vForma;
+  varying vec3 vDeforma;
   #include <fog_pars_vertex>
   void main() {
     // L'AVVOLGIMENTO SI CALCOLA SULL'ORIGINE della nuvola: tutti e quattro i
@@ -107,6 +153,7 @@ const VERT = /* glsl */`
     float ll = length(l);
     vLuce = ll > 1e-4 ? l / ll : vec2(0.0, 1.0);
     vForma = iForma;
+    vDeforma = iDeforma;
 
     vec4 mvPosition = viewMatrix * vec4(p, 1.0);
     gl_Position = projectionMatrix * mvPosition;
@@ -119,6 +166,7 @@ const FRAG = /* glsl */`
   varying vec2 vUv;
   varying vec2 vLuce;
   varying vec3 vForma;
+  varying vec3 vDeforma;
   uniform vec3 uAmb;
   uniform float uOpacita;
   #include <fog_pars_fragment>
@@ -133,6 +181,7 @@ const FRAG = /* glsl */`
   void main() {
     vec2 uv = vUv;
     vec3 f = vForma;
+    vec3 g = vDeforma;
     uv.y /= max(f.y, 0.05);                    // schiacciamento della nuvola
     float d = 1e3;
 ${GLSL_SAGOMA}
@@ -181,7 +230,7 @@ export class Nuvole {
     scena.add(this.gruppo);
     this.nuvole = [];        // { x0, y, z, vel, largo, alto, raggio, schiaccio }
 
-    const orig = [], vel = [], dim = [], forma = [];
+    const orig = [], vel = [], dim = [], forma = [], deforma = [];
     for (let i = 0; i < numero; i++) {
       const seme = i * 7.31 + 2;
       const angolo = hash(seme + 11) * Math.PI * 2;
@@ -198,12 +247,27 @@ export class Nuvole {
         // fissi darebbero dieci nuvole identiche, e in cielo si nota subito
         rBatuffolo: LIMITI.rMin + hash(seme + 31) * LIMITI.rDelta,
         schiaccio: LIMITI.schiaccioMin + hash(seme + 37) * LIMITI.schiaccioDelta,
+        // LA DEFORMAZIONE PERSONALE — quella che rende ogni nuvola una nuvola
+        // diversa invece della stessa sagoma in tre taglie.
+        //
+        // NON e' un hash: e' DISTRIBUITA. Con numeri casuali due nuvole su dieci
+        // finiscono vicine per pura sfortuna e in cielo si vedono gemelle
+        // (misurato: lo scarto minimo era 0.015, cioe' niente). Qui ogni nuvola
+        // prende un angolo diverso sul cerchio delle deformazioni, spaziati con
+        // la sezione aurea: dieci nuvole = dieci direzioni ben separate, e
+        // aggiungerne un'undicesima non rovina la spaziatura delle altre.
+        deforma: {
+          x: Math.cos(i * 2.39996) * LIMITI.spostaMax,
+          y: Math.sin(i * 2.39996) * LIMITI.spostaMax,
+          z: (((i * 0.7548776662) % 1) - 0.5) * 2 * LIMITI.gonfiaMax,
+        },
       };
       this.nuvole.push(nv);
       orig.push(nv.x0, nv.y, nv.z);
       vel.push(nv.vel);
       dim.push(nv.largo, nv.alto);
       forma.push(nv.rBatuffolo, nv.schiaccio, 0);
+      deforma.push(nv.deforma.x, nv.deforma.y, nv.deforma.z);
     }
 
     const g = new THREE.InstancedBufferGeometry();
@@ -214,6 +278,7 @@ export class Nuvole {
     g.setAttribute('iVel', new THREE.InstancedBufferAttribute(new Float32Array(vel), 1));
     g.setAttribute('iDim', new THREE.InstancedBufferAttribute(new Float32Array(dim), 2));
     g.setAttribute('iForma', new THREE.InstancedBufferAttribute(new Float32Array(forma), 3));
+    g.setAttribute('iDeforma', new THREE.InstancedBufferAttribute(new Float32Array(deforma), 3));
     g.instanceCount = numero;
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, NUVOLE.quotaMax, 0), NUVOLE.raggio * 2);
 
@@ -277,8 +342,12 @@ export class Nuvole {
       for (const nv of this.nuvole) {
         const cx = this._x(nv) - sb.x * nv.y, cz = nv.z - sb.y * nv.y;
         const semi = nv.largo / 2;
-        for (const p of PUFF) {
+        for (let i = 0; i < PUFF.length; i++) {
           if (n >= this._box.length) break;
+          // GLI STESSI batuffoli che disegna lo shader, deformazione compresa:
+          // se qui si usasse la sagoma non deformata, l'ombra sarebbe di
+          // un'altra nuvola
+          const p = puffDeformato(i, nv.deforma);
           const rx = p.r * nv.rBatuffolo * semi;
           this._box[n++].set(cx + p.x * semi, cz + p.y * semi * 0.7, rx, rx * 0.72);
         }

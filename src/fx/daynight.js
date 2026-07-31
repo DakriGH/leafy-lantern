@@ -2,8 +2,9 @@
 // t ∈ [0,1): 0 mezzanotte · 0.25 alba · 0.5 mezzogiorno · 0.75 tramonto.
 
 import * as THREE from 'three';
-import { TEMPO } from '../config.js?v=ms85rw9m';
-import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=ms85rw9m';
+import { TEMPO } from '../config.js?v=ms87ar6v';
+import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=ms87ar6v';
+import { Cielo } from './cielo.js?v=ms87ar6v';
 
 // `ambiente` È IL GIORNO E LA NOTTE, e non serve altro: lo shader moltiplica
 // l'albedo per questo colore e ci somma sopra le luci-sfera. Un tentativo aveva
@@ -11,15 +12,21 @@ import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=ms85rw9m';
 // ma si appoggiava a un canale di luce CIELO cotto nei vertici, e quel canale è
 // stato tolto insieme all'occlusione ambientale e all'ombra per faccia: oggi
 // l'unico canale cotto è la maschera d'occlusione, che con l'ora non c'entra.
+// `cielo` è il colore dell'ORIZZONTE e ANCHE quello della nebbia — devono
+// coincidere, se no si vede la riga dove il terreno lontano finisce e comincia
+// il cielo. `alto` è lo zenit, ed è nuovo: senza, il cielo era una parete di
+// tinta piatta. Di giorno il salto è netto (azzurro pallido in basso, blu pieno
+// in alto), di notte quasi nullo — un cielo notturno è uniforme, sono le stelle
+// a dargli profondità.
 const CHIAVI = [
-  { t: 0.00, cielo: 0x0e1630, ambiente: new THREE.Color(0.32, 0.36, 0.55), fog: 0.030 },
-  { t: 0.20, cielo: 0x18204a, ambiente: new THREE.Color(0.36, 0.40, 0.58), fog: 0.028 },
-  { t: 0.26, cielo: 0xffb787, ambiente: new THREE.Color(0.92, 0.78, 0.66), fog: 0.020 },
-  { t: 0.34, cielo: 0x8fd3ff, ambiente: new THREE.Color(1.04, 1.00, 0.94), fog: 0.012 },
-  { t: 0.66, cielo: 0x8fd3ff, ambiente: new THREE.Color(1.04, 1.00, 0.94), fog: 0.012 },
-  { t: 0.74, cielo: 0xff9d6e, ambiente: new THREE.Color(0.95, 0.72, 0.58), fog: 0.018 },
-  { t: 0.82, cielo: 0x1a2148, ambiente: new THREE.Color(0.38, 0.42, 0.60), fog: 0.028 },
-  { t: 1.00, cielo: 0x0e1630, ambiente: new THREE.Color(0.32, 0.36, 0.55), fog: 0.030 },
+  { t: 0.00, cielo: 0x0e1630, alto: 0x05091c, ambiente: new THREE.Color(0.32, 0.36, 0.55), fog: 0.030 },
+  { t: 0.20, cielo: 0x18204a, alto: 0x0a1030, ambiente: new THREE.Color(0.36, 0.40, 0.58), fog: 0.028 },
+  { t: 0.26, cielo: 0xffb787, alto: 0x4a5c9e, ambiente: new THREE.Color(0.92, 0.78, 0.66), fog: 0.020 },
+  { t: 0.34, cielo: 0x8fd3ff, alto: 0x3a86d6, ambiente: new THREE.Color(1.04, 1.00, 0.94), fog: 0.012 },
+  { t: 0.66, cielo: 0x8fd3ff, alto: 0x3a86d6, ambiente: new THREE.Color(1.04, 1.00, 0.94), fog: 0.012 },
+  { t: 0.74, cielo: 0xff9d6e, alto: 0x40538f, ambiente: new THREE.Color(0.95, 0.72, 0.58), fog: 0.018 },
+  { t: 0.82, cielo: 0x1a2148, alto: 0x0b1132, ambiente: new THREE.Color(0.38, 0.42, 0.60), fog: 0.028 },
+  { t: 1.00, cielo: 0x0e1630, alto: 0x05091c, ambiente: new THREE.Color(0.32, 0.36, 0.55), fog: 0.030 },
 ];
 
 // Quanta ombra resta quando l'astro è appena sopra l'orizzonte, in frazione di
@@ -38,6 +45,7 @@ const ALBA_T = 0.24, SERA_T = 0.78;
 function _liscia(t) { return t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t); }
 
 const _cielo = new THREE.Color();
+const _alto = new THREE.Color();
 const _ambiente = new THREE.Color();
 const _sole = new THREE.Vector3();   // direzione verso l'astro, riusata ogni frame
 const _fatt = new THREE.Color();     // colore dell'ombra, ricomposto ogni frame
@@ -57,6 +65,8 @@ export class CicloGiorno {
     this.forzaOmbra = 1;           // manopola Impostazioni: quanto scurisce l'ombra del cielo
     this.onFase = null;            // callback(eNotte) sul cambio giorno/notte
     this._eraNotte = null;
+    this.cielo = new Cielo(scena); // cupola: gradiente, astro, bagliore, stelle
+    this._nottePiena = 0;
     scena.fog = new THREE.FogExp2(0x8fd3ff, 0.012);
     scena.background = new THREE.Color(0x8fd3ff);
   }
@@ -182,6 +192,7 @@ export class CicloGiorno {
     const f = THREE.MathUtils.clamp((this.t - k0.t) / (k1.t - k0.t || 1), 0, 1);
 
     _cielo.copy(_a.setHex(k0.cielo)).lerp(_b.setHex(k1.cielo), f);
+    _alto.copy(_a.setHex(k0.alto)).lerp(_b.setHex(k1.alto), f);
     _ambiente.copy(k0.ambiente).lerp(k1.ambiente, f);
     const fog = THREE.MathUtils.lerp(k0.fog, k1.fog, f);
 
@@ -202,6 +213,17 @@ export class CicloGiorno {
     }
     impostaAmbiente(_ambiente);
     this._astro();
+    // LA CUPOLA VIENE DOPO `_astro`, non prima: è lui che scrive la direzione
+    // dell'astro, e disegnare il sole dove stava un fotogramma fa non si nota
+    // da fermi ma si nota eccome mentre il tempo scorre veloce.
+    if (this.cielo) {
+      // la notte sfuma invece di scattare: alle soglie ALBA_T/SERA_T il disco
+      // passa da sole a luna, e con un interruttore secco le stelle apparivano
+      // tutte insieme in un fotogramma
+      const notte = this.eNotte ? 1 : 0;
+      this._nottePiena += (notte - this._nottePiena) * Math.min(1, dt * 1.5);
+      this.cielo.aggiorna(_cielo, _alto, _sole, this._nottePiena);
+    }
 
     if (this._eraNotte !== this.eNotte) {
       this._eraNotte = this.eNotte;

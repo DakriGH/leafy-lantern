@@ -67,7 +67,10 @@ export const NUVOLE = {
   // numero non si paga più a chiamate ma solo a triangoli — e sono 80 a nuvola.
   numero: 10,
   ombra: 0.28,       // quanto scurisce la texture sotto la nuvola
-  quotaMin: 15, quotaMax: 21,
+  // ALTE SOPRA LE COLLINE. A quota 15-21 le nuvole finivano DENTRO il terreno
+  // dell'open world (le creste arrivano a 25) e si vedevano appoggiate sulle
+  // cime come nebbia. Il cielo dev'essere sopra il mondo, non dentro.
+  quotaMin: 34, quotaMax: 48,
   raggio: 55,        // oltre questo drift, la nuvola rientra dall'altro lato
 };
 

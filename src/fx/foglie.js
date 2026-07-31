@@ -15,16 +15,20 @@
 //    torna solo quando ci si allontana e si ritorna. Le particelle che partono
 //    le tira main, con il colore di QUESTO mucchio.
 //
-//  · SONO QUADRATI RUOTATI, non lame: piatti a terra, girati ognuno per conto
-//    suo e inclinati appena, perché una foglia perfettamente stesa sembra un
-//    adesivo. La rotazione è anche il canale del calpestio — girano su se stesse
-//    mentre volano via.
+//  · HANNO LA FORMA DI UNA FOGLIA, ritagliata nel fragment shader: allungata,
+//    con la punta da una parte e il picciolo dall'altra. Un ovale simmetrico si
+//    legge come un PETALO — cioè come un fiore — ed è stato bocciato per questo.
+//    La rotazione è anche il canale del calpestio: girano su se stesse mentre
+//    volano via.
 //
-// Il vento le fa STRISCIARE, non ondeggiare: una foglia secca non è attaccata a
-// niente. Con la raffica scivolano nella direzione del vento e tornano.
+// IL VENTO NON LE TOCCA, ed è una scelta, non una dimenticanza: una foglia
+// caduta non è attaccata a niente. Se il vento la muove, o vola via — e allora
+// non è più lì — oppure resta ferma. Un mucchio che ondeggia sul posto è la
+// peggiore delle due, perché sembra piantato. Si muovono SOLO quando qualcosa
+// ci passa dentro.
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=ms85rw9m';
+import { CHUNK } from '../world/world.js?v=ms87ar6v';
 
 // I due tipi di mucchio. Le secche sono la regola, il ciliegio la sorpresa.
 const TIPI = [
@@ -74,7 +78,6 @@ const GLSL_VERTEX = /* glsl */`
   attribute vec4 iDati;     // (rotazione, lato, inclinazione, fase)
   attribute vec3 iCol;
   uniform float uTempo;
-  uniform vec4 uVento;      // (dir.x, dir.z, forza di fondo, raffica)
   uniform vec4 uMobili[4];  // chi si muove: (x, y, z, raggio). w=0 = slot spento
   uniform float uNascita;
   varying vec3 vCol;
@@ -106,13 +109,15 @@ const GLSL_VERTEX = /* glsl */`
       giro += t * t * 5.0;
     }
 
-    // ---- IL VENTO ------------------------------------------------------------
-    // STRISCIANO. Una foglia secca non è piantata: con la raffica scivola nella
-    // direzione del vento invece di piegarsi sul posto come farebbe un filo.
-    float onda = sin(uTempo * 1.5 + dot(iPos.xz, uVento.xy) * 0.35 + iDati.w);
-    float onda2 = sin(uTempo * 2.9 - iPos.x * 0.2 + iDati.w * 1.6);
-    float scivola = uVento.z * 0.05 + uVento.w * (onda * 0.10 + onda2 * 0.04);
-    float ang = iDati.x + giro + scivola * 1.2;
+    // ---- NIENTE VENTO -------------------------------------------------------
+    // Le foglie ondeggiavano con la raffica come fa l'erba, e il committente
+    // l'ha bocciato con una ragione che è più forte dell'estetica: una foglia
+    // CADUTA non è attaccata a niente. Se il vento la muove, o vola via — e
+    // allora non è più lì — oppure resta ferma. Un mucchio che ondeggia sul
+    // posto è la cosa peggiore delle due, perché sembra piantato.
+    //
+    // Restano ferme, e si muovono SOLO quando qualcosa ci passa dentro.
+    float ang = iDati.x + giro;
 
     // quadrato piatto: inclinato appena su un asse, poi girato attorno a Y
     float ct = cos(iDati.z), st = sin(iDati.z);
@@ -122,7 +127,6 @@ const GLSL_VERTEX = /* glsl */`
     vec3 p = vec3(t3.x * c - t3.z * s, t3.y, t3.x * s + t3.z * c);
 
     vec3 base = iPos.xyz + fuga;
-    base.xz += uVento.xy * scivola * 2.2;
 
     // la faccia prende luce diversa secondo come s'è girata: senza, un mucchio
     // è una macchia unica di colore piatto
@@ -138,13 +142,19 @@ const GLSL_FRAGMENT = /* glsl */`
   varying vec2 vUv;
   uniform vec3 uAmbienteFoglie;
   void main() {
-    // NON un quadrato: una GOCCIA. Il mondo è di cubi, quello che ci cade sopra
-    // no — una foglia con quattro spigoli sembra un pezzo di blocco caduto. La
-    // sagoma si ritaglia qui: un'ellisse allungata a cui il termine cubico
-    // stringe un'estremità, cioè la punta della foglia. Costa un discard e
-    // niente vertici in più.
+    // NON un quadrato e NON un petalo tondo: una FOGLIA. La goccia simmetrica
+    // di prima si leggeva come un fiore — è il rilievo del committente, e aveva
+    // ragione: un ovale regolare è un petalo, non una foglia caduta.
+    //
+    // Tre correzioni, tutte nella stessa riga di distanza:
+    //  · ALLUNGATA, non tonda: una foglia è lunga il doppio che larga;
+    //  · una PUNTA da una parte e un PICCIOLO stretto dall'altra (il termine
+    //    cubico rompe la simmetria fra le due estremità);
+    //  · un rientro appena accennato ai fianchi, che è quello che distingue una
+    //    foglia da un chicco di riso.
     vec2 q = vUv;
-    float m = q.x * q.x + q.y * q.y * (2.0 + q.y * 0.9);
+    float larga = 1.0 - 0.22 * abs(q.y);          // fianchi appena rientranti
+    float m = (q.x * q.x) / (larga * larga) + q.y * q.y * (0.75 + q.y * 0.55);
     if (m > 1.0) discard;
     gl_FragColor = vec4(vCol * vLuce * uAmbienteFoglie, 1.0);
   }
@@ -203,7 +213,6 @@ export class Foglie {
       side: THREE.DoubleSide,
       uniforms: {
         uTempo: { value: 0 },
-        uVento: { value: new THREE.Vector4(1, 0, 0.22, 0.35) },
         uMobili: { value: Array.from({ length: 4 }, () => new THREE.Vector4(0, 0, 0, 0)) },
         uNascita: { value: 0.5 },
         uAmbienteFoglie: { value: new THREE.Color(1, 1, 1) },
@@ -214,8 +223,6 @@ export class Foglie {
     this.mesh.renderOrder = 2;
     scena.add(this.mesh);
 
-    this.forzaMeteo = 0;
-    this._forza = 0;
   }
 
   imposta(on) { this.attiva = on; this.mesh.visible = on; }
@@ -399,10 +406,6 @@ export class Foglie {
     this._t += dt;
     const u = this.materiale.uniforms;
     u.uTempo.value = this._t;
-    this._forza += (this.forzaMeteo - this._forza) * Math.min(1, dt * 0.5);
-    const a = this._t * 0.045;
-    u.uVento.value.set(Math.cos(a), Math.sin(a), 0.18 + 0.55 * this._forza,
-      0.30 + 0.75 * this._forza);
     u.uMobili.value[0].set(pos.x, pos.y, pos.z, 1.25);
     if (ambiente) u.uAmbienteFoglie.value.copy(ambiente);
 

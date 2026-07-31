@@ -30,8 +30,8 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms85rw9m';
-import { CHUNK } from '../world/world.js?v=ms85rw9m';
+import { paletteBlocco } from '../world/stagioni.js?v=ms87ar6v';
+import { CHUNK } from '../world/world.js?v=ms87ar6v';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -81,6 +81,9 @@ const GLSL_VERTEX = /* glsl */`
   uniform float uNascita;   // durata della crescita, in secondi
   varying float vAlt;
   varying vec3 vCol;
+  varying float vLontano;
+  uniform vec3 uCamera;
+  uniform vec2 uSfuma;      // (dove comincia a spegnersi, dove è spenta)
 
   void main() {
     float alt = position.y;
@@ -93,6 +96,26 @@ const GLSL_VERTEX = /* glsl */`
     // nascessero già grandi.
     float eta = clamp((uTempo - iPos.w) / max(uNascita, 0.01), 0.0, 1.0);
     eta = eta * eta * (3.0 - 2.0 * eta);
+
+    // ---- IL CONGEDO CON LA DISTANZA ----------------------------------------
+    // «L'erba compare di botto quando ti avvicini»: era vero, e la crescita da
+    // scala zero non bastava perché il ciuffo NUOVO nasce già a colori pieni in
+    // mezzo a un prato che non ne aveva nessuno.
+    //
+    // Qui l'ultimo tratto fa DUE cose insieme, e servono tutt'e due: la lamella
+    // si accorcia fino a sparire nel manto, E il suo colore converge a quello
+    // esatto del blocco sotto. Quando arriva al bordo del campo seminato è alta
+    // quasi zero e indistinguibile dal terreno: che ci sia o non ci sia non lo
+    // si può vedere, quindi non si vede nemmeno il momento in cui appare.
+    //
+    // Costa due sottrazioni per vertice. Farlo con la trasparenza costerebbe
+    // l'ordinamento di ventimila quad; farlo con cartelli 2D che guardano la
+    // camera costerebbe una seconda geometria e un secondo materiale — e a quel
+    // punto si vedrebbe il passaggio FRA i due, che è lo stesso difetto spostato
+    // di dieci metri più in là.
+    vLontano = clamp((distance(iPos.xz, uCamera.xz) - uSfuma.x)
+                     / max(uSfuma.y - uSfuma.x, 0.001), 0.0, 1.0);
+    eta *= 1.0 - vLontano * vLontano * 0.82;
 
     // RETTANGOLO, non lama: la larghezza si stringe appena in cima (0.82), non
     // fino a una punta. È la differenza fra un filo d'erba e una scheggia, ed è
@@ -147,6 +170,7 @@ const GLSL_VERTEX = /* glsl */`
 const GLSL_FRAGMENT = /* glsl */`
   varying float vAlt;
   varying vec3 vCol;
+  varying float vLontano;
   uniform vec3 uAmbienteErba;
 
   void main() {
@@ -155,7 +179,18 @@ const GLSL_FRAGMENT = /* glsl */`
     // erba e terreno si vedeva come una riga d'ombra: il ciuffo sembrava
     // appoggiato sopra invece che cresciuto lì. A quota zero adesso i due colori
     // coincidono al bit, e il passaggio non esiste proprio.
-    vec3 col = mix(vCol, vCol * 1.28 + vec3(0.06), vAlt * vAlt);
+    //
+    // LA SCHIARITA STA IN CIMA, non su tutta la lamella, e questo è il rilievo
+    // del committente («a risoluzioni basse la sfumatura deve funzionare, se no
+    // esce molto brutto»). Con una rampa quadratica metà della lamella era già
+    // più chiara del blocco: a schermo pieno si legge come sfumatura, ma quando
+    // la lamella è larga due pixel di quella sfumatura si vede solo la parte
+    // chiara — e il prato diventa una macchia pallida sopra un terreno scuro.
+    // Con la cubica la schiarita vive nell'ultimo terzo: il colore MEDIO della
+    // lamella resta quello del blocco a qualsiasi risoluzione.
+    vec3 col = mix(vCol, vCol * 1.22 + vec3(0.035), vAlt * vAlt * vAlt);
+    // e in lontananza si torna al colore esatto del blocco: vedi il vertex
+    col = mix(col, vCol, vLontano);
     gl_FragColor = vec4(col * uAmbienteErba, 1.0);
   }
 `;
@@ -217,6 +252,8 @@ export class Erba {
         uMobili: { value: Array.from({ length: 4 }, () => new THREE.Vector4(0, 0, 0, 0)) },
         uNascita: { value: 0.5 },
         uAmbienteErba: { value: new THREE.Color(1, 1, 1) },
+        uCamera: { value: new THREE.Vector3() },
+        uSfuma: { value: new THREE.Vector2(30, 52) },
       },
     });
     this.mesh = new THREE.Mesh(g, this.materiale);
@@ -422,6 +459,12 @@ export class Erba {
     // il giocatore è sempre il primo; gli altri li mette main (gatti, palle)
     u.uMobili.value[0].set(pos.x, pos.y, pos.z, 1.1);
     if (ambiente) u.uAmbienteErba.value.copy(ambiente);
+    // il congedo si misura dal GIOCATORE, non dalla camera: girando attorno con
+    // lo zoom l'erba non deve accorciarsi e riallungarsi sotto i piedi
+    u.uCamera.value.copy(pos);
+    // e finisce PRIMA del bordo del campo seminato, se no si vedrebbe il taglio
+    const bordo = this.raggioChunk * CHUNK;
+    u.uSfuma.value.set(bordo * 0.55, bordo * 0.92);
 
     const ccx = Math.floor(pos.x / CHUNK), ccz = Math.floor(pos.z / CHUNK);
     if (ccx !== this._ccx || ccz !== this._ccz) {
