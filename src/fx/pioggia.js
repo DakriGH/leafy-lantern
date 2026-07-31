@@ -1,35 +1,47 @@
-// Pioggia: striscioline verticali in UNA sola mesh che segue il player.
-// La caduta è tutta nel vertex shader (wrap con mod): zero lavoro CPU per
-// goccia. Insieme a uPioggia (materials.js) accende le increspature sull'acqua.
+// Pioggia: striscioline verticali in UNA sola mesh. La caduta è tutta nel vertex
+// shader (wrap con mod): zero lavoro CPU per goccia. Insieme a uPioggia
+// (materials.js) accende le increspature sull'acqua.
 //
 // PIOVE DOVE CI SONO LE NUVOLE, non addosso al giocatore. Era il difetto che il
 // committente ha visto subito allontanando la camera: la scatola di gocce lo
 // seguiva, quindi la pioggia era una colonna che camminava con lui e il resto
 // del mondo restava asciutto. Adesso ogni goccia guarda se ha una nuvola SOPRA —
 // le stesse nuvole che si vedono in cielo, con la loro deriva — e se non ce l'ha
-// non esiste. La scatola continua a seguire il giocatore (simulare la pioggia
-// su tutto il mondo sarebbe assurdo), ma dentro la scatola la pioggia c'è solo
-// dove deve esserci: si vedono i rovesci passare, e il bordo di un rovescio.
+// non esiste.
+//
+// ⚠ E LE GOCCE STANNO NEL MONDO, NON NEL GIOCATORE. Questo è il bug che faceva
+// dire «la pioggia ogni tanto va al contrario»: la mesh era piazzata sul
+// giocatore e le gocce vivevano in coordinate LOCALI, quindi camminando l'intera
+// colonna d'acqua traslava insieme a lui. A schermo una goccia che cade a 19
+// blocchi al secondo mentre il mondo le scorre sotto a 5 sembra andare di
+// traverso; scendendo una collina il volume si abbassava di colpo e le gocce
+// sembravano salire. Non era «ogni tanto»: era ogni volta che ci si muoveva, e
+// più forte quanto più veloce si andava.
+//
+// Adesso ogni goccia calcola la sua posizione IN MONDO e ci si aggancia: quello
+// che segue il giocatore non è la goccia ma la MAGLIA su cui le gocce sono
+// disposte, che scatta di un passo intero per volta (`avvolgi`). Un salto di un
+// periodo intero è invisibile per definizione — la goccia riparte esattamente
+// dove ne finiva un'altra — mentre fra un salto e l'altro la pioggia sta ferma
+// nel mondo, cioè cade dritta.
+//
+// L'AREA SEGUE LO ZOOM. Era un quadrato fisso di 26 blocchi: allontanando la
+// camera si vedeva la pioggia solo in una toppa attorno al gatto e tutto il
+// resto del panorama era asciutto («è solo sul player, quando dezoomo non vedo
+// niente»). Le basi delle gocce sono NORMALIZZATE in [-0.5, 0.5] e le moltiplica
+// una uniform: allargare il campo è un numero, non una geometria da rifare, e la
+// goccia non cambia dimensione perché la forma non viene scalata.
 //
 // L'INTENSITÀ non è solo l'opacità: una tempesta ha gocce più fitte, più lunghe
 // e più veloci di una pioggerella, e se cambia solo il colore si vede che è la
 // stessa pioggia sbiadita.
-//
-// IL ROVESCIO È PIÙ LARGO DELLA NUVOLA CHE LO FA, e la scala cresce con
-// l'intensità (`impostaNuvole`, secondo argomento). Non è una scorciatoia: la
-// sagoma che si vede in cielo è il nucleo denso, la pioggia cade su un'area più
-// ampia — e soprattutto è quello che rende la cosa LEGGIBILE. Con il disco a
-// misura di nuvola, dieci nuvole da sette blocchi di raggio su un'area di cento
-// coprono il 4%: misurato, il giocatore non aveva quasi mai una nuvola sopra e
-// «piove» voleva dire «non si vede niente». Con la pioggerella si vedono i
-// rovesci passare a chiazze; con la tempesta piove dappertutto, che è appunto
-// quello che fa una tempesta.
 
 import * as THREE from 'three';
 
-const GOCCE = 380;
-const AREA = 26;          // lato della zona di pioggia intorno al player
-const ALTEZZA = 22;
+const GOCCE = 1500;
+const AREA_MIN = 30;      // lato della zona di pioggia da vicino
+const AREA_MAX = 130;     // …e con la camera lontana
+const ALTEZZA = 26;
 const NUVOLE_MAX = 12;    // quante nuvole può guardare una goccia
 
 export class Pioggia {
@@ -39,9 +51,10 @@ export class Pioggia {
     const uv = new Float32Array(GOCCE * 4 * 2);
     const idx = [];
     for (let i = 0; i < GOCCE; i++) {
-      const bx = (Math.random() - 0.5) * AREA;
-      const by = Math.random() * ALTEZZA;
-      const bz = (Math.random() - 0.5) * AREA;
+      // NORMALIZZATE: xz in [-0.5, 0.5], y in [0, 1]. Le scala uArea/ALTEZZA.
+      const bx = Math.random() - 0.5;
+      const by = Math.random();
+      const bz = Math.random() - 0.5;
       const ang = Math.random() * Math.PI;
       const dx = Math.cos(ang) * 0.016, dz = Math.sin(ang) * 0.016;
       const L = 0.5 + Math.random() * 0.25;
@@ -61,13 +74,18 @@ export class Pioggia {
     g.setAttribute('aBase', new THREE.BufferAttribute(base, 3));
     g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     g.setIndex(idx);
-    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), AREA);   // mai cullata male
+    // la mesh sta nell'ORIGINE e i vertici sono già in coordinate mondo: la
+    // sfera di culling deve coprire tutto il campo, se no sparisce a tradimento
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6);
 
     this.materiale = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
       uniforms: {
         uT: { value: 0 }, uAlpha: { value: 0 }, uNeve: { value: 0 },
         uForza: { value: 1 },      // 0 pioggerella … 1 tempesta
+        uCentro: { value: new THREE.Vector3() },   // il giocatore, in MONDO
+        uArea: { value: AREA_MIN },
+        uGoccia: { value: 1 },     // quanto ingrossare la goccia con la distanza
         uNuvole: { value: Array.from({ length: NUVOLE_MAX }, () => new THREE.Vector4(0, 0, -1, 0)) },
         uNuvoleNum: { value: 0 },
       },
@@ -78,14 +96,29 @@ export class Pioggia {
         uniform float uT;
         uniform float uNeve;
         uniform float uForza;
+        uniform vec3 uCentro;
+        uniform float uArea;
+        uniform float uGoccia;
         uniform vec4 uNuvole[${NUVOLE_MAX}];   // (x, z, raggio, riserva) in MONDO
         uniform int uNuvoleNum;
+
+        // Riporta una coordinata dentro il periodo centrato su c: la goccia salta
+        // di un PERIODO INTERO, cioè finisce dove ne cominciava un'altra, e il
+        // salto non si vede. È l'unico movimento che la maglia fa seguendo il
+        // giocatore: fra un salto e l'altro la pioggia sta ferma nel mondo.
+        float avvolgi(float v, float c, float periodo) {
+          return v + floor((c - v) / periodo + 0.5) * periodo;
+        }
+
         void main() {
-          // HA UNA NUVOLA SOPRA? La goccia sta in coordinate locali (la mesh
-          // segue il giocatore), le nuvole in coordinate mondo: si somma
-          // l'origine della mesh. Il bordo del rovescio è sfumato, se no la
+          float area = uArea;
+          // ---- la posizione della goccia, IN MONDO ---------------------------
+          vec2 baseXZ = aBase.xz * area;
+          vec2 mondoXZ = vec2(avvolgi(baseXZ.x, uCentro.x, area),
+                              avvolgi(baseXZ.y, uCentro.z, area));
+
+          // HA UNA NUVOLA SOPRA? Il bordo del rovescio è sfumato, se no la
           // pioggia si taglia con un cerchio netto e sembra un riflettore.
-          vec2 mondoXZ = modelMatrix[3].xz + aBase.xz;
           float sotto = 0.0;
           for (int i = 0; i < ${NUVOLE_MAX}; i++) {
             if (i >= uNuvoleNum) break;
@@ -101,13 +134,29 @@ export class Pioggia {
           // L'INTENSITÀ entra nella VELOCITÀ e nella LUNGHEZZA, non solo
           // nell'opacità: una tempesta non è una pioggerella sbiadita.
           float velo = mix(19.0, 2.6, uNeve) * mix(0.55, 1.45, uForza);
-          float caduta = mod(aBase.y - uT * velo, ${ALTEZZA.toFixed(1)});
-          vec3 p = vec3(aBase.x, caduta, aBase.z);
-          p.x += uNeve * sin(uT * 1.3 + aBase.y * 2.1 + aBase.x) * 0.5;
-          p.z += uNeve * cos(uT * 1.1 + aBase.x * 1.7) * 0.4;
-          // con la tempesta la pioggia va di traverso
-          p.xz += vec2(0.9, 0.35) * (1.0 - uNeve) * uForza * uForza * (${ALTEZZA.toFixed(1)} - caduta) * 0.10;
-          vec3 forma = position;
+          float alto = ${ALTEZZA.toFixed(1)};
+          // la quota scende col tempo e si avvolge attorno alla testa del
+          // giocatore: cade nel MONDO, non dentro una scatola che lo insegue
+          float cadutaY = mod(aBase.y * alto - uT * velo, alto);
+          float mondoY = avvolgi(cadutaY, uCentro.y + alto * 0.35, alto);
+
+          vec3 p = vec3(mondoXZ.x, mondoY, mondoXZ.y);
+          p.x += uNeve * sin(uT * 1.3 + aBase.y * 21.0 + aBase.x * 7.0) * 0.5;
+          p.z += uNeve * cos(uT * 1.1 + aBase.x * 17.0) * 0.4;
+          // con la tempesta la pioggia va di traverso: l'inclinazione dipende da
+          // QUANTO È SCESA, e siccome adesso la quota è quella vera del mondo il
+          // riferimento è la testa del giocatore
+          float scesa = clamp((uCentro.y + alto * 0.85 - mondoY) / alto, 0.0, 1.0);
+          p.xz += vec2(0.9, 0.35) * (1.0 - uNeve) * uForza * uForza * scesa * 2.4;
+
+          // ⚠ LA GOCCIA CRESCE CON LA DISTANZA, ed è l'altra metà del «quando
+          // dezoomo non vedo niente». Allargare il campo non basta: una goccia è
+          // larga sedici millesimi di blocco, e a novanta blocchi di camera è
+          // meno di un pixel — c'era, e non si vedeva. Qui non si simula
+          // niente di più: si tiene la goccia grande almeno UN PIXEL, che è la
+          // stessa cosa che fa il tratto di una matita quando disegni la pioggia
+          // in lontananza.
+          vec3 forma = position * uGoccia;
           forma.y *= mix(1.0, 0.14, uNeve) * mix(0.6, 1.6, uForza);
           forma.xz *= mix(1.0, 4.5, uNeve);
           // fuori dal rovescio la goccia non c'è: si chiude su se stessa
@@ -130,6 +179,7 @@ export class Pioggia {
     this.mesh = new THREE.Mesh(g, this.materiale);
     this.mesh.visible = false;
     this.mesh.renderOrder = 3;
+    this.mesh.frustumCulled = false;
     scena.add(this.mesh);
     this.attiva = false;
     this._fade = 0;      // 0..1 con transizione morbida
@@ -160,15 +210,28 @@ export class Pioggia {
   /** 0 = pioggia · 1 = neve (transizione morbida nel loop). */
   neve(v) { this._neveVerso = v; }
 
-  /** Ritorna l'intensità corrente (0..1) per le increspature sull'acqua. */
-  aggiorna(dt, tempo, bersaglio) {
+  /**
+   * Ritorna l'intensità corrente (0..1) per le increspature sull'acqua.
+   * `distanzaCamera` allarga il campo di pioggia quando ci si allontana: con la
+   * camera a sessanta blocchi si guarda un panorama, e la pioggia deve esserci
+   * su tutto il panorama.
+   */
+  aggiorna(dt, tempo, bersaglio, distanzaCamera = 0) {
     const verso = this.attiva ? 1 : 0;
     this._fade += (verso - this._fade) * Math.min(1, dt * 2.5);
     const un = this.materiale.uniforms;
     un.uNeve.value += ((this._neveVerso || 0) - un.uNeve.value) * Math.min(1, dt * 1.5);
     if (this._fade < 0.01) { this.mesh.visible = false; return 0; }
     this.mesh.visible = true;
-    this.mesh.position.set(bersaglio.x, bersaglio.y - 3, bersaglio.z);
+    un.uCentro.value.copy(bersaglio);
+    // L'AREA SI MUOVE A SCATTI GROSSI, di proposito: cambiarla di continuo
+    // vorrebbe dire spostare TUTTE le gocce a ogni frame mentre lo zoom si
+    // assesta, e quello sì che si vedrebbe. Quantizzata a otto blocchi, cambia
+    // solo quando lo zoom cambia davvero.
+    const voluta = Math.max(AREA_MIN, Math.min(AREA_MAX, distanzaCamera * 2.2));
+    un.uArea.value = Math.round(voluta / 8) * 8;
+    // e la goccia si ingrossa con la stessa distanza: sotto il pixel non esiste
+    un.uGoccia.value = Math.max(1, Math.min(7, distanzaCamera / 15));
     un.uT.value = tempo;
     un.uForza.value += ((this._forzaVerso ?? 0.5) - un.uForza.value) * Math.min(1, dt * 0.7);
     un.uAlpha.value = (0.30 + 0.34 * un.uForza.value) * this._fade;

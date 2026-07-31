@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms8zmku3';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms8zmku3';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms91dkm7';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms91dkm7';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -972,19 +972,32 @@ const GLSL_FRAGMENT = /* glsl */`
   float ombraCielo() {
     if (uSoleForza <= 0.0) return 1.0;               // opzione spenta o astro sotto
     if (uSoleDir.y <= 0.02) return 1.0;              // astro sull'orizzonte: nessuna ombra
-    // (1) il terminatore, che è anche l'uscita rapida
-    if (uSoleTerm > 0.0 && dot(normaleGeom(), uSoleDir) <= 0.0) return uSoleTerm;
+    // ---- (1) IL TERMINATORE, con una rampa STRETTA attorno allo zero --------
+    //
+    // ⚠ ERA UN GRADINO SECCO, e finché l'astro girava solo di quaranta gradi non
+    // si notava. Adesso che fa il suo mezzo giro (fx/daynight.js) l'azimut
+    // ATTRAVERSA la normale delle facce, e con un gradino tutte le pareti
+    // rivolte da quella parte ribaltavano da chiare a scure nello stesso
+    // fotogramma: un lampo, non un tramonto. La rampa è larga un decimo di
+    // coseno — a schermo sono qualche minuto di gioco, che basta e avanza per
+    // non vederlo scattare, e resta comunque un cel shading a due toni.
+    float _term = 1.0;
+    if (uSoleTerm > 0.0) {
+      float _d = dot(normaleGeom(), uSoleDir);
+      if (_d <= -0.02) return uSoleTerm;              // girata del tutto: esce subito
+      _term = mix(uSoleTerm, 1.0, smoothstep(-0.02, 0.10, _d));
+    }
     // (2) le scatole: la sagoma dei mobili e i corpi in moto, che nella griglia
     //     non ci sono (o non ci starebbero senza diventare cubi). I materiali
     //     dei MOBILI le saltano in blocco (vedi FURNI): il ramo sparisce in
     //     compilazione, non è un if pagato per pixel.
     if (!FURNI && uDinNum > 0) {
       float sc = ombraScatole();
-      if (sc > 0.002) return 1.0 - sc;        // sfuma invece di apparire di colpo
+      if (sc > 0.002) return (1.0 - sc) * _term;   // sfuma invece di apparire di colpo
     }
-    if (uSolePassi == 0 || uVoxMin.w < 0.5) return 1.0;
+    if (uSolePassi == 0 || uVoxMin.w < 0.5) return _term;
     // chi sta sopra la cima del mondo non ha niente sopra di sé: niente cammino
-    if (vPosMondo.y >= uVoxCima) return 1.0;
+    if (vPosMondo.y >= uVoxCima) return _term;
     // ---- (3) L'OMBRA PORTATA DAL MONDO: SI CAMMINA LA HEIGHTMAP -----------
     //
     // MISURATO, ed e' il numero che ha deciso questa riscrittura: sul Chromebook
@@ -1015,12 +1028,27 @@ const GLSL_FRAGMENT = /* glsl */`
     // ⚠ SI PARTE DAL PASSO 1, non da 0: al passo 0 si campionerebbe la colonna
     // del frammento stesso, e ogni pixel su una parete verticale — che sta sotto
     // la cima della propria colonna — si dichiarerebbe in ombra da solo.
+    //
+    // ⚠ E IL SALTO SECCO ERA LA CAUSA DEL SEGHETTATO. Il cammino campiona una
+    // colonna ogni blocco: con un test booleano il bordo dell'ombra cade sempre
+    // su un confine di colonna, e siccome il raggio va in diagonale quei confini
+    // formano una scaletta. «Le ombre sono tutte seghettate e fatte malissimo»,
+    // parole del committente, ed è esattamente questo — non i blocchi del mondo,
+    // il campionamento.
+    //
+    // La cura non è campionare di più (si paga per pixel): è misurare DI QUANTO
+    // il terreno supera il raggio, invece di chiedere solo se lo supera. A
+    // cavallo del bordo quella differenza passa per zero con continuità, quindi
+    // la scaletta si dissolve in mezza cella di penombra. Restano due toni —
+    // il cel shading non si tocca — solo che il confine fra i due non è più
+    // tagliato con l'accetta della griglia.
     vec2 dirXZ = uSoleDir.xz;
     float lenXZ = length(dirXZ);
-    if (lenXZ < 0.02) return 1.0;        // astro allo zenit: non porta ombra
+    if (lenXZ < 0.02) return _term;      // astro allo zenit: non porta ombra
     vec2 dxz = dirXZ / lenXZ;            // avanzare di 1 blocco in XZ...
     float salita = uSoleDir.y / lenXZ;   // ...fa salire il raggio di tanto
     vec3 p0 = vPosMondo + uSoleDir * ${GSCARTO};
+    float occ = 0.0;
     for (int k = 1; k <= ${SOLE_PASSI_MAX}; k++) {
       float fk = float(k);
       if (fk > float(uSolePassi)) break;          // la portata, in blocchi
@@ -1030,9 +1058,12 @@ const GLSL_FRAGMENT = /* glsl */`
       if (y >= uVoxCima) break;
       vec2 uv = (p0.xz + dxz * fk - uCieloInfo.xy) * uCieloInfo.z;
       if (uv.x <= 0.0 || uv.x >= 1.0 || uv.y <= 0.0 || uv.y >= 1.0) break;
-      if (texture2D(uCielo, uv).r > y) return 0.0;   // UN salto secco, niente rampa
+      // quanto il terreno di quella colonna supera il raggio, in blocchi
+      float sopra = texture2D(uCielo, uv).r - y;
+      occ = max(occ, smoothstep(0.0, 0.55, sopra));
+      if (occ > 0.995) break;                     // già piena: inutile continuare
     }
-    return 1.0;
+    return (1.0 - occ) * _term;
   }
 
   vec3 lanternaAccumulo() {

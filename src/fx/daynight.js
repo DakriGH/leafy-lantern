@@ -2,9 +2,9 @@
 // t ∈ [0,1): 0 mezzanotte · 0.25 alba · 0.5 mezzogiorno · 0.75 tramonto.
 
 import * as THREE from 'three';
-import { TEMPO } from '../config.js?v=ms8zmku3';
-import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=ms8zmku3';
-import { Cielo } from './cielo.js?v=ms8zmku3';
+import { TEMPO } from '../config.js?v=ms91dkm7';
+import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=ms91dkm7';
+import { Cielo } from './cielo.js?v=ms91dkm7';
 
 // `ambiente` È IL GIORNO E LA NOTTE, e non serve altro: lo shader moltiplica
 // l'albedo per questo colore e ci somma sopra le luci-sfera. Un tentativo aveva
@@ -154,10 +154,43 @@ export class CicloGiorno {
     const g = notte
       ? ((this.t + (1 - SERA_T)) % 1) / (1 - (SERA_T - ALBA_T))
       : (this.t - ALBA_T) / (SERA_T - ALBA_T);
-    const alt = Math.sin(Math.PI * g);             // 0 all'orizzonte, 1 al culmine
-    const az = (notte ? Math.PI * 1.25 : Math.PI * 0.25) + (g - 0.5) * 0.7;
-    const oriz = 0.62 + 0.30 * (1 - alt);          // radente = ombre lunghe
-    _sole.set(Math.cos(az) * oriz, Math.max(0.12, alt), Math.sin(az) * oriz);
+    // ---- L'ARCO VERO, DA UN ORIZZONTE ALL'ALTRO -----------------------------
+    //
+    // ⚠ PRIMA L'ASTRO NON SORGEVA E NON TRAMONTAVA: girava di quaranta gradi
+    // scarsi dentro un settore diagonale fisso, quindi le ombre puntavano tutto
+    // il giorno dalla stessa parte e sempre in obliquo. Il committente l'ha
+    // detto con parole esatte: «l'angolazione delle ombre è tutto storto, ci
+    // stava un occhiolino per evitare il sole centrale ma così è irreale».
+    // Aveva ragione su tutt'e due i pezzi, ed è la differenza fra un'ora del
+    // giorno e una decorazione.
+    //
+    // Il settore stretto serviva a non far ribaltare due pareti su quattro tutte
+    // insieme quando l'azimut attraversa la normale di una faccia. Il problema è
+    // vero ma la cura era peggio: adesso l'astro fa il suo mezzo giro, e il
+    // ribaltamento lo ammorbidisce il TERMINATORE (vedi uSoleTerm in
+    // fx/materials.js), che invece di scattare in un fotogramma ci mette qualche
+    // minuto di gioco.
+    //
+    // L'«OCCHIOLINO» RESTA, ed è `INCLINA`: l'arco non passa per lo zenit ma di
+    // fianco, quindi a mezzogiorno le ombre sono corte e puntano da una parte
+    // invece di sparire sotto gli oggetti. È esattamente quello che il
+    // committente aveva approvato — solo che ora è l'unica deviazione, non tutto
+    // il movimento.
+    //
+    // L'ASSE DI LEVATA è ruotato di ~40° apposta: se sorgesse lungo X o lungo Z
+    // l'ombra di mezzogiorno cadrebbe parallela agli spigoli dei blocchi e il
+    // mondo sembrerebbe di carta. La LUNA usa l'asse opposto: di notte le ombre
+    // cadono dall'altra parte, e si vede subito.
+    const arco = Math.PI * g;                      // 0 = leva, π = tramonta
+    const INCLINA = 0.36;                          // quanto il culmine sta di lato
+    const A = (notte ? Math.PI + 0.70 : 0.70);     // azimut dell'asse di levata
+    const ex = Math.cos(A), ez = Math.sin(A);      // versore «da dove sorge»
+    const nx = -ez, nz = ex;                       // il perpendicolare, in pianta
+    const lungo = Math.cos(arco);                  // +1 all'alba, −1 al tramonto
+    const lato = Math.sin(arco) * Math.sin(INCLINA);
+    const alt = Math.sin(arco) * Math.cos(INCLINA); // 0 all'orizzonte, ~0.94 al culmine
+    _sole.set(ex * lungo + nx * lato, Math.max(0.12, alt), ez * lungo + nz * lato)
+      .normalize();
 
     // QUANTO SCURISCE. La rampa sull'altezza serve a non far comparire la lama
     // radente dell'alba, ma ogni volta che l'ho ammorbidita per quel motivo ho

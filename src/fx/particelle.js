@@ -5,7 +5,7 @@
 // Un solo THREE.Points, buffer riciclato: costo CPU e GPU irrisorio.
 
 import * as THREE from 'three';
-import { ambienteAttuale, uniformiOmbraSole, uniformiScatole, GLSL_SCATOLE_VERTICE } from './materials.js?v=ms8zmku3';
+import { ambienteAttuale, uniformiOmbraSole, uniformiScatole, GLSL_SCATOLE_VERTICE } from './materials.js?v=ms91dkm7';
 
 const MAX = 180;
 
@@ -83,6 +83,7 @@ ${GLSL_SCATOLE_VERTICE}
           if (lenXZ < 0.02) return 1.0;
           vec2 dxz = dirXZ / lenXZ;
           float salita = uSoleDir.y / lenXZ;
+          float occ = 0.0;
           for (int k = 1; k <= 4; k++) {
             float fk = float(k) * 2.2;
             if (fk > float(uSolePassi)) break;
@@ -90,9 +91,10 @@ ${GLSL_SCATOLE_VERTICE}
             if (y >= uVoxCima) break;
             vec2 uv = (p.xz + dxz * fk - uCieloInfo.xy) * uCieloInfo.z;
             if (uv.x <= 0.0 || uv.x >= 1.0 || uv.y <= 0.0 || uv.y >= 1.0) break;
-            if (texture2D(uCielo, uv).r > y) return 0.0;
+            occ = max(occ, smoothstep(0.0, 0.55, texture2D(uCielo, uv).r - y));
+            if (occ > 0.995) break;
           }
-          return 1.0;
+          return 1.0 - occ;
         }
 
         void main() {
