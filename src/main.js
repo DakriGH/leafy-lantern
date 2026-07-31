@@ -1,72 +1,72 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms92pb4b';
-import { Rig } from './engine/renderer.js?v=ms92pb4b';
-import { Input } from './engine/input.js?v=ms92pb4b';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms92pb4b';
-import { Cadenza } from './engine/cadenza.js?v=ms92pb4b';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms92pb4b';
-import { componiDiagnostica } from './engine/diagnostica.js?v=ms92pb4b';
-import { SCENE } from './engine/banco.js?v=ms92pb4b';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms92pb4b';
-import { Mondo } from './world/world.js?v=ms92pb4b';
-import { SimAcqua } from './world/acqua.js?v=ms92pb4b';
-import { Lobby } from './net/lobby.js?v=ms92pb4b';
-import { Segnalatore } from './net/segnalatore.js?v=ms92pb4b';
-import { Bolla } from './ui/bolla.js?v=ms92pb4b';
-import { Scelta } from './ui/scelta.js?v=ms92pb4b';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms92pb4b';
-import { Zaino } from './ui/zaino.js?v=ms92pb4b';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=ms92pb4b';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms92pb4b';
-import { generaMostra } from './world/mostra.js?v=ms92pb4b';
-import { generaCollaudo } from './world/collaudo.js?v=ms92pb4b';
-import { generaTestLuci } from './world/testLuci.js?v=ms92pb4b';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=ms92pb4b';
-import { generaTestMacchine } from './world/testMacchine.js?v=ms92pb4b';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=ms92pb4b';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms92pb4b';
-import { Meteo } from './fx/meteo.js?v=ms92pb4b';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms92pb4b';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms92pb4b';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=ms92pb4b';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms92pb4b';
-import { CicloGiorno } from './fx/daynight.js?v=ms92pb4b';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente } from './fx/materials.js?v=ms92pb4b';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms92pb4b';
-import { ModalitaAR } from './ar/ar.js?v=ms92pb4b';
-import { Nuvole } from './fx/nuvole.js?v=ms92pb4b';
-import { SagomaVista } from './fx/sagomaVista.js?v=ms92pb4b';
-import { Erba } from './fx/erba.js?v=ms92pb4b';
-import { Foglie } from './fx/foglie.js?v=ms92pb4b';
-import { SegnaPercorso } from './fx/percorso.js?v=ms92pb4b';
-import { ComandiTouch } from './ui/comandi-touch.js?v=ms92pb4b';
-import { RiflessoAcqua } from './fx/riflesso.js?v=ms92pb4b';
-import { Pioggia } from './fx/pioggia.js?v=ms92pb4b';
-import { Particelle } from './fx/particelle.js?v=ms92pb4b';
-import { Audio } from './fx/audio.js?v=ms92pb4b';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms92pb4b';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms92pb4b';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms92pb4b';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms92pb4b';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms92pb4b';
-import { Registro } from './ecs/registro.js?v=ms92pb4b';
-import { Orologio, Rng } from './ecs/orologio.js?v=ms92pb4b';
-import { Sistemi } from './ecs/sistemi.js?v=ms92pb4b';
-import { Agenda } from './ecs/agenda.js?v=ms92pb4b';
-import { Gatto } from './player/player.js?v=ms92pb4b';
-import { ManoStrumento } from './player/mano.js?v=ms92pb4b';
-import { dropDi } from './gioco/drop.js?v=ms92pb4b';
-import { Controller } from './player/controller.js?v=ms92pb4b';
-import { FURNI, centroide } from './furniture/registry.js?v=ms92pb4b';
-import { caricaModelli } from './furniture/loader.js?v=ms92pb4b';
-import { Arredo } from './furniture/furniture.js?v=ms92pb4b';
-import { HUD } from './ui/hud.js?v=ms92pb4b';
-import { MenuDebug } from './ui/debug.js?v=ms92pb4b';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms92pb4b';
-import { ModalitaXR } from './ar/ar-xr.js?v=ms92pb4b';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms92pb4b';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms93r757';
+import { Rig } from './engine/renderer.js?v=ms93r757';
+import { Input } from './engine/input.js?v=ms93r757';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms93r757';
+import { Cadenza } from './engine/cadenza.js?v=ms93r757';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms93r757';
+import { componiDiagnostica } from './engine/diagnostica.js?v=ms93r757';
+import { SCENE } from './engine/banco.js?v=ms93r757';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms93r757';
+import { Mondo } from './world/world.js?v=ms93r757';
+import { SimAcqua } from './world/acqua.js?v=ms93r757';
+import { Lobby } from './net/lobby.js?v=ms93r757';
+import { Segnalatore } from './net/segnalatore.js?v=ms93r757';
+import { Bolla } from './ui/bolla.js?v=ms93r757';
+import { Scelta } from './ui/scelta.js?v=ms93r757';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms93r757';
+import { Zaino } from './ui/zaino.js?v=ms93r757';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=ms93r757';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms93r757';
+import { generaMostra } from './world/mostra.js?v=ms93r757';
+import { generaCollaudo } from './world/collaudo.js?v=ms93r757';
+import { generaTestLuci } from './world/testLuci.js?v=ms93r757';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=ms93r757';
+import { generaTestMacchine } from './world/testMacchine.js?v=ms93r757';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=ms93r757';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms93r757';
+import { Meteo } from './fx/meteo.js?v=ms93r757';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms93r757';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms93r757';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=ms93r757';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms93r757';
+import { CicloGiorno } from './fx/daynight.js?v=ms93r757';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente } from './fx/materials.js?v=ms93r757';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms93r757';
+import { ModalitaAR } from './ar/ar.js?v=ms93r757';
+import { Nuvole } from './fx/nuvole.js?v=ms93r757';
+import { SagomaVista } from './fx/sagomaVista.js?v=ms93r757';
+import { Erba } from './fx/erba.js?v=ms93r757';
+import { Foglie } from './fx/foglie.js?v=ms93r757';
+import { SegnaPercorso } from './fx/percorso.js?v=ms93r757';
+import { ComandiTouch } from './ui/comandi-touch.js?v=ms93r757';
+import { RiflessoAcqua } from './fx/riflesso.js?v=ms93r757';
+import { Pioggia } from './fx/pioggia.js?v=ms93r757';
+import { Particelle } from './fx/particelle.js?v=ms93r757';
+import { Audio } from './fx/audio.js?v=ms93r757';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms93r757';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms93r757';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms93r757';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms93r757';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms93r757';
+import { Registro } from './ecs/registro.js?v=ms93r757';
+import { Orologio, Rng } from './ecs/orologio.js?v=ms93r757';
+import { Sistemi } from './ecs/sistemi.js?v=ms93r757';
+import { Agenda } from './ecs/agenda.js?v=ms93r757';
+import { Gatto } from './player/player.js?v=ms93r757';
+import { ManoStrumento } from './player/mano.js?v=ms93r757';
+import { dropDi } from './gioco/drop.js?v=ms93r757';
+import { Controller } from './player/controller.js?v=ms93r757';
+import { FURNI, centroide } from './furniture/registry.js?v=ms93r757';
+import { caricaModelli } from './furniture/loader.js?v=ms93r757';
+import { Arredo } from './furniture/furniture.js?v=ms93r757';
+import { HUD } from './ui/hud.js?v=ms93r757';
+import { MenuDebug } from './ui/debug.js?v=ms93r757';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms93r757';
+import { ModalitaXR } from './ar/ar-xr.js?v=ms93r757';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms93r757';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -1970,11 +1970,15 @@ function macchinaVicina() {
  */
 function datiZaino() {
   const eMacchina = (id) => haPannello(FURNI[id]);
+  // le DECORAZIONI hanno una scheda loro: un ciuffo d'erba fra le panchine e i
+  // lampioni non lo trova nessuno, ed era metà del «troppe cose confusionarie»
+  const eDecoro = (id) => !!FURNI[id].decoro;
   const voci = (ids) => ids.map(voceDa).filter(Boolean);
   const sezioni = [
     ...CATEGORIE_BLOCCHI.map((c) => ({ id: c.id, nome: c.nome, emoji: c.emoji, voci: voci(c.blocchi) })),
-    { id: 'mobili', nome: 'Mobili', emoji: '🪑', voci: voci(Object.keys(FURNI).filter((id) => !eMacchina(id))) },
-    { id: 'macchine', nome: 'Macchine', emoji: '⚙️', voci: voci(Object.keys(FURNI).filter(eMacchina)) },
+    { id: 'natura', nome: 'Natura', emoji: '🌿', voci: voci(Object.keys(FURNI).filter(eDecoro)) },
+    { id: 'mobili', nome: 'Mobili', emoji: '🪑', voci: voci(Object.keys(FURNI).filter((id) => !eMacchina(id) && !eDecoro(id))) },
+    { id: 'macchine', nome: 'Macchine', emoji: '⚙️', voci: voci(Object.keys(FURNI).filter((id) => eMacchina(id) && !eDecoro(id))) },
     { id: 'attrezzi', nome: 'Attrezzi', emoji: '🧰', voci: voci(Object.keys(ATTREZZI)) },
   ].filter((s) => s.voci.length);      // una categoria vuota è solo una scheda da saltare
   const ricette = RICETTE.map((r) => ({

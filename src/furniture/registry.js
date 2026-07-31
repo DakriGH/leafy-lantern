@@ -9,9 +9,9 @@
 // Generatore (che PRIMA era cablato in main come `sincronizzaPalle`) e lo
 // Scintillatore-demo (nato solo per provare che il gancio regge).
 
-import { creaEntitaPalla, distruggiPalla } from '../gioco/palla.js?v=ms92pb4b';
-import { svegliaMacchina, impostaConfig } from '../gioco/macchine.js?v=ms92pb4b';
-import { defDi } from '../world/blocks.js?v=ms92pb4b';
+import { creaEntitaPalla, distruggiPalla } from '../gioco/palla.js?v=ms93r757';
+import { svegliaMacchina, impostaConfig } from '../gioco/macchine.js?v=ms93r757';
+import { defDi } from '../world/blocks.js?v=ms93r757';
 
 // ---- COMODITÀ PER LE MANOPOLE ---------------------------------------------
 // Tre ritmi con gli stessi tre nomi ovunque: chi impara "🐌 / 🚶 / ⚡" su una
@@ -86,6 +86,44 @@ export const FURNI = {
     // GLSL_VENTO). E' una proprieta' del MODELLO, non del materiale: un albero
     // ondeggia, una panchina no, e la differenza non si puo' dedurre dal file.
     vento: true,
+  },
+  // ---- LE DECORAZIONI A TERRA ------------------------------------------------
+  //
+  // Erba, petali e foglie secche esistevano SOLO come effetto d'ambiente: un
+  // campo seminato attorno al giocatore che si semina da solo e sparisce da
+  // solo. Bellissimo da guardare, inutile da giocare — «non mi hai ancora reso
+  // l'erba un item a sé, non è solo decorativa, è proprio un oggetto
+  // piazzabile». Queste tre voci sono la stessa roba, ma come OGGETTO: la
+  // prendi, la metti dove vuoi, resta lì, si salva col diorama.
+  //
+  // `calpestabile` è la proprietà che le rende decorazioni e non muri: occupano
+  // la cella (non ci si piazza dentro altro) ma non fermano chi cammina.
+  ciuffo: {
+    decoro: true,          // scheda «Natura» nello zaino, non «Mobili»
+    id: 'ciuffo', nome: "Ciuffo d'erba", icona: '🌿',
+    procedurale: true,
+    layers: [{ y: 0, celle: [[0, 0]] }],
+    ruotabile: true,
+    calpestabile: true,
+    vento: true,          // si piega come gli alberi: è la stessa vegetazione
+  },
+  petali: {
+    decoro: true,          // scheda «Natura» nello zaino, non «Mobili»
+    id: 'petali', nome: 'Petali', icona: '🌸',
+    procedurale: true,
+    layers: [{ y: 0, celle: [[0, 0]] }],
+    ruotabile: true,
+    calpestabile: true,
+    senzaOmbra: true,     // stanno a terra: un'ombra sotto non si vedrebbe mai
+  },
+  foglieSecche: {
+    decoro: true,          // scheda «Natura» nello zaino, non «Mobili»
+    id: 'foglieSecche', nome: 'Foglie secche', icona: '🍂',
+    procedurale: true,
+    layers: [{ y: 0, celle: [[0, 0]] }],
+    ruotabile: true,
+    calpestabile: true,
+    senzaOmbra: true,
   },
   panchina: {
     id: 'panchina', nome: 'Panchina', icona: '🪑',

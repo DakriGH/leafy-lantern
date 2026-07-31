@@ -25,8 +25,8 @@
 // alle superfici. Di notte le nuvole si tingono con l'ambiente.
 
 import * as THREE from 'three';
-import { NUVOLE } from '../config.js?v=ms92pb4b';
-import { impostaOmbreNuvole, ambienteAttuale, sbiecoAstro, direzioneAstro } from './materials.js?v=ms92pb4b';
+import { NUVOLE } from '../config.js?v=ms93r757';
+import { impostaOmbreNuvole, ambienteAttuale, sbiecoAstro, direzioneAstro } from './materials.js?v=ms93r757';
 
 function hash(n) {
   const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
@@ -46,91 +46,111 @@ function hash(n) {
 // e' timidezza: lo spazio che avanza e' il MARGINE PER LA DEFORMAZIONE. Con la
 // sagoma a filo del bordo ogni nuvola sarebbe uguale alle altre, perche' non ci
 // sarebbe posto per spostare niente.
-const PUFF = [
-  { x: -0.478, y: -0.14, r: 0.239 },
-  { x: -0.239, y: 0.08, r: 0.313 },
-  { x: 0.018, y: 0.24, r: 0.258 },   // la gobba alta, spostata dal centro
-  { x: 0.276, y: 0.04, r: 0.294 },
-  { x: 0.534, y: -0.14, r: 0.221 },
-  { x: 0.092, y: -0.16, r: 0.294 },  // il corpo, sotto le gobbe
-];
+// QUANTI CERCHI PUO' AVERE UNA NUVOLA. Sei e' il tetto dello shader; quante ne
+// usa davvero lo decide la nuvola — chi ne usa tre e' un batuffolo, chi ne usa
+// sei e' un cumulo lungo. Gli slot avanzati si mandano fuori dal cartello con
+// raggio zero, cosi' la smin non li vede nemmeno.
+export const PUFF_MAX = 6;
+
 // IL TAGLIO DEVE PASSARE SOTTO A TUTTI, non solo a qualcuno: con la riga più in
 // basso i batuffoli esterni la sfioravano appena e il fondo veniva smerlato —
 // tondo di qua, dritto di là. Qui ogni cerchio ci arriva sotto, quindi la base è
 // una riga sola da un capo all'altro.
-const FONDO = -0.24;
+export const FONDO = -0.24;
 // QUANTO SI FONDONO. A 0.16 i sei batuffoli diventavano una cupola sola; qui
 // restano attaccati ma distinti. Sotto questa soglia ricompaiono le strozzature
 // a clessidra fra un cerchio e l'altro.
 const FUSIONE = 0.06;
+// ⚠ IL CARTELLO COPRE -1..1, non -0.5..0.5 (vUv = position.xy * 2.0). Questi
+// sono i due limiti oltre cui la sagoma tocca il bordo e viene tagliata dritta:
+// di lato quasi tutto lo spazio, in alto meno perche' lo shader divide uv.y per
+// lo schiacciamento (fino a 1.20) e quindi lo spazio verticale si stringe.
+const BORDO_X = 0.86;
+const BORDO_Y = 0.78;
 
-// QUANTO POSSONO GONFIARSI E SCHIACCIARSI le nuvole. Non sono numeri sparsi nel
-// costruttore perché sono un VINCOLO: la sagoma più gonfia e più schiacciata
-// deve ancora stare dentro il cartello, se no il quadrato la taglia dritta e la
-// riga si vede. Il test LIMITI lo verifica su questi valori.
-export const LIMITI = {
-  rMin: 0.88, rDelta: 0.30,          // raggio dei batuffoli: 0.88 … 1.18
-  schiaccioMin: 0.80, schiaccioDelta: 0.40,   // schiacciamento: 0.80 … 1.20
-  fusione: FUSIONE,
-  // quanto ogni nuvola può spostare e gonfiare i propri batuffoli. Sono
-  // DENTRO i limiti apposta: sommati al gonfiore la sagoma deve ancora stare
-  // nel cartello, e il test lo verifica sul caso peggiore di TUTTI insieme.
-  spostaMax: 0.10, gonfiaMax: 0.26,
-};
-
-// COME OGNI NUVOLA DIVENTA DIVERSA DALLE ALTRE.
-// Con sei batuffoli fissi e due soli numeri per nuvola (gonfiore e
-// schiacciamento) tutte le nuvole avevano la STESSA sagoma vista da lontano — è
-// il rilievo del committente, ed era vero: cambiava la taglia, non la forma.
-//
-// Qui ogni batuffolo ha la SUA reazione alla deformazione della nuvola: uno si
-// sposta a destra mentre il vicino sale, uno si gonfia mentre un altro si
-// sgonfia. Bastano tre numeri per nuvola (iDeforma) per ottenere sagome che non
-// si somigliano, senza un attributo per batuffolo.
-//
-// I COEFFICIENTI SONO UNA TABELLA, non un hash: la CPU deve calcolare gli
-// STESSI centri per l'ombra a terra, e un hash trigonometrico dà risultati
-// diversi in float32 (shader) e float64 (JS) — la sagoma e la sua ombra si
-// separerebbero. Una tabella scritta a mano è identica dalle due parti.
-const REAZIONE = [
-  { x: -0.9, y: 0.5, r: 0.8 },
-  { x: 0.6, y: -0.8, r: -0.5 },
-  { x: -0.3, y: 1.0, r: 0.6 },
-  { x: 0.8, y: 0.4, r: -0.9 },
-  { x: 1.0, y: -0.5, r: 0.4 },
-  { x: -0.5, y: -1.0, r: -0.7 },
-];
-/** Dove sta e quanto è grosso il batuffolo `i` per una nuvola con questa
- *  deformazione. LA VERITÀ È QUI: la usa la CPU per l'ombra, e il codice GLSL
- *  qui sotto è generato da questa stessa formula. */
-export function puffDeformato(i, def) {
-  const p = PUFF[i], r = REAZIONE[i];
-  return {
-    x: p.x + r.x * def.x,
-    y: p.y + r.y * def.y,
-    r: p.r * (1 + r.r * def.z),
-  };
+/**
+ * ⚠ LA SAGOMA ADESSO E' DI OGNI NUVOLA, non di tutte.
+ *
+ * Prima c'erano SEI CERCHI FISSI e tre numeri per nuvola che li spostavano di
+ * un decimo: la taglia cambiava, la forma no. Il committente l'ha detto due
+ * volte, la seconda senza giri di parole — «le nuvole sono tutte uguali con
+ * forme noiose e ripetitive» — e aveva ragione, perché nessuna deformazione
+ * piccola può cambiare la FAMIGLIA di una sagoma. Cinque gobbe in fila restano
+ * cinque gobbe in fila.
+ *
+ * Qui ogni nuvola si costruisce la propria fila: quanti cerchi (tre…sei), che
+ * raggio, a che quota, con che spaziatura. Tre cerchi radi fanno un batuffolo
+ * leggero, sei fitti e disuguali un cumulo gonfio. Poi la sagoma si NORMALIZZA
+ * dentro il cartello, e questo e' il pezzo che rende la cosa sicura: comunque
+ * vengano i numeri, il risultato sta dentro — quindi si puo' osare.
+ *
+ * LA VERITA' STA QUI E BASTA: la CPU legge questi cerchi per disegnare l'ombra a
+ * terra, e lo shader li riceve come attributi. Non c'e' una seconda formula da
+ * tenere allineata (era il motivo per cui prima i coefficienti erano una tabella
+ * scritta a mano: hash diversi in float32 e float64 separavano nuvola e ombra).
+ */
+export function generaSagoma(hash, seme) {
+  const n = 3 + Math.floor(hash(seme + 3) * 3.999);      // 3…6 gobbe
+  const puff = [];
+  let x = 0;
+  for (let i = 0; i < n; i++) {
+    const r = 0.26 + hash(seme + i * 17 + 5) * 0.34;
+    // le gobbe di mezzo stanno più in alto delle estreme: è il profilo di un
+    // cumulo, e senza questo la nuvola è un salsicciotto orizzontale
+    const arco = n > 1 ? Math.sin((i / (n - 1)) * Math.PI) : 1;
+    const y = -0.26 + arco * (0.14 + hash(seme + i * 17 + 7) * 0.42);
+    puff.push({ x, y, r });
+    x += r * (0.80 + hash(seme + i * 17 + 11) * 0.85);   // spaziatura disuguale
+  }
+  // NORMALIZZA: si porta la sagoma dentro il cartello con una traslazione e UNA
+  // scala sola (la stessa su x e y, se no i cerchi diventano ellissi e la
+  // fusione morbida non torna).
+  let x0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const q of puff) {
+    x0 = Math.min(x0, q.x - q.r); x1 = Math.max(x1, q.x + q.r);
+    y1 = Math.max(y1, q.y + q.r);
+  }
+  const cx = (x0 + x1) / 2;
+  const k = Math.min(BORDO_X / Math.max((x1 - x0) / 2, 1e-3),
+    BORDO_Y / Math.max(y1, 1e-3), 2.2);
+  for (const q of puff) { q.x = (q.x - cx) * k; q.y *= k; q.r *= k; }
+  // OGNI CERCHIO DEVE ARRIVARE SOTTO IL TAGLIO. La base della nuvola è una riga
+  // dritta a FONDO: se un cerchio si ferma sopra, quella riga si smerla — tonda
+  // di qua, dritta di là — ed è il difetto che il fondo piatto doveva togliere.
+  // Abbassarlo non costa niente, perché sotto il taglio non si disegna comunque.
+  for (const q of puff) q.y = Math.min(q.y, FONDO - 0.02 + q.r);
+  // gli slot avanzati: lontanissimi e piccoli, la smin non li incontra mai
+  while (puff.length < PUFF_MAX) puff.push({ x: 90, y: 90, r: 0.01 });
+  return puff;
 }
-const GLSL_SAGOMA = PUFF.map((p, i) => {
-  const r = REAZIONE[i];
-  return `    d = smin(d, length(uv - vec2(${p.x.toFixed(3)} + ${r.x.toFixed(2)} * g.x, `
-    + `${p.y.toFixed(3)} + ${r.y.toFixed(2)} * g.y)) `
-    + `- ${p.r.toFixed(3)} * (1.0 + ${r.r.toFixed(2)} * g.z) * f.x, ${FUSIONE});`;
-}).join('\n');
+
+// il pezzo di shader che disegna la sagoma: sei cerchi presi dagli ATTRIBUTI
+const GLSL_SAGOMA = Array.from({ length: PUFF_MAX }, (_, i) =>
+  `    d = smin(d, length(uv - vQ${i}.xy) - vQ${i}.z, ${FUSIONE});`).join('\n');
 
 const VERT = /* glsl */`
   attribute vec3 iOrig;     // origine: x di partenza, quota, z
   attribute float iVel;     // deriva (unità/s)
   attribute vec2 iDim;      // larghezza e altezza in unità di mondo
-  attribute vec3 iForma;    // (raggio dei batuffoli, schiacciamento, riserva)
-  attribute vec3 iDeforma;  // quanto questa nuvola sposta e gonfia i batuffoli
+  attribute vec3 iForma;    // (riserva, schiacciamento, riserva)
+  attribute vec3 iQ0;      // cerchio 0 della sagoma: (x, y, raggio)
+  attribute vec3 iQ1;      // cerchio 1 della sagoma: (x, y, raggio)
+  attribute vec3 iQ2;      // cerchio 2 della sagoma: (x, y, raggio)
+  attribute vec3 iQ3;      // cerchio 3 della sagoma: (x, y, raggio)
+  attribute vec3 iQ4;      // cerchio 4 della sagoma: (x, y, raggio)
+  attribute vec3 iQ5;      // cerchio 5 della sagoma: (x, y, raggio)
   uniform float uTempo;
   uniform float uRaggio;
   uniform vec3 uSole;
   varying vec2 vUv;
   varying vec2 vLuce;
   varying vec3 vForma;
-  varying vec3 vDeforma;
+  varying vec3 vQ0;
+  varying vec3 vQ1;
+  varying vec3 vQ2;
+  varying vec3 vQ3;
+  varying vec3 vQ4;
+  varying vec3 vQ5;
   #include <fog_pars_vertex>
   void main() {
     // L'AVVOLGIMENTO SI CALCOLA SULL'ORIGINE della nuvola: tutti e quattro i
@@ -153,7 +173,12 @@ const VERT = /* glsl */`
     float ll = length(l);
     vLuce = ll > 1e-4 ? l / ll : vec2(0.0, 1.0);
     vForma = iForma;
-    vDeforma = iDeforma;
+    vQ0 = iQ0;
+    vQ1 = iQ1;
+    vQ2 = iQ2;
+    vQ3 = iQ3;
+    vQ4 = iQ4;
+    vQ5 = iQ5;
 
     vec4 mvPosition = viewMatrix * vec4(p, 1.0);
     gl_Position = projectionMatrix * mvPosition;
@@ -166,7 +191,12 @@ const FRAG = /* glsl */`
   varying vec2 vUv;
   varying vec2 vLuce;
   varying vec3 vForma;
-  varying vec3 vDeforma;
+  varying vec3 vQ0;
+  varying vec3 vQ1;
+  varying vec3 vQ2;
+  varying vec3 vQ3;
+  varying vec3 vQ4;
+  varying vec3 vQ5;
   uniform vec3 uAmb;
   uniform float uOpacita;
   #include <fog_pars_fragment>
@@ -180,9 +210,7 @@ const FRAG = /* glsl */`
 
   void main() {
     vec2 uv = vUv;
-    vec3 f = vForma;
-    vec3 g = vDeforma;
-    uv.y /= max(f.y, 0.05);                    // schiacciamento della nuvola
+    uv.y /= max(vForma.y, 0.05);               // schiacciamento della nuvola
     float d = 1e3;
 ${GLSL_SAGOMA}
     // FONDO PIATTO: un cumulo poggia su un piano. È un taglio netto, non una
@@ -230,7 +258,8 @@ export class Nuvole {
     scena.add(this.gruppo);
     this.nuvole = [];        // { x0, y, z, vel, largo, alto, raggio, schiaccio }
 
-    const orig = [], vel = [], dim = [], forma = [], deforma = [];
+    const orig = [], vel = [], dim = [], forma = [];
+    const q = Array.from({ length: PUFF_MAX }, () => []);
     for (let i = 0; i < numero; i++) {
       const seme = i * 7.31 + 2;
       const angolo = hash(seme + 11) * Math.PI * 2;
@@ -243,31 +272,16 @@ export class Nuvole {
         vel: 0.25 + hash(seme + 19) * 0.35,
         largo,
         alto: largo * (0.46 + hash(seme + 29) * 0.16),
-        // ogni nuvola gonfia i batuffoli e si schiaccia a modo suo: sei cerchi
-        // fissi darebbero dieci nuvole identiche, e in cielo si nota subito
-        rBatuffolo: LIMITI.rMin + hash(seme + 31) * LIMITI.rDelta,
-        schiaccio: LIMITI.schiaccioMin + hash(seme + 37) * LIMITI.schiaccioDelta,
-        // LA DEFORMAZIONE PERSONALE — quella che rende ogni nuvola una nuvola
-        // diversa invece della stessa sagoma in tre taglie.
-        //
-        // NON e' un hash: e' DISTRIBUITA. Con numeri casuali due nuvole su dieci
-        // finiscono vicine per pura sfortuna e in cielo si vedono gemelle
-        // (misurato: lo scarto minimo era 0.015, cioe' niente). Qui ogni nuvola
-        // prende un angolo diverso sul cerchio delle deformazioni, spaziati con
-        // la sezione aurea: dieci nuvole = dieci direzioni ben separate, e
-        // aggiungerne un'undicesima non rovina la spaziatura delle altre.
-        deforma: {
-          x: Math.cos(i * 2.39996) * LIMITI.spostaMax,
-          y: Math.sin(i * 2.39996) * LIMITI.spostaMax,
-          z: (((i * 0.7548776662) % 1) - 0.5) * 2 * LIMITI.gonfiaMax,
-        },
+        schiaccio: 0.80 + hash(seme + 37) * 0.40,
+        // LA SUA sagoma: quanti cerchi, dove, quanto grossi. Vedi generaSagoma.
+        puff: generaSagoma(hash, seme * 3.7 + i * 11),
       };
       this.nuvole.push(nv);
       orig.push(nv.x0, nv.y, nv.z);
       vel.push(nv.vel);
       dim.push(nv.largo, nv.alto);
-      forma.push(nv.rBatuffolo, nv.schiaccio, 0);
-      deforma.push(nv.deforma.x, nv.deforma.y, nv.deforma.z);
+      forma.push(0, nv.schiaccio, 0);
+      for (let k = 0; k < PUFF_MAX; k++) q[k].push(nv.puff[k].x, nv.puff[k].y, nv.puff[k].r);
     }
 
     const g = new THREE.InstancedBufferGeometry();
@@ -278,7 +292,9 @@ export class Nuvole {
     g.setAttribute('iVel', new THREE.InstancedBufferAttribute(new Float32Array(vel), 1));
     g.setAttribute('iDim', new THREE.InstancedBufferAttribute(new Float32Array(dim), 2));
     g.setAttribute('iForma', new THREE.InstancedBufferAttribute(new Float32Array(forma), 3));
-    g.setAttribute('iDeforma', new THREE.InstancedBufferAttribute(new Float32Array(deforma), 3));
+    for (let k = 0; k < PUFF_MAX; k++) {
+      g.setAttribute(`iQ${k}`, new THREE.InstancedBufferAttribute(new Float32Array(q[k]), 3));
+    }
     g.instanceCount = numero;
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, NUVOLE.quotaMax, 0), NUVOLE.raggio * 2);
 
@@ -306,7 +322,7 @@ export class Nuvole {
 
     this._t = 0;
     this._box = [];
-    for (let i = 0; i < numero * PUFF.length; i++) this._box.push(new THREE.Vector4());
+    for (let i = 0; i < numero * PUFF_MAX; i++) this._box.push(new THREE.Vector4());
     this._tOmbra = 0;   // maschera d'ombra a ~30 Hz: a 8 Hz i bordi netti SCATTAVANO
   }
 
@@ -360,14 +376,15 @@ export class Nuvole {
       for (const nv of this.nuvole) {
         const cx = this._x(nv) - sb.x * nv.y, cz = nv.z - sb.y * nv.y;
         const semi = nv.largo / 2;
-        for (let i = 0; i < PUFF.length; i++) {
+        for (let i = 0; i < PUFF_MAX; i++) {
           if (n >= this._box.length) break;
-          // GLI STESSI batuffoli che disegna lo shader, deformazione compresa:
-          // se qui si usasse la sagoma non deformata, l'ombra sarebbe di
-          // un'altra nuvola
-          const p = puffDeformato(i, nv.deforma);
-          const rx = p.r * nv.rBatuffolo * semi;
-          this._box[n++].set(cx + p.x * semi, cz + p.y * semi * 0.7, rx, rx * 0.72);
+          // GLI STESSI cerchi che disegna lo shader: adesso è letteralmente lo
+          // stesso array, non una formula da tenere allineata. Gli slot avanzati
+          // hanno raggio 0.01 e stanno fuori dal cartello: non fanno ombra.
+          const pf = nv.puff[i];
+          if (pf.r < 0.02) continue;
+          const rx = pf.r * semi;
+          this._box[n++].set(cx + pf.x * semi, cz + pf.y * semi * 0.7, rx, rx * 0.72);
         }
       }
       impostaOmbreNuvole(this._box.slice(0, n), NUVOLE.ombra);
@@ -376,4 +393,3 @@ export class Nuvole {
   }
 }
 
-export { PUFF };

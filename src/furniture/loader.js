@@ -5,8 +5,8 @@
 
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { MEZZO_SUPER } from '../config.js?v=ms92pb4b';
-import { convertiUnlit, materialiConMappa, patchLuci } from '../fx/materials.js?v=ms92pb4b';
+import { MEZZO_SUPER } from '../config.js?v=ms93r757';
+import { convertiUnlit, materialiConMappa, patchLuci } from '../fx/materials.js?v=ms93r757';
 
 const fbx = new FBXLoader();
 
@@ -293,6 +293,53 @@ function fallback(defId) {
     anello.rotation.x = Math.PI / 2;
     anello.position.y = 0.66;
     g.add(base, bordo, anello);
+  } else if (defId === 'ciuffo') {
+    // UN CIUFFO D'ERBA, con la stessa grammatica del prato: RETTANGOLI spessi
+    // che si stringono appena in cima, non lame affusolate (è la prima cosa che
+    // il committente aveva bocciato del campo d'erba, e vale identica qui).
+    // Sette lamelle a ventaglio con altezze e rotazioni diverse: un ciuffo, non
+    // un pettine. Il vento le piega perché il def dichiara `vento`.
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2 + i * 0.7;
+      const alto = 0.30 + ((i * 7) % 5) * 0.055;
+      const largo = 0.085 + ((i * 3) % 4) * 0.018;
+      // due pezzi per lamella: base del colore del blocco, cima più chiara —
+      // la stessa sfumatura che fa leggere il prato da lontano
+      const giu = new THREE.Mesh(new THREE.BoxGeometry(largo, alto * 0.62, largo * 0.55), mat(0x4f9c3f));
+      const su = new THREE.Mesh(new THREE.BoxGeometry(largo * 0.82, alto * 0.42, largo * 0.45), mat(0x7ac95a));
+      const r = 0.10 + (i % 3) * 0.055;
+      const px = Math.cos(a) * r, pz = Math.sin(a) * r;
+      giu.position.set(px, alto * 0.31, pz);
+      su.position.set(px + Math.cos(a) * 0.045, alto * 0.79, pz + Math.sin(a) * 0.045);
+      giu.rotation.y = a; su.rotation.y = a;
+      su.rotation.z = Math.cos(a) * 0.22;
+      g.add(giu, su);
+    }
+  } else if (defId === 'petali' || defId === 'foglieSecche') {
+    // PETALI e FOGLIE SECCHE: una manciata di foglioline appoggiate a terra.
+    // Sono LOSANGHE, non quadrati: a questa scala un quadrato si legge come un
+    // pixel sporco, un rombo si legge come una foglia. Appena sollevate dal
+    // suolo (0.02) per non litigare con la faccia del blocco sotto.
+    const tinte = defId === 'petali'
+      ? [0xf2a7c3, 0xffd3e2, 0xe98bb0, 0xf7bcd4]
+      : [0xb5622f, 0xc9803a, 0x8f4a26, 0xd39a4a];
+    for (let i = 0; i < 11; i++) {
+      const a = i * 2.39996;                       // angolo aureo: sparse, mai in fila
+      const r = 0.08 + ((i * 5) % 7) * 0.045;
+      const lungo = 0.13 + ((i * 3) % 4) * 0.035;
+      const largo = lungo * 0.52;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute([
+        0, 0, -lungo / 2, largo / 2, 0, 0, 0, 0, lungo / 2, -largo / 2, 0, 0,
+      ], 3));
+      geo.setIndex([0, 1, 2, 0, 2, 3]);
+      geo.computeVertexNormals();
+      const foglia = new THREE.Mesh(geo, mat(tinte[i % tinte.length]));
+      foglia.material.side = THREE.DoubleSide;
+      foglia.position.set(Math.cos(a) * r, 0.02 + (i % 3) * 0.004, Math.sin(a) * r);
+      foglia.rotation.y = a * 1.7;
+      g.add(foglia);
+    }
   } else if (defId === 'scintillatore') {
     // colonnina scura con un orb azzurro in cima: la macchina-demo pulsa e
     // sputa scintille da lì (il comportamento è nel def, vedi registry.js)

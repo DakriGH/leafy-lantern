@@ -2,7 +2,7 @@
 // così il mesher ricostruisce solo i chunk sporchi — fondamento per la
 // generazione procedurale. Ogni modifica emette un evento (pronto per il netcode).
 
-import { BLOCCHI, defDi } from './blocks.js?v=ms92pb4b';
+import { BLOCCHI, defDi } from './blocks.js?v=ms93r757';
 
 export const CHUNK = 16;
 // Celle oltre le quali conviene il ricalcolo pieno della luce.
@@ -100,11 +100,18 @@ export class Mondo {
   /** Blocco pieno ai fini del culling/mira (acqua inclusa). */
   pieno(x, y, z) { return this.tipo(x, y, z) !== null; }
 
-  /** Solido per la fisica: blocchi non-acqua + celle occupate da furni. */
+  /** Solido per la fisica: blocchi non-acqua + celle occupate da furni.
+   *
+   *  ⚠ UN FURNI PUÒ ESSERE CALPESTABILE, e serve alle decorazioni: un ciuffo
+   *  d'erba, una manciata di petali o di foglie secche occupano la cella (così
+   *  non ci si piazza dentro un'altra cosa) ma NON fermano chi cammina. Senza
+   *  questa distinzione ogni fiore diventerebbe un muro alto un blocco, che è
+   *  esattamente il contrario di quello che sembra guardandolo. */
   solido(x, y, z) {
     const t = this.tipo(x, y, z);
     if (t && defDi(t).solido) return true;
-    return this.furni.has(chiave(x, y, z));
+    const f = this.furni.get(chiave(x, y, z));
+    return !!f && !(f.def && f.def.calpestabile);
   }
 
   /** Ci si può stare in piedi: appoggio solido sotto, aria per piedi e testa. */
