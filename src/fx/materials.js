@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms9bzr2i';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms9bzr2i';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms9cmk39';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms9cmk39';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -1074,7 +1074,14 @@ const GLSL_FRAGMENT = /* glsl */`
     // lavoro d'ombra non si fa proprio — niente fetch, niente uniform lette.
     // È il motivo per cui le luci leggere (fuochi fatui, oggetti che brillano)
     // costano esattamente quanto le fake pointlight di prima.
-    bool conOmbre = uOcclusione > 0.5 && uOmbreNumPesanti > 0 && uVoxMin.w > 0.5;
+    #ifdef LANTERNA_OMBRE_LUCI
+      bool conOmbre = uOcclusione > 0.5 && uOmbreNumPesanti > 0 && uVoxMin.w > 0.5;
+    #else
+      // il cammino nella griglia non esiste proprio: le lampade restano, ma
+      // trapassano i muri come le luci leggere. È il singolo termine più caro
+      // del fragment, e su GPU mobile non basta saltarlo con un if.
+      const bool conOmbre = false;
+    #endif
     for (int i = 0; i < ${LUCI_MAX}; i++) {
       if (i >= uLuciNum) break;
       vec4 pr = uLuciPosRaggio[i];
@@ -1261,10 +1268,42 @@ const GLSL_COMPOSIZIONE = /* glsl */`
 _ombraTot = 1.0;
 if (uParti != 0) {
   _ombraTot = lanternaOmbra() * ombraPg();
-  vec3 _amb = uAmbiente * mix(uOmbraFatt, vec3(1.0), ombraCielo());
+  #ifdef LANTERNA_SOLE
+    vec3 _amb = uAmbiente * mix(uOmbraFatt, vec3(1.0), ombraCielo());
+  #else
+    vec3 _amb = uAmbiente;
+  #endif
   outgoingLight = outgoingLight * (_amb + lanternaAccumulo()) * _ombraTot;
 }
 `;
+
+// ---- IL PROFILO DELLO SHADER ------------------------------------------------
+//
+// ⚠ SPEGNERE UNA COSA CON UN `if` NON LA SPEGNE. Questo è il pezzo che mi era
+// sfuggito per tre giri di ottimizzazioni sul telefono del committente: le due
+// parti più care del fragment — l'ombra del sole (un cammino di tredici letture
+// più trentadue prove di scatola) e le lampade (ventiquattro sfere con
+// occlusione) — erano dentro degli `if` su uniform. Su una GPU DESKTOP quel
+// ramo si salta e non costa. Su una GPU MOBILE il compilatore deve comunque
+// riservare i registri per il caso peggiore, e con tanti registri per thread
+// scendono i thread in volo: lo shader va piano ANCHE quando non fa niente. È
+// il motivo per cui abbassare la risoluzione non spostava gli fps — non erano i
+// pixel, era l'occupancy.
+//
+// Con i #define quei blocchi non vengono proprio COMPILATI: a qualità bassa lo
+// shader del mondo è un altro shader, piccolo. Cambiare profilo ricompila —
+// costa un momento, e succede solo quando la scala di qualità si muove.
+let _profilo = { sole: true, ombreLuci: true };
+const _patchati = new Set();      // chi va ricompilato quando il profilo cambia
+
+/** Quali blocchi cari deve CONTENERE lo shader del mondo. Lo chiama la scala di
+ *  qualità (main.js, applicaQualita). Ricompila solo se cambia davvero. */
+export function impostaProfiloShader({ sole, ombreLuci }) {
+  const s2 = !!sole, l2 = !!ombreLuci;
+  if (s2 === _profilo.sole && l2 === _profilo.ombreLuci) return;
+  _profilo = { sole: s2, ombreLuci: l2 };
+  for (const m of _patchati) m.needsUpdate = true;
+}
 
 // Le due varianti del fragment (vedi SOGLIA_CIELO): si compongono una volta e
 // si riusano, perché sono stringhe da decine di KB e la patch gira per ogni
@@ -1293,6 +1332,9 @@ function glslFragmento(ingombro) {
 // inclinato si illuminerebbe come se fosse ancora dritto.
 function iniettaLanterna(shader, ingombro, vento) {
   Object.assign(shader.uniforms, uniformi);
+  const define = (_profilo.sole ? '#define LANTERNA_SOLE\n' : '')
+    + (_profilo.luci ? '#define LANTERNA_LUCI\n' : '');
+  shader.fragmentShader = define + shader.fragmentShader;
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\n' + GLSL_VERTEX)
     .replace('#include <begin_vertex>',
@@ -1318,9 +1360,13 @@ function iniettaLanterna(shader, ingombro, vento) {
  *  sistema — se ne accorge chi guarda, non chi scrive. */
 export function patchLuci(materiale, ingombro = false, vento = false) {
   materiale.onBeforeCompile = (shader) => iniettaLanterna(shader, ingombro, vento);
-  // marca per il cache-key: materiali con patch diversa non condividono programma
+  // marca per il cache-key: materiali con patch diversa non condividono
+  // programma — e il PROFILO ci sta dentro, se no due qualità diverse si
+  // scambierebbero lo stesso programma compilato
   materiale.customProgramCacheKey = () =>
-    'lanterna-luci-' + (ingombro ? 'furni' : 'mondo') + (vento ? '-vento' : '');
+    'lanterna-luci-' + (ingombro ? 'furni' : 'mondo') + (vento ? '-vento' : '')
+    + (_profilo.sole ? '-s' : '') + (_profilo.ombreLuci ? '-o' : '');
+  _patchati.add(materiale);
   return materiale;
 }
 

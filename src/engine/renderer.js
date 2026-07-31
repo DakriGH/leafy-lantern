@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { CAMERA } from '../config.js?v=ms9bzr2i';
+import { CAMERA } from '../config.js?v=ms9cmk39';
 
 /**
  * Il browser sta disegnando via SOFTWARE (niente GPU)?
@@ -124,6 +124,8 @@ export class Rig {
     // dritti allo schermo, come prima del pasticcio.
     this.composer = null;
     this._uscita = null;
+    this.misuraSync = false;   // diagnostica: gl.finish() dopo ogni disegno
+    this.disegnoMs = 0;        // quanto è durato l'ultimo disegno, davvero
     // risoluzione INTERNA (0.4…1) e come la si ingrandisce sul canvas pieno
     this.scalaInterna = 1;
     this.nitido = true;
@@ -279,9 +281,25 @@ export class Rig {
   // resize. Via anche quello.)
 
   render() {
-    // A risoluzione piena si va DRITTI allo schermo: niente render target da
-    // scrivere e rileggere. Il composer entra solo quando c'è da ingrandire.
+    // ---- MISURA CON SINCRONIA VERA -----------------------------------------
+    // ⚠ SERVE SOLO ALLA DIAGNOSTICA, e serve perché su una GPU A TILE (tutti i
+    // telefoni) l'estensione dei timer non c'è e l'unico ripiego era disegnare
+    // N volte di fila dentro lo stesso frame — che il driver ACCORPA, quindi si
+    // misurava il suo umore. Qui invece si misura UN disegno vero, quello del
+    // frame di gioco, con un gl.finish() in fondo: la scheda deve aver finito
+    // davvero prima che il cronometro si fermi. Costa (serializza la pipeline),
+    // per questo si accende solo mentre si misura.
+    if (!this.misuraSync) {
+      // A risoluzione piena si va DRITTI allo schermo: niente render target da
+      // scrivere e rileggere. Il composer entra solo quando c'è da ingrandire.
+      if (this.composer && this.scalaInterna < 0.995) this.composer.render();
+      else this.renderer.render(this.scena, this.camera);
+      return;
+    }
+    const t0 = performance.now();
     if (this.composer && this.scalaInterna < 0.995) this.composer.render();
     else this.renderer.render(this.scena, this.camera);
+    this.renderer.getContext().finish();
+    this.disegnoMs = performance.now() - t0;
   }
 }

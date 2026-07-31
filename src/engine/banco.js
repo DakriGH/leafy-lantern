@@ -201,12 +201,17 @@ export function riassuntoBanco(banco) {
   // le scene, misurato) mentre la media distingue eccome.
   // TRE METRICHE IN ORDINE DI FIDUCIA:
   //  1. i ms di GPU, se il dispositivo ha le timer query (Chromebook sì);
-  //  2. `renderMs` — N disegni di fila con un gl.finish() in fondo, cioè il
-  //     costo VERO di un disegno fuori dal vsync. È il numero che ha salvato la
-  //     misura sul telefono: senza, tutte e sette le scene leggevano 36-38 fps
-  //     perché lo schermo agganciato al vsync appiattisce tutto a gradini;
-  //  3. gli fps medi, ultimo ripiego per i file vecchi che non hanno renderMs.
+  //  2. `disegnoMs` — il disegno VERO del frame di gioco, uno per frame, con un
+  //     gl.finish() in fondo. È il numero nuovo, e nasce da un fallimento: su
+  //     una scheda A TILE il ripiego di prima (N disegni di fila dentro lo
+  //     stesso frame) veniva ACCORPATO dal driver, quindi misurava il suo umore
+  //     e non il nostro lavoro — sei scene su otto risultavano più leggere del
+  //     terreno nudo, che è impossibile. Un disegno per frame non si può
+  //     accorpare: c'è un present in mezzo.
+  //  3. `renderMs` — il vecchio ripiego, buono su desktop e sui file vecchi;
+  //  4. gli fps medi, ultimo ripiego.
   const conGpu = typeof (banco.terreno.gpu || {}).totaleMedia === 'number';
+  const conDisegno = typeof banco.terreno.disegnoMs === 'number' && banco.terreno.disegnoMs > 0;
   const conRender = typeof banco.terreno.renderMs === 'number' && banco.terreno.renderMs > 0;
   // QUANTI CAMPIONI CI SONO DIETRO IL NUMERO. Una media su un campione solo non
   // è una media: è quel campione, warm-up compreso. Sul Chromebook del
@@ -217,6 +222,7 @@ export function riassuntoBanco(banco) {
   // rifiuta un numero solo quando si sa per certo che dietro non c'è abbastanza
   const campioni = (s) => {
     if (!s) return 0;
+    if (conDisegno) return typeof s.disegnoCampioni === 'number' ? s.disegnoCampioni : Infinity;
     if (conGpu) {
       const p = s.gpu && s.gpu.passate && s.gpu.passate.principale;
       return (p && typeof p.n === 'number') ? p.n : Infinity;
@@ -227,10 +233,13 @@ export function riassuntoBanco(banco) {
     if (!s) return null;
     if (campioni(s) < CAMPIONI_MIN) return null;   // troppo poco per essere un numero
     if (conGpu) return (s.gpu && typeof s.gpu.totaleMedia === 'number' && s.gpu.totaleMedia > 0) ? s.gpu.totaleMedia : null;
+    if (conDisegno) return (typeof s.disegnoMs === 'number' && s.disegnoMs > 0) ? s.disegnoMs : null;
     if (conRender) return (typeof s.renderMs === 'number' && s.renderMs > 0) ? s.renderMs : null;
     return (typeof s.fps === 'number' && s.fps > 0) ? 1000 / s.fps : null;
   };
-  const unita = conGpu ? 'ms GPU' : (conRender ? 'ms a disegno' : 'ms a frame');
+  const unita = conGpu ? 'ms GPU'
+    : conDisegno ? 'ms a disegno (sincronizzato)'
+    : conRender ? 'ms a disegno' : 'ms a frame';
 
   const base = metrica(banco.terreno);
   if (base == null) {
@@ -269,7 +278,7 @@ export function riassuntoBanco(banco) {
   const scarti = SCENE.map((s) => banco[s.id] && banco[s.id].renderScarto)
     .filter((v) => typeof v === 'number');
   const ballo = scarti.length ? scarti.sort((a, b) => a - b)[scarti.length >> 1] : null;
-  if (!conGpu && negativi.length >= 2) {
+  if (!conGpu && !conDisegno && negativi.length >= 2) {
     righe.push(`⚠ QUI NON SI STA MISURANDO IL COSTO: ${negativi.length} scene su ${extra.length} risultano più leggere del terreno asciutto, e aggiungere acqua o luci non può far andare più veloce.${ballo != null ? ` Fra una ripetizione e l'altra lo stesso disegno balla di ${arr(ballo)} ms.` : ''} Senza timer GPU (EXT_disjoint_timer_query_webgl2) su una scheda a tile il disegno ripetuto non è misurabile: di questo file restano validi gli fps a gradini e la CPU per frame, non la classifica delle condizioni.`);
   } else if (extra.length) {
     righe.push(`Quanto costa IN PIÙ ogni condizione (${unita}): ${extra.map((s) => `${s.nome} ${s.di >= 0 ? '+' : ''}${arr(s.di)}`).join(' · ')}.`);
