@@ -10,7 +10,7 @@
 // aritmetica pura — così si prova per intero in Node (test/diagnostica.test.mjs)
 // senza un contesto grafico.
 
-import { riassuntoBanco } from './banco.js?v=ms9dzsij';
+import { riassuntoBanco } from './banco.js?v=ms9lc1am';
 
 // 2 = c'è il banco standard: le scene se le costruisce la diagnostica, quindi i
 // numeri sono confrontabili fra dispositivi e fra versioni (prima no).
@@ -97,6 +97,30 @@ export function riassuntoDiagnostica(dati) {
     const dueNumeri = mediana != null && medi != null && Math.abs(mediana - medi) > Math.max(3, medi * 0.1);
     righe.push(`Alle impostazioni attuali: ${arr(medi)} fps${dueNumeri ? ` (mediana ${arr(mediana)})` : ''}`
       + `${base.cpuMediana != null ? ` · ${arr(base.cpuMediana)} ms CPU` : ''}${g != null ? ` · ${arr(g)} ms GPU` : ''}.`);
+  }
+
+  // 2b) DI CHI È IL TETTO. Va subito sotto la baseline perché la RIDIMENSIONA:
+  //     `rafFps` sono le occasioni di disegnare che il browser ci ha dato nello
+  //     stesso intervallo in cui abbiamo contato gli fps. Se coincidono stiamo
+  //     usando tutto quello che ci danno — e allora cercare millisecondi dentro
+  //     il frame è tempo perso, il limite viene da fuori. È l'errore che ho
+  //     fatto per due giri di diagnostica, e questa riga esiste per non rifarlo.
+  if (base && base.rafFps > 0 && base.fps > 0) {
+    const inviti = base.rafFps, resi = base.fps;
+    const testa = `Il browser ci ha dato ${arr(inviti)} inviti a disegnare al secondo e ne abbiamo resi ${arr(resi)}`;
+    if (inviti > resi * 1.2) {
+      righe.push(`${testa}: ne buttiamo ${arr(inviti - resi)} perché il frame non sta nel tempo. `
+        + 'Il tetto è NOSTRO, e cpuSezioni dice dove.');
+    } else if (inviti >= 55) {
+      // usiamo tutto e il tutto è tanto: è il vsync dello schermo, e va bene così
+      righe.push(`${testa}: li stiamo usando tutti, e siamo agganciati al refresh dello schermo (${arr(inviti)} Hz). Qui non c'è niente da recuperare.`);
+    } else {
+      // usiamo tutto ma il tutto è poco: il limite non è il nostro frame
+      righe.push(`${testa}: li stiamo usando TUTTI, ma sono pochi. ⚠ Il tetto NON è il costo del frame — `
+        + 'il browser non ci sta chiamando di più. Guarda FUORI dal gioco: risparmio energetico o modalità '
+        + 'a basso consumo, schermo che scende a 30/60 Hz da solo, scheda in secondo piano, telefono caldo. '
+        + 'Ottimizzare il gioco non alza questo numero.');
+    }
   }
 
   // 2a) FRAME IRREGOLARI. Un gioco che alterna 16 e 66 ms si sente peggio di uno

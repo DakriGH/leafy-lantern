@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms9dzsij';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms9dzsij';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms9lc1am';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms9lc1am';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -174,7 +174,7 @@ export function impostaSchiumaAcqua(impatti, fuoco = null) {
   const n = Math.min(lista.length, IMPATTI_MAX);
   for (let i = 0; i < n; i++) {
     const im = lista[i];
-    uniformi.uImpatti.value[i].set(im.x, im.y, im.z, im.r);
+    scriviV4(uniformi.uImpatti.value, i, im.x, im.y, im.z, im.r);
   }
   uniformi.uImpattiNum.value = n;
   _statImpatti.mostrati = n;
@@ -277,10 +277,33 @@ export function memoriaVoxel() {
   return d.x * d.y * d.z;
 }
 
+/**
+ * GLI ARRAY DI vec4 STANNO PIATTI, e non è un vezzo: è la voce di CPU per
+ * fotogramma che si vedeva nei profili del telefono senza avere un nome.
+ *
+ * three carica le uniform di un materiale a ogni CAMBIO di materiale nel frame,
+ * e per un `vec4 x[N]` chiama flatten(), che quando trova dei Vector4 alloca e
+ * ricopia elemento per elemento — N chiamate a toArray() moltiplicate per ogni
+ * materiale patchato che disegna, ogni frame, anche quando non è cambiato
+ * niente. Se invece il valore è GIÀ un Float32Array, flatten lo restituisce
+ * com'è e resta solo il confronto con la cache: un memcmp.
+ *
+ * Il prezzo è scrivere per indice invece che con .set() — scriviV4 lo nasconde.
+ */
+function arrV4(n, x = 0, y = 0, z = 0, w = 0) {
+  const a = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) { a[i * 4] = x; a[i * 4 + 1] = y; a[i * 4 + 2] = z; a[i * 4 + 3] = w; }
+  return a;
+}
+function scriviV4(a, i, x, y, z, w) {
+  const o = i * 4;
+  a[o] = x; a[o + 1] = y; a[o + 2] = z; a[o + 3] = w;
+}
+
 // Uniform condivisi da OGNI materiale patchato: un solo aggiornamento per frame.
 const uniformi = {
-  uLuciPosRaggio: { value: Array.from({ length: LUCI_MAX }, () => new THREE.Vector4(0, 0, 0, 1)) },
-  uLuciColore: { value: Array.from({ length: LUCI_MAX }, () => new THREE.Vector4(1, 1, 1, 0)) },
+  uLuciPosRaggio: { value: arrV4(LUCI_MAX, 0, 0, 0, 1) },
+  uLuciColore: { value: arrV4(LUCI_MAX, 1, 1, 1, 0) },
   // FA OMBRA, QUESTA LAMPADA? 1 = pesante (il raggio cammina la griglia dei
   // voxel), 0 = leggera (trapassa i muri: è il suo mestiere). Le sfere si
   // riordinano a ogni frame — le più vicine al giocatore — quindi la classe va
@@ -337,17 +360,17 @@ const uniformi = {
   uRiflessoMat: { value: new THREE.Matrix4() },
   uRiflessoOn: { value: 0 },                     // 0/1 per-frame
   uRiflessoForza: { value: 1 },                  // slider Impostazioni (0..1.5)
-  uPgPos: { value: Array.from({ length: 6 }, () => new THREE.Vector4(0, -999, 0, 0)) },
+  uPgPos: { value: arrV4(6, 0, -999, 0, 0) },
   uPgNum: { value: 0 },                          // ombre-cono dei personaggi
   // LE SCATOLE CHE PROIETTANO AL SOLE: la sagoma dei mobili (sempre) e i corpi
   // in movimento (se l'utente accende le ombre dinamiche). Provate analiticamente
   // contro il raggio dell'astro — è così che l'ombra di un albero ha la forma
   // dell'albero invece del passo della griglia.
-  uDinPos: { value: Array.from({ length: SCATOLE_MAX }, () => new THREE.Vector4(0, -999, 0, 0)) },
-  uDinMez: { value: Array.from({ length: SCATOLE_MAX }, () => new THREE.Vector4(0, 0, 0, 0)) },
+  uDinPos: { value: arrV4(SCATOLE_MAX, 0, -999, 0, 0) },
+  uDinMez: { value: arrV4(SCATOLE_MAX) },
   // i limiti DIAGONALI dell'ottagono: (s0, s1, d0, d1) con s = x+z e d = x−z.
   // Sono loro a togliere all'ombra gli angoli che il modello non ha.
-  uDinDiag: { value: Array.from({ length: SCATOLE_MAX }, () => new THREE.Vector4(0, 0, 0, 0)) },
+  uDinDiag: { value: arrV4(SCATOLE_MAX) },
   uDinNum: { value: 0 },
   // OCCHIO DI BUE: (centro.x, centro.y in pixel, raggio, bordo) e la distanza
   // camera→personaggio. `uForoDist` a 0 spegne tutto senza costo.
@@ -358,7 +381,7 @@ const uniformi = {
   // poco meno di metà dell'ombra portata. 0 lo spegne (solo ombre portate).
   uSoleTerm: { value: 0.55 },
   // impatti delle cascate: (x, quota del pelo colpito, z, raggio dell'anello)
-  uImpatti: { value: Array.from({ length: IMPATTI_MAX }, () => new THREE.Vector4(0, -9999, 0, 0)) },
+  uImpatti: { value: arrV4(IMPATTI_MAX, 0, -9999, 0, 0) },
   uImpattiNum: { value: 0 },
   uSchiumaRT: { value: null },                   // silhouette dall'alto (schiumaTop.js)
   uSchiumaRTInfo: { value: new THREE.Vector4(0, 0, 0, 0) },   // minX, minZ, 1/est, attivo
@@ -469,14 +492,14 @@ export function impostaOmbre(scatole, corpi, dinamiche = false) {
     // un'ombra invece di farla apparire: chi entra nel budget camminando entra
     // da trasparente e si scurisce in un blocco o due di cammino. Senza, le
     // ombre lontane «si caricavano» a scatti — e si vedeva, eccome.
-    uniformi.uDinMez.value[n].set(hx, hy, hz, peso);
-    if (diag) uniformi.uDinDiag.value[n].set(diag.s0, diag.s1, diag.d0, diag.d1);
+    scriviV4(uniformi.uDinMez.value, n, hx, hy, hz, peso);
+    if (diag) scriviV4(uniformi.uDinDiag.value, n, diag.s0, diag.s1, diag.d0, diag.d1);
     else {
       const s = cx + cz, d = cx - cz, h = hx + hz;
-      uniformi.uDinDiag.value[n].set(s - h, s + h, d - h, d + h);
+      scriviV4(uniformi.uDinDiag.value, n, s - h, s + h, d - h, d + h);
     }
     const raggio = Math.hypot(hx, hz) + Math.min(DIN_LUNG, (hy * 2 + DIN_LUNG) * oriz);
-    uniformi.uDinPos.value[n].set(cx, cy, cz, raggio);
+    scriviV4(uniformi.uDinPos.value, n, cx, cy, cz, raggio);
     n++;
   };
 
@@ -503,11 +526,12 @@ export function impostaOmbre(scatole, corpi, dinamiche = false) {
     const m = Math.min(corpi.length, 6);
     for (let i = 0; i < m; i++) {
       const e = corpi[i];
-      uniformi.uPgPos.value[i].set(e.x, e.y, e.z, e.r);
+      scriviV4(uniformi.uPgPos.value, i, e.x, e.y, e.z, e.r);
     }
     uniformi.uPgNum.value = m;
   }
   uniformi.uDinNum.value = n;
+  _copiaPiccoli();
 }
 
 /** Il chiaroscuro (facce girate dal sole) si può spegnere da solo: su terreno a
@@ -1911,14 +1935,22 @@ export function uniformiOmbraSole() {
  * sarebbero.
  */
 export const SCATOLE_VERTICE = 8;
-export function uniformiScatole() {
-  return {
-    uDinPos: uniformi.uDinPos,
-    uDinMez: uniformi.uDinMez,
-    uDinDiag: uniformi.uDinDiag,
-    uDinNum: uniformi.uDinNum,
-  };
-}
+// ⚠ ARRAY LORO, non quelli del mondo. La vegetazione ne legge OTTO da sempre (il
+// ciclo qui sotto si ferma a SCATOLE_VERTICE): ricevere i tre array da trentadue
+// del mondo voleva dire dichiarare novantasei vec4 di uniform in uno shader che
+// ne tocca ventiquattro. Sulle GPU a tile lo spazio uniform e' stretto e si paga
+// in occupancy, non in millisecondi visibili — quindi qui ci sono tre array da
+// OTTO, riempiti da _copiaPiccoli. Lo shader vede ESATTAMENTE le stesse scatole
+// di prima: le prime otto, gia' ordinate per distanza da chi chiama.
+// NB: il traffico di CPU per fotogramma non e' questo — quello l'ha tolto arrV4
+// (array piatti), e misurato su questo PC valeva 4 microsecondi a frame.
+const uniformiQ = {
+  uQPos: { value: arrV4(SCATOLE_VERTICE, 0, -999, 0, 0) },
+  uQMez: { value: arrV4(SCATOLE_VERTICE) },
+  uQDiag: { value: arrV4(SCATOLE_VERTICE) },
+  uQNum: { value: 0 },
+};
+export function uniformiScatole() { return uniformiQ; }
 /**
  * LE LUCI-SFERA PER CHI HA UNO SHADER SUO (erba, foglie, particelle).
  *
@@ -1939,6 +1971,25 @@ export function uniformiScatole() {
  * che illumina il prato davanti è un caso che non capita quasi mai, e quando
  * capita costa molto meno di quanto costerebbe cercarlo.
  */
+/** Ricopia nell'array PICCOLO delle scatole quello che serve alla vegetazione.
+ *  Lo chiama impostaOmbre a fine giro: otto copie per fotogramma contro il
+ *  traffico di tre array da trentadue per ognuno dei materiali di vegetazione. */
+function _copiaPiccoli() {
+  const n = Math.min(SCATOLE_VERTICE, uniformi.uDinNum.value);
+  const D = uniformi.uDinPos.value, M = uniformi.uDinMez.value, G = uniformi.uDinDiag.value;
+  const p = uniformiQ.uQPos.value, m = uniformiQ.uQMez.value, g = uniformiQ.uQDiag.value;
+  for (let i = 0; i < n * 4; i++) { p[i] = D[i]; m[i] = M[i]; g[i] = G[i]; }
+  uniformiQ.uQNum.value = n;
+}
+
+/**
+ * LE LAMPADE LE VEDE TUTTE, e il taglio a otto che avevo provato qui era un
+ * errore: le sorgenti sono ordinate per distanza dal giocatore, ma l'erba è
+ * seminata attorno al giocatore su un raggio più largo del nono lampione. Si
+ * vedeva quel che si vede sempre in questi casi — il terreno acceso e i fili
+ * sopra spenti, sullo stesso metro quadro. Il traffico che volevo risparmiare
+ * se l'è preso l'array piatto qui sotto, che è la cosa giusta da fare.
+ */
 export function uniformiLuci() {
   return {
     uLuciPosRaggio: uniformi.uLuciPosRaggio,
@@ -1946,6 +1997,7 @@ export function uniformiLuci() {
     uLuciNum: uniformi.uLuciNum,
   };
 }
+
 export const GLSL_LUCI_VERTICE = /* glsl */`
   uniform vec4 uLuciPosRaggio[${LUCI_MAX}];
   uniform vec4 uLuciColore[${LUCI_MAX}];
@@ -1971,15 +2023,15 @@ export const GLSL_LUCI_VERTICE = /* glsl */`
 
 /** ⚠ Chi lo include deve già dichiarare `uSoleDir`: la porta uniformiOmbraSole. */
 export const GLSL_SCATOLE_VERTICE = /* glsl */`
-  uniform vec4 uDinPos[${SCATOLE_MAX}];
-  uniform vec4 uDinMez[${SCATOLE_MAX}];
-  uniform vec4 uDinDiag[${SCATOLE_MAX}];
-  uniform int uDinNum;
+  uniform vec4 uQPos[${SCATOLE_VERTICE}];
+  uniform vec4 uQMez[${SCATOLE_VERTICE}];
+  uniform vec4 uQDiag[${SCATOLE_VERTICE}];
+  uniform int uQNum;
 
   /** 0 = in piena ombra di una sagoma, 1 = niente sopra. Stessa prova a fette
    *  del mondo (fx/materials.js, ombraScatole), su meno scatole. */
   float sagomeAlSole(vec3 P) {
-    if (uDinNum == 0) return 1.0;
+    if (uQNum == 0) return 1.0;
     float forte = 0.0;
     vec3 seg = vec3(uSoleDir.x >= 0.0 ? 1.0 : -1.0, uSoleDir.y >= 0.0 ? 1.0 : -1.0, uSoleDir.z >= 0.0 ? 1.0 : -1.0);
     vec3 inv = seg / max(abs(uSoleDir), vec3(1e-4));
@@ -1988,24 +2040,24 @@ export const GLSL_SCATOLE_VERTICE = /* glsl */`
     float invD = 1.0 / (abs(dx2) < 1e-6 ? (dx2 < 0.0 ? -1e-6 : 1e-6) : dx2);
     float fs = P.x + P.z, fd = P.x - P.z;
     for (int i = 0; i < ${SCATOLE_VERTICE}; i++) {
-      if (i >= uDinNum) break;
-      vec4 p = uDinPos[i];
+      if (i >= uQNum) break;
+      vec4 p = uQPos[i];
       vec2 d = P.xz - p.xz;
       if (dot(d, d) > p.w * p.w) continue;
-      vec3 h = uDinMez[i].xyz;
+      vec3 h = uQMez[i].xyz;
       if (P.y > p.y + h.y) continue;
       vec3 t0 = (p.xyz - h - P) * inv;
       vec3 t1 = (p.xyz + h - P) * inv;
       vec3 tmin = min(t0, t1), tmax = max(t0, t1);
       float a = max(max(tmin.x, tmin.y), tmin.z);
       float b = min(min(tmax.x, tmax.y), tmax.z);
-      vec4 dg = uDinDiag[i];
+      vec4 dg = uQDiag[i];
       float sA = (dg.x - fs) * invS, sB = (dg.y - fs) * invS;
       a = max(a, min(sA, sB)); b = min(b, max(sA, sB));
       float dA = (dg.z - fd) * invD, dB = (dg.w - fd) * invD;
       a = max(a, min(dA, dB)); b = min(b, max(dA, dB));
       if (b > a && a > 0.04 && a < ${DIN_LUNG.toFixed(1)}) {
-        forte = max(forte, uDinMez[i].w);
+        forte = max(forte, uQMez[i].w);
         if (forte >= 0.999) return 0.0;
       }
     }
@@ -2215,8 +2267,8 @@ export function aggiornaLuci(fuoco) {
       const d = l.pos.distanceTo(fuoco);
       if (d > dPiena) { k = _liscia((dTaglio - d) / banda); _sfumate++; }
     }
-    uniformi.uLuciPosRaggio.value[i].set(l.pos.x, l.pos.y, l.pos.z, l.raggio);
-    uniformi.uLuciColore.value[i].set(l.colore.r, l.colore.g, l.colore.b, l.intensita * k);
+    scriviV4(uniformi.uLuciPosRaggio.value, i, l.pos.x, l.pos.y, l.pos.z, l.raggio);
+    scriviV4(uniformi.uLuciColore.value, i, l.colore.r, l.colore.g, l.colore.b, l.intensita * k);
     // LA CLASSE È DICHIARATA E BASTA, ed è metà del senso delle luci leggere:
     // non c'è niente da chiedere a nessuno, nessun mesher da svegliare, nessuna
     // risorsa da assegnare. Cinquanta fuochi fatui in volo costano cinquanta
