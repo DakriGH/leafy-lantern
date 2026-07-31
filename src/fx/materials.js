@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms8osh8u';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms8osh8u';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms8pty9a';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms8pty9a';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -677,6 +677,13 @@ const GLSL_FRAGMENT = /* glsl */`
   uniform float uSoleForza;        // 0 = niente ombra dal cielo (interruttore, non intensità)
   uniform vec3 uOmbraFatt;         // per cosa si moltiplica l'ambiente DENTRO l'ombra
   uniform int uSolePassi;          // celle di cammino concesse (0 = spento)
+  // LA HEIGHTMAP DEL CIELO — quota della superficie per colonna. La usano DUE
+  // cose: l'ombra delle nuvole (piu' in basso) e l'ombra del sole (ombraCielo,
+  // qui sotto). Sta dichiarata QUI, in alto, e non accanto alle nuvole dov'era:
+  // in GLSL la dichiarazione deve precedere l'uso, e messa la' il sole non la
+  // vedeva — lo shader del mondo non compilava e il terreno spariva del tutto.
+  uniform sampler2D uCielo;
+  uniform vec4 uCieloInfo;
   // IL CHIAROSCURO È PIÙ LEGGERO DELL'OMBRA PORTATA, e questa è la correzione
   // che è costata un rifiuto. Con un livello solo per tutt'e due, un terreno a
   // terrazze diventa una limatura di denti di sega: ogni gradino ha un'alzata
@@ -940,48 +947,52 @@ const GLSL_FRAGMENT = /* glsl */`
     if (uSolePassi == 0 || uVoxMin.w < 0.5) return 1.0;
     // chi sta sopra la cima del mondo non ha niente sopra di sé: niente cammino
     if (vPosMondo.y >= uVoxCima) return 1.0;
-    // (3) l'ombra portata dal mondo: si cammina la griglia
-    vec3 p = vPosMondo + uSoleDir * ${GSCARTO};      // stacco dalla faccia: niente acne
-    vec3 passo = vec3(uSoleDir.x >= 0.0 ? 1.0 : -1.0, uSoleDir.y >= 0.0 ? 1.0 : -1.0, uSoleDir.z >= 0.0 ? 1.0 : -1.0);
-    vec3 inv = 1.0 / max(abs(uSoleDir), vec3(1e-8));
-    vec3 f = p - floor(p);
-    vec3 prossimo = ((passo * 0.5 + 0.5) - passo * f) * inv;
-    ivec3 c = ivec3(floor(p));
-    ivec3 ipasso = ivec3(passo);
-    // IL BUDGET SI SPENDE IN DISTANZA, NON IN CELLE CONTATE, ed è la cura di un
-    // seghettato che è ricomparso appena le ombre delle ore radenti sono tornate
-    // visibili. Contando le celle, quanto lontano arriva l'ombra dipende da DOVE
-    // dentro la sua cella è nato il raggio: due frammenti vicini spendono i
-    // dodici passi in modo diverso e finiscono a distanze diverse, così l'orlo
-    // lontano dell'ombra diventa un dente di sega col passo della griglia. È lo
-    // stesso difetto della vecchia mappa ottaedrale — un bordo che ondeggia a una
-    // frequenza che non corrisponde a niente in scena — e il cervello lo legge
-    // come guasto, non come stile. Con un limite in unità di mondo l'orlo cade
-    // sulla stessa linea per tutti.
+    // ---- (3) L'OMBRA PORTATA DAL MONDO: SI CAMMINA LA HEIGHTMAP -----------
     //
-    // ⚠ E IL CONTATORE DEI PASSI NON DEVE PIÙ FERMARE NIENTE, se no il taglio
-    // resta quello di prima e la cura non si vede (ci sono cascato: messo il
-    // limite in distanza e lasciata la vecchia uscita a passi contati, i denti
-    // erano identici al pixel). Il ciclo può fare fino a SOLE_PASSI_MAX
-    // attraversamenti; a fermarlo è la distanza, ed è per questo che uSolePassi
-    // ora si legge come BLOCCHI DI PORTATA e non come passi. SOLE_RAGGIO_MAX
-    // garantisce che i passi bastino sempre: un raggio attraversa al più √3
-    // confini di cella per unità di lunghezza.
-    float limite = float(uSolePassi);
-    for (int k = 0; k < ${SOLE_PASSI_MAX}; k++) {
-      float t;
-      if (prossimo.x <= prossimo.y && prossimo.x <= prossimo.z) { t = prossimo.x; c.x += ipasso.x; prossimo.x += inv.x; }
-      else if (prossimo.y <= prossimo.z)                        { t = prossimo.y; c.y += ipasso.y; prossimo.y += inv.y; }
-      else                                                      { t = prossimo.z; c.z += ipasso.z; prossimo.z += inv.z; }
-      if (t > limite) break;
-      // SOPRA LA CIMA DEL MONDO NON C'È PIÙ NIENTE DA INCONTRARE, e il raggio
-      // va verso l'astro, cioè verso l'alto: da qui in poi ogni altro passo
-      // sarebbe una lettura di texture sicuramente vuota. Un confronto float
-      // contro un texelFetch: su un diorama basso è la maggior parte del
-      // cammino di ogni pixel illuminato. Esatto, non un'approssimazione —
-      // uVoxCima è la quota della faccia alta della cella occupata più alta.
-      if (float(c.y) >= uVoxCima) break;
-      if (voxCielo(c)) return 0.0;                   // UN salto secco, niente rampa
+    // MISURATO, ed e' il numero che ha deciso questa riscrittura: sul Chromebook
+    // del committente (Intel HD 400, timer GPU disponibile, 31 luglio 2026)
+    // l'ombra del sole costava +69,8 ms GPU — piu' di TUTTO il resto sommato, e
+    // il pass principale intero ne valeva 64,7 contro i 10,7 del mondo nudo.
+    //
+    // Prima qui si camminava la GRIGLIA 3D dei voxel con un DDA: fino a 24
+    // attraversamenti di cella, e a ogni attraversamento una lettura di texture
+    // 3D. Su una GPU integrata quella e' la lettura piu' cara che esista: le
+    // texture 3D non stanno in cache come le 2D, e due pixel vicini leggono
+    // celle lontane in memoria.
+    //
+    // Adesso si cammina la HEIGHTMAP — la stessa che le nuvole usano gia' per
+    // sapere qual e' la superficie di ogni colonna. Un passo = un blocco in XZ,
+    // una lettura 2D, e due pixel vicini leggono texel vicini: la cache fa il
+    // suo lavoro. Meta' delle iterazioni e la lettura piu' economica al posto
+    // della piu' cara.
+    //
+    // PERCHE' E' CORRETTO e non un'approssimazione furba: l'ombra del sole su
+    // una superficie chiede «lungo il raggio verso l'astro, c'e' terreno piu'
+    // alto del raggio?». La heightmap risponde esattamente a questa domanda per
+    // ogni colonna. Quello che NON sa sono gli sbalzi (un tetto con il vuoto
+    // sotto) e le cose sottili — ma le cose sottili sono i furni, e quelli hanno
+    // gia' il loro canale (ombraScatole, punto 2), mentre sotto un tetto la
+    // faccia guarda in basso e il TERMINATORE l'ha gia' scartata al punto 1.
+    //
+    // ⚠ SI PARTE DAL PASSO 1, non da 0: al passo 0 si campionerebbe la colonna
+    // del frammento stesso, e ogni pixel su una parete verticale — che sta sotto
+    // la cima della propria colonna — si dichiarerebbe in ombra da solo.
+    vec2 dirXZ = uSoleDir.xz;
+    float lenXZ = length(dirXZ);
+    if (lenXZ < 0.02) return 1.0;        // astro allo zenit: non porta ombra
+    vec2 dxz = dirXZ / lenXZ;            // avanzare di 1 blocco in XZ...
+    float salita = uSoleDir.y / lenXZ;   // ...fa salire il raggio di tanto
+    vec3 p0 = vPosMondo + uSoleDir * ${GSCARTO};
+    for (int k = 1; k <= ${SOLE_PASSI_MAX}; k++) {
+      float fk = float(k);
+      if (fk > float(uSolePassi)) break;          // la portata, in blocchi
+      float y = p0.y + salita * fk;
+      // sopra la cima del mondo non c'e' piu' niente da incontrare, e il raggio
+      // sale: da qui in poi ogni lettura sarebbe sicuramente vuota
+      if (y >= uVoxCima) break;
+      vec2 uv = (p0.xz + dxz * fk - uCieloInfo.xy) * uCieloInfo.z;
+      if (uv.x <= 0.0 || uv.x >= 1.0 || uv.y <= 0.0 || uv.y >= 1.0) break;
+      if (texture2D(uCielo, uv).r > y) return 0.0;   // UN salto secco, niente rampa
     }
     return 1.0;
   }
@@ -1020,8 +1031,6 @@ const GLSL_FRAGMENT = /* glsl */`
   uniform float uOmbraForza;
   uniform sampler2D uOmbraMask;
   uniform vec2 uOmbraSbieco;
-  uniform sampler2D uCielo;
-  uniform vec4 uCieloInfo;
 
   // Ombra delle nuvole: la sagoma (unione dei rettangoli-scatola) è pre-disegnata
   // in una maschera → UN campionamento a pixel, forma esatta della nuvola.
@@ -1727,6 +1736,27 @@ export function impostaOcclusione(attiva) {
 
 /** Le uniform condivise: per ispezionarle e tararle dal vivo (debug/console). */
 export function uniformiCondivise() { return uniformi; }
+
+/**
+ * LE UNIFORM DELL'OMBRA DEL SOLE, per chi ha uno shader suo.
+ *
+ * Si restituiscono gli OGGETTI uniform, non i valori: chi le infila nel proprio
+ * materiale resta agganciato al ciclo del giorno senza copiare niente per
+ * fotogramma. Le usa l'erba (fx/erba.js) — e serve perche' era l'unica cosa in
+ * scena che NON riceveva l'ombra del sole: un prato pieno sole dentro l'ombra di
+ * una collina, ed e' il genere di cosa che si vede subito.
+ */
+export function uniformiOmbraSole() {
+  return {
+    uCielo: uniformi.uCielo,
+    uCieloInfo: uniformi.uCieloInfo,
+    uSoleDir: uniformi.uSoleDir,
+    uSolePassi: uniformi.uSolePassi,
+    uSoleForza: uniformi.uSoleForza,
+    uVoxCima: uniformi.uVoxCima,
+    uOmbraFatt: uniformi.uOmbraFatt,
+  };
+}
 
 /** Il colore ambiente corrente (per chi si tinge a mano, es. le nuvole). */
 export function ambienteAttuale() { return uniformi.uAmbiente.value; }

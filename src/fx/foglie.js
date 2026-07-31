@@ -9,11 +9,12 @@
 //    (hash della cella grossa) con caduta radiale: fitto in mezzo, sfilacciato
 //    ai bordi. Un mucchio quadrato si riconoscerebbe subito.
 //
-//  · SI CALPESTANO SUL SERIO. Il calpestio non è solo un'animazione: le foglie
-//    di quella cella se ne VANNO (istanze azzerate) e la cella resta segnata,
-//    così non ricrescono dietro le spalle al primo riseminamento. Il mucchio
-//    torna solo quando ci si allontana e si ritorna. Le particelle che partono
-//    le tira main, con il colore di QUESTO mucchio.
+//  · SI SCOMPIGLIANO, NON SPARISCONO. Per un giro il calpestio TOGLIEVA le
+//    foglie della cella e la segnava per sempre: camminando si lasciava una
+//    scia di terreno pelato. Bocciato, e la ragione è semplice — un mucchio di
+//    foglie che attraversi si apre e si richiude, non si cancella. Chi ci passa
+//    lo scompiglia (uMobili, nel vertex shader) e ne fa volare via QUALCUNA in
+//    più: le particelle sono foglie aggiunte, non le stesse tolte da terra.
 //
 //  · HANNO LA FORMA DI UNA FOGLIA, ritagliata nel fragment shader: allungata,
 //    con la punta da una parte e il picciolo dall'altra. Un ovale simmetrico si
@@ -28,7 +29,7 @@
 // ci passa dentro.
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=ms8osh8u';
+import { CHUNK } from '../world/world.js?v=ms8pty9a';
 
 // I due tipi di mucchio. Le secche sono la regola, il ciliegio la sorpresa.
 const TIPI = [
@@ -41,6 +42,8 @@ const AMMASSO_QUANTI = 0.34;    // frazione di celle grosse che ne ospitano uno
 const CACHE_CHUNK = 320;        // chunk già seminati tenuti da parte (vedi fx/erba.js)
 const SENZA_CIMA = -32768;      // colonna vuota nell'array piatto delle quote
 const BUDGET_MS = 0.35;         // quanto può durare la semina in un frame
+// quanto aspettare prima che la STESSA cella possa far volare altre foglie
+const RICARICA = 2.5;
 
 /** Hash deterministico: stessa cella, stesso mucchio, per sempre. */
 function hash(x, z, s) {
@@ -180,12 +183,10 @@ export class Foglie {
     this._cache = new Map();  // chunk già seminati: vedi _seminaChunk
     this.foglie = 0;
 
-    // LE CELLE GIÀ CALPESTATE. Senza questo elenco il mucchio ricresce al primo
-    // riseminamento — cioè dopo sedici passi — e il calpestio non conta niente.
-    // È limitato a coda: si scordano le più vecchie, che sono lontane.
-    this._pesta = new Set();
-    this._pestaCoda = [];
-    this._pestaMax = 6000;
+    // QUANDO si è passati l'ultima volta su ogni cella: serve solo a non far
+    // partire uno sciame continuo camminando avanti e indietro. Le foglie NON
+    // vengono più tolte, quindi qui non c'è nessuno stato del mondo da tenere.
+    this._ultimo = new Map();
     // dove sta ogni cella nel buffer: serve a spegnere SOLO quelle istanze
     this._perCella = new Map();
     this._sPerCella = new Map();
@@ -255,9 +256,7 @@ export class Foglie {
     const passo = passoPerDistanza(dc);
     const ck = kc + '|' + passo + '|' + (mondo.revisione ? mondo.revisione(kc) : 0);
     const pronto = this._cache.get(ck);
-    // una cella calpestata DOPO che il chunk è finito in cache renderebbe la
-    // voce bugiarda: si scarta e si risemina, che è il caso raro
-    if (pronto && !pronto.celle.some(([k]) => this._pesta.has(k))) {
+    if (pronto) {
       if (this._n + pronto.n > this.max) return 0;
       this.sPos.set(pronto.pos, this._n * 4);
       this.sDati.set(pronto.dati, this._n * 4);
@@ -298,7 +297,6 @@ export class Foglie {
       if (qy[idx] === SENZA_CIMA || qt[idx] !== 'erba') continue;
       const x = ox + ((idx / CHUNK) | 0), z = oz + (idx % CHUNK);
       const k = chiave(x, z);
-      if (this._pesta.has(k)) continue;                  // già spazzata via
       const cima = { y: qy[idx], tipo: qt[idx] };
       if (passo > 1 && ((x % passo) + passo) % passo !== 0) continue;
       if (passo > 1 && ((z % passo) + passo) % passo !== 0) continue;
@@ -376,29 +374,39 @@ export class Foglie {
    * giusto. Ritorna null se lì non c'era niente: chiamarla a ogni passo costa
    * una lettura di Map.
    */
+  /**
+   * IL MUCCHIO NON SPARISCE PIÙ. Prima le foglie della cella calpestata venivano
+   * spente per sempre (lato zero) e la cella restava segnata: camminando si
+   * lasciava una scia di terreno pelato. Il committente l'ha bocciato con una
+   * frase sola — «ti avevo detto di non farle sparire» — e ha ragione: un
+   * mucchio di foglie che attraversi si SCOMPIGLIA, non si cancella. Chi ci
+   * passa lo apre (lo fa il vertex shader, uMobili) e ne fa volare via qualcuna
+   * (le particelle, che sono foglie in più, non le stesse).
+   *
+   * Qui resta solo il compito di DIRE che c'era un mucchio e di che colore, con
+   * un tempo di ricarica per cella: senza, camminando avanti e indietro sullo
+   * stesso posto partirebbe uno sciame continuo.
+   */
   calpesta(x, z) {
     const k = chiave(x, z);
-    if (this._pesta.has(k)) return null;
+    const quando = this._ultimo.get(k);
+    if (quando !== undefined && this._t - quando < RICARICA) return null;
     const voce = this._perCella.get(k);
-    if (!voce) {
-      // niente foglie caricate qui: se il mucchio esiste ma è fuori portata non
-      // si segna niente, altrimenti si spegnerebbe roba mai vista
-      return null;
+    if (!voce) return null;      // qui non ci sono foglie caricate
+    this._ultimo.set(k, this._t);
+    if (this._ultimo.size > 4000) {
+      // la mappa non deve crescere per sempre: le voci vecchie sono lontane
+      const it = this._ultimo.keys();
+      for (let i = 0; i < 1000; i++) this._ultimo.delete(it.next().value);
     }
-    this._pesta.add(k);
-    this._pestaCoda.push(k);
-    if (this._pestaCoda.length > this._pestaMax) {
-      this._pesta.delete(this._pestaCoda.shift());
-    }
-    // spegnere = lato zero. L'istanza resta nel buffer (togliere di mezzo un
-    // pezzo vorrebbe dire ricompattare tutto), ma un quadrato di lato zero non
-    // produce frammenti: costa il vertex shader e basta.
-    const { iDati } = this;
-    for (let i = voce.i0; i < voce.i0 + voce.n; i++) iDati[i * 4 + 1] = 0;
-    this.mesh.geometry.getAttribute('iDati').needsUpdate = true;
     const t = TIPI[voce.tipo];
-    const c = new THREE.Color(t.colori[0]);
-    return { quante: voce.n, colore: [c.r, c.g, c.b], tipo: voce.tipo };
+    const c = new THREE.Color(t.colori[(Math.random() * t.colori.length) | 0]);
+    // la MISURA delle foglie di questo mucchio: serve a chi lancia le particelle
+    // per farle grandi uguali. Erano «minuscole rispetto alle foglie», ed era
+    // vero: il lato stava nell'attributo e nessuno lo leggeva.
+    let lato = 0;
+    for (let i = voce.i0; i < voce.i0 + voce.n; i++) lato = Math.max(lato, this.iDati[i * 4 + 1]);
+    return { quante: voce.n, colore: [c.r, c.g, c.b], tipo: voce.tipo, lato };
   }
 
   aggiorna(dt, mondo, pos, ambiente) {

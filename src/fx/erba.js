@@ -30,8 +30,9 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms8osh8u';
-import { CHUNK } from '../world/world.js?v=ms8osh8u';
+import { paletteBlocco } from '../world/stagioni.js?v=ms8pty9a';
+import { CHUNK } from '../world/world.js?v=ms8pty9a';
+import { uniformiOmbraSole } from './materials.js?v=ms8pty9a';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -82,8 +83,44 @@ const GLSL_VERTEX = /* glsl */`
   varying float vAlt;
   varying vec3 vCol;
   varying float vLontano;
+  varying float vSole;
   uniform vec3 uCamera;
   uniform vec2 uSfuma;      // (dove comincia a spegnersi, dove è spenta)
+  // l'ombra del sole, LE STESSE uniform del mondo (fx/materials.js)
+  uniform sampler2D uCielo;
+  uniform vec4 uCieloInfo;
+  uniform vec3 uSoleDir;
+  uniform int uSolePassi;
+  uniform float uSoleForza;
+  uniform float uVoxCima;
+
+  // L'ERBA RICEVE L'OMBRA DEL SOLE, e la chiede alla stessa heightmap che usa il
+  // mondo. Ma la chiede UNA VOLTA PER LAMELLA, nel vertex shader, non per pixel:
+  // un ciuffo è alto mezzo blocco e largo un dito, l'ombra al suo piede e quella
+  // alla sua punta sono la stessa. Ventimila letture invece di qualche milione.
+  //
+  // Passi pochi (sei) e per la stessa ragione: quello che conta è che il prato
+  // dentro l'ombra di una collina sia scuro come la collina, non che l'orlo sia
+  // al centimetro — al centimetro non si vede, un prato illuminato dentro
+  // un'ombra si vede da lontano.
+  float erbaAlSole(vec3 p) {
+    if (uSoleForza <= 0.0 || uSolePassi == 0 || uSoleDir.y <= 0.02) return 1.0;
+    vec2 dirXZ = uSoleDir.xz;
+    float lenXZ = length(dirXZ);
+    if (lenXZ < 0.02) return 1.0;
+    vec2 dxz = dirXZ / lenXZ;
+    float salita = uSoleDir.y / lenXZ;
+    for (int k = 1; k <= 6; k++) {
+      float fk = float(k) * 1.6;                 // passo più lungo: sei letture bastano
+      if (fk > float(uSolePassi)) break;
+      float y = p.y + salita * fk;
+      if (y >= uVoxCima) break;
+      vec2 uv = (p.xz + dxz * fk - uCieloInfo.xy) * uCieloInfo.z;
+      if (uv.x <= 0.0 || uv.x >= 1.0 || uv.y <= 0.0 || uv.y >= 1.0) break;
+      if (texture2D(uCielo, uv).r > y) return 0.0;
+    }
+    return 1.0;
+  }
 
   void main() {
     float alt = position.y;
@@ -113,6 +150,7 @@ const GLSL_VERTEX = /* glsl */`
     // camera costerebbe una seconda geometria e un secondo materiale — e a quel
     // punto si vedrebbe il passaggio FRA i due, che è lo stesso difetto spostato
     // di dieci metri più in là.
+    vSole = erbaAlSole(iPos.xyz);
     vLontano = clamp((distance(iPos.xz, uCamera.xz) - uSfuma.x)
                      / max(uSfuma.y - uSfuma.x, 0.001), 0.0, 1.0);
     eta *= 1.0 - vLontano * vLontano * 0.82;
@@ -171,7 +209,9 @@ const GLSL_FRAGMENT = /* glsl */`
   varying float vAlt;
   varying vec3 vCol;
   varying float vLontano;
+  varying float vSole;
   uniform vec3 uAmbienteErba;
+  uniform vec3 uOmbraFatt;     // di che colore scurisce l'ombra del cielo
 
   void main() {
     // LA BASE È ESATTAMENTE IL COLORE DEL BLOCCO SOTTO, e da lì si SCHIARISCE
@@ -191,7 +231,11 @@ const GLSL_FRAGMENT = /* glsl */`
     vec3 col = mix(vCol, vCol * 1.22 + vec3(0.035), vAlt * vAlt * vAlt);
     // e in lontananza si torna al colore esatto del blocco: vedi il vertex
     col = mix(col, vCol, vLontano);
-    gl_FragColor = vec4(col * uAmbienteErba, 1.0);
+    // l'ombra del sole, con LO STESSO colore con cui scurisce il mondo: se qui
+    // si usasse un grigio qualunque, l'erba dentro l'ombra sarebbe di una tinta
+    // e il blocco sotto di un'altra — e il difetto si vede proprio sul confine
+    vec3 amb = uAmbienteErba * mix(uOmbraFatt, vec3(1.0), vSole);
+    gl_FragColor = vec4(col * amb, 1.0);
   }
 `;
 
@@ -254,6 +298,8 @@ export class Erba {
         uAmbienteErba: { value: new THREE.Color(1, 1, 1) },
         uCamera: { value: new THREE.Vector3() },
         uSfuma: { value: new THREE.Vector2(30, 52) },
+        // per RIFERIMENTO: restano agganciate al ciclo del giorno da sole
+        ...uniformiOmbraSole(),
       },
     });
     this.mesh = new THREE.Mesh(g, this.materiale);
