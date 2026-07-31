@@ -4,10 +4,10 @@
 // (finta luce emessa, separata dal fake pointlight), fluttuazione di 1 px.
 
 import * as THREE from 'three';
-import { PX } from '../config.js?v=ms91g5zy';
-import { FURNI, celleOccupate, celleAppoggio, centroide } from './registry.js?v=ms91g5zy';
-import { defDi } from '../world/blocks.js?v=ms91g5zy';
-import { creaLuce, rimuoviLuce } from '../fx/materials.js?v=ms91g5zy';
+import { PX } from '../config.js?v=ms92pb4b';
+import { FURNI, celleOccupate, celleAppoggio, centroide } from './registry.js?v=ms92pb4b';
+import { defDi } from '../world/blocks.js?v=ms92pb4b';
+import { creaLuce, rimuoviLuce } from '../fx/materials.js?v=ms92pb4b';
 
 let prossimoId = 1;
 
@@ -97,7 +97,18 @@ const FONDI_SE = 0.10;           // due fette si fondono se i lati differiscono 
 // il mobile stesso: fisicamente giusta, ma a schermo «che fine ha fatto
 // l'ombra?» — l'oggetto sembra appoggiato senza peso. È lo stesso mestiere del
 // disco sotto il gatto: un bordo scuro sottile attorno alla base, sempre.
-const CONTATTO = 0.14;
+// ⚠ ERA 0.14 FISSI, ED ERA SBAGLIATO DUE VOLTE. Il committente: «la base del
+// lampione non ha nulla a che fare con la silhouette del lampione». Misurato sul
+// modello vero: base larga 0.72, palo 0.17 — e la scatola di contatto usciva
+// 1.00 × 1.00, cioè un quadrato di un blocco pieno attorno a un palo sottile.
+//   · un margine FISSO è enorme su un oggetto piccolo e invisibile su uno grande:
+//     adesso è proporzionale alla pianta (8%), con un tetto perché su un tavolo
+//     largo non deve diventare un tappeto;
+//   · e la sagoma di contatto va allargata anche sugli slab DIAGONALI in modo
+//     proporzionale, se no l'ottagono torna un rettangolo proprio alla base —
+//     che è esattamente la forma che si vedeva.
+const CONTATTO_FRAZ = 0.08;      // frazione della pianta
+const CONTATTO_MAX = 0.09;       // …e comunque non più di così, in blocchi
 // La scatola di contatto sta APPENA SOPRA la base, non sotto: un frammento a
 // terra accanto al mobile deve avere la scatola DAVANTI lungo il raggio
 // (l'anti-autoombra esclude chi ci sta dentro). Il fondo a +0.05 fa entrare il
@@ -209,14 +220,23 @@ export function scatoleOmbra(oggetto) {
   // mezzogiorno con l'ombra vera tutta sotto la pianta. È una scatola IN PIÙ,
   // non un ritocco alla prima: le sagome vere restano fedeli al modello, e il
   // LOD lontano non la porta (da lontano 14 centimetri non si vedono).
-  let base = ridotte[0];
-  for (const b of ridotte) if (b.y0 < base.y0) base = b;
+  // ⚠ LA PIANTA DI CONTATTO SI PRENDE DALLA FETTA ORIGINALE PIÙ BASSA, non dalla
+  // scatola ridotta: `riduci` fonde fette adiacenti, e se la più bassa è finita
+  // insieme a quella sopra la sua pianta è già gonfiata — il contatto ereditava
+  // quel gonfiore e lo allargava ancora.
+  let base = scatole[0];
+  for (const b of scatole) if (b.y0 < base.y0) base = b;
+  const margine = Math.min(CONTATTO_MAX,
+    Math.min(base.x1 - base.x0, base.z1 - base.z0) * CONTATTO_FRAZ);
   ridotte.push({
-    x0: base.x0 - CONTATTO, x1: base.x1 + CONTATTO,
-    z0: base.z0 - CONTATTO, z1: base.z1 + CONTATTO,
-    s0: base.s0 - CONTATTO * 2, s1: base.s1 + CONTATTO * 2,
-    d0: base.d0 - CONTATTO * 2, d1: base.d1 + CONTATTO * 2,
+    x0: base.x0 - margine, x1: base.x1 + margine,
+    z0: base.z0 - margine, z1: base.z1 + margine,
+    s0: base.s0 - margine * 2, s1: base.s1 + margine * 2,
+    d0: base.d0 - margine * 2, d1: base.d1 + margine * 2,
     y0: base.y0 + CONTATTO_SU, y1: base.y0 + CONTATTO_ALTO,
+    // marcata: chi la manda allo shader la fa contare SOLO quando l'astro è alto
+    // e l'ombra vera sparisce sotto l'oggetto (vedi main.js, _dosaScatole)
+    contatto: 1,
   });
   return ridotte;
 }

@@ -29,7 +29,8 @@
 // ci passa dentro.
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=ms91g5zy';
+import { CHUNK } from '../world/world.js?v=ms92pb4b';
+import { uniformiLuci, GLSL_LUCI_VERTICE } from './materials.js?v=ms92pb4b';
 
 // I due tipi di mucchio. Le secche sono la regola, il ciliegio la sorpresa.
 const TIPI = [
@@ -82,17 +83,20 @@ const GLSL_VERTEX = /* glsl */`
   attribute vec3 iCol;
   uniform float uTempo;
   uniform vec4 uMobili[4];  // chi si muove: (x, y, z, raggio). w=0 = slot spento
-  uniform float uNascita;
   varying vec3 vCol;
   varying float vLuce;
   varying vec2 vUv;
+  varying vec3 vLampade;
+${GLSL_LUCI_VERTICE}
 
   void main() {
     vUv = position.xz * 2.0;      // −1..1 dentro il quadrato: serve alla sagoma
-    // come l'erba: nasce a scala zero e cresce, così nessuna foglia «spunta»
-    float eta = clamp((uTempo - iPos.w) / max(uNascita, 0.01), 0.0, 1.0);
-    eta = eta * eta * (3.0 - 2.0 * eta);
-    float lato = iDati.y * eta;
+    // ⚠ QUI C'ERA LA CRESCITA, e se n'è andata per lo stesso motivo dell'erba:
+    // una foglia che si gonfia da zero davanti agli occhi si nota molto più di
+    // una foglia che c'è. Vedi fx/erba.js.
+    float lato = iDati.y;
+    // le lampade illuminano anche le foglie a terra: una volta per foglia
+    vLampade = luciIn(iPos.xyz + vec3(0.0, 0.05, 0.0));
 
     // ---- CHI CI CAMMINA DENTRO ----------------------------------------------
     // Le foglie vicine a un corpo in movimento si sollevano, scappano verso
@@ -143,6 +147,7 @@ const GLSL_FRAGMENT = /* glsl */`
   varying vec3 vCol;
   varying float vLuce;
   varying vec2 vUv;
+  varying vec3 vLampade;
   uniform vec3 uAmbienteFoglie;
   void main() {
     // NON un quadrato e NON un petalo tondo: una FOGLIA. La goccia simmetrica
@@ -159,7 +164,7 @@ const GLSL_FRAGMENT = /* glsl */`
     float larga = 1.0 - 0.22 * abs(q.y);          // fianchi appena rientranti
     float m = (q.x * q.x) / (larga * larga) + q.y * q.y * (0.75 + q.y * 0.55);
     if (m > 1.0) discard;
-    gl_FragColor = vec4(vCol * vLuce * uAmbienteFoglie, 1.0);
+    gl_FragColor = vec4(vCol * vLuce * (uAmbienteFoglie + vLampade), 1.0);
   }
 `;
 
@@ -215,8 +220,8 @@ export class Foglie {
       uniforms: {
         uTempo: { value: 0 },
         uMobili: { value: Array.from({ length: 4 }, () => new THREE.Vector4(0, 0, 0, 0)) },
-        uNascita: { value: 0.5 },
         uAmbienteFoglie: { value: new THREE.Color(1, 1, 1) },
+        ...uniformiLuci(),
       },
     });
     this.mesh = new THREE.Mesh(g, this.materiale);

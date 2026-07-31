@@ -30,9 +30,9 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms91g5zy';
-import { CHUNK } from '../world/world.js?v=ms91g5zy';
-import { uniformiOmbraSole, uniformiScatole, GLSL_SCATOLE_VERTICE } from './materials.js?v=ms91g5zy';
+import { paletteBlocco } from '../world/stagioni.js?v=ms92pb4b';
+import { CHUNK } from '../world/world.js?v=ms92pb4b';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=ms92pb4b';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -79,11 +79,12 @@ const GLSL_VERTEX = /* glsl */`
   uniform float uTempo;
   uniform vec4 uVento;      // (dir.x, dir.z, forza di fondo, raffica)
   uniform vec4 uMobili[4];  // chi si muove: (x, y, z, raggio). w=0 = slot spento
-  uniform float uNascita;   // durata della crescita, in secondi
   varying float vAlt;
   varying vec3 vCol;
   varying float vLontano;
   varying float vSole;
+  varying vec3 vLuce;
+  varying float vTinta;     // sfumatura personale del ciuffo (0..1)
   uniform vec3 uCamera;
   uniform vec2 uSfuma;      // (dove comincia a spegnersi, dove è spenta)
   uniform vec3 uCentro;     // centro del campo seminato: il GIOCATORE
@@ -99,6 +100,8 @@ const GLSL_VERTEX = /* glsl */`
   // le sagome dei mobili (alberi in testa): dichiara uDinPos/uDinMez/uDinDiag e
   // la funzione sagomeAlSole. Vuole uSoleDir già dichiarata — è qui sopra.
 ${GLSL_SCATOLE_VERTICE}
+  // le lampade: dichiara uLuciPosRaggio/uLuciColore/uLuciNum e la funzione luciIn
+${GLSL_LUCI_VERTICE}
 
   // L'ERBA RICEVE L'OMBRA DEL SOLE, e la chiede alla stessa heightmap che usa il
   // mondo. Ma la chiede UNA VOLTA PER LAMELLA, nel vertex shader, non per pixel:
@@ -137,13 +140,14 @@ ${GLSL_SCATOLE_VERTICE}
     float alt = position.y;
     vAlt = alt;
     vCol = iCol;
+    vTinta = fract(iDati.w * 0.2749);
 
-    // NIENTE CIUFFI CHE «SPUNTANO»: ogni lamella nasce a scala zero e cresce in
-    // mezzo secondo. Prima comparivano di colpo a pochi metri, e da fermi si
-    // vedeva benissimo — il difetto non era DOVE nascevano ma il fatto che
-    // nascessero già grandi.
-    float eta = clamp((uTempo - iPos.w) / max(uNascita, 0.01), 0.0, 1.0);
-    eta = eta * eta * (3.0 - 2.0 * eta);
+    // ⚠ QUI C'ERA LA CRESCITA: la lamella nasceva a scala zero e si allungava in
+    // mezzo secondo. Era una cura peggiore del male — «l'erba appare dal terreno
+    // in maniera molto brutta, dovrebbe solo fadare in trasparenza smooth senza
+    // animazioni strane» — perché un filo che CRESCE davanti agli occhi attira
+    // l'attenzione molto più di uno che c'è e basta. Il congedo con la distanza
+    // (qui sotto) è l'unico meccanismo rimasto, e non anima niente.
 
     // ---- IL CONGEDO CON LA DISTANZA ----------------------------------------
     // «L'erba compare di botto quando ti avvicini»: era vero, e la crescita da
@@ -167,6 +171,10 @@ ${GLSL_SCATOLE_VERTICE}
     // blocchi — quindi il prato sotto una chioma restava in pieno sole mentre il
     // terreno lì accanto era in ombra. Si prende la più scura delle due.
     vSole = min(erbaAlSole(iPos.xyz), sagomeAlSole(iPos.xyz + vec3(0.0, 0.12, 0.0)));
+    // LE LAMPADE ILLUMINANO ANCHE L'ERBA. Si misura a mezza altezza del ciuffo:
+    // una volta per filo, non per pixel, e la pozza di un lampione è larga metri
+    // — la differenza fra la base e la punta non la vede nessuno.
+    vLuce = luciIn(iPos.xyz + vec3(0.0, iDati.y * 0.5, 0.0));
     // DUE CONGEDI, E SI PRENDE IL PIU' FORTE. Servono tutti e due, e per un giro
     // ne ho messo uno solo — ecco perche' i pop-in erano ancora li'.
     //
@@ -182,7 +190,15 @@ ${GLSL_SCATOLE_VERTICE}
     float viaBordo = clamp((distance(iPos.xz, uCentro.xz) - uBordo.x)
                      / max(uBordo.y - uBordo.x, 0.001), 0.0, 1.0);
     vLontano = max(viaCam, viaBordo);
-    eta *= 1.0 - vLontano * vLontano * 0.82;
+    // ---- IL CONGEDO, STOCASTICO ---------------------------------------------
+    // La lamella si accorcia (per fondersi nel manto) E, oltre la sua soglia
+    // personale, sparisce del tutto. La soglia viene da iDati.w, che è la fase
+    // casuale del ciuffo: due fili vicini se ne vanno in momenti diversi, quindi
+    // il prato si dirada invece di finire contro un muro. Un filo solo che
+    // scompare in mezzo a ventimila non lo vede nessuno; una fila intera sì.
+    float soglia = fract(iDati.w * 0.1591549);
+    float vivo = step(vLontano, 0.30 + soglia * 0.70);
+    float eta = vivo * (1.0 - vLontano * vLontano * 0.82);
 
     // RETTANGOLO, non lama: la larghezza si stringe appena in cima (0.82), non
     // fino a una punta. È la differenza fra un filo d'erba e una scheggia, ed è
@@ -239,6 +255,8 @@ const GLSL_FRAGMENT = /* glsl */`
   varying vec3 vCol;
   varying float vLontano;
   varying float vSole;
+  varying vec3 vLuce;          // quanto ci arriva dalle lampade (per filo)
+  varying float vTinta;
   uniform vec3 uAmbienteErba;
   uniform vec3 uOmbraFatt;     // di che colore scurisce l'ombra del cielo
 
@@ -257,13 +275,33 @@ const GLSL_FRAGMENT = /* glsl */`
     // chiara — e il prato diventa una macchia pallida sopra un terreno scuro.
     // Con la cubica la schiarita vive nell'ultimo terzo: il colore MEDIO della
     // lamella resta quello del blocco a qualsiasi risoluzione.
-    vec3 col = mix(vCol, vCol * 1.22 + vec3(0.035), vAlt * vAlt * vAlt);
+    // ⚠ LA SCHIARITA È PIÙ FORTE DI PRIMA (1.22 → 1.60), e non è un ritocco di
+    // gusto: è la conseguenza di aver aggiustato lo spazio colore. Finché i
+    // materiali scritti a mano finivano sul canvas SENZA la curva sRGB, l'erba
+    // usciva più scura del dovuto e per puro caso si staccava dal terreno. Messa
+    // a posto la curva, il filo e il blocco sono diventati lo stesso identico
+    // verde — cioè il prato è sparito, correttamente. Il contrasto che prima
+    // arrivava da un errore adesso deve arrivare da qui.
+    // ⚠ LA BASE RESTA ESATTAMENTE IL COLORE DEL BLOCCO, e il committente l'ha
+    // ribadito quando ho provato a scurirla per dare contrasto: «voglio che
+    // l'erba abbia alla base il colore del blocco sotto, è voluto che si confonda
+    // un pochino, tanto c'è la sfumatura che dopo aiuta a distinguere». Cioè il
+    // filo deve NASCERE dal terreno, non essere appoggiato sopra: a quota zero i
+    // due colori coincidono al bit e l'attacco non esiste. Il contrasto lo fa
+    // tutto la salita verso la punta, ed è per questo che quella è forte.
+    vec3 col = mix(vCol, vCol * 1.70 + vec3(0.06), pow(vAlt, 1.6));
+    // e ogni ciuffo ha la SUA sfumatura: un prato di fili identici si legge come
+    // una texture ripetuta, che è il difetto numero uno di questo effetto
+    col *= 0.94 + vTinta * 0.13;
     // e in lontananza si torna al colore esatto del blocco: vedi il vertex
     col = mix(col, vCol, vLontano);
     // l'ombra del sole, con LO STESSO colore con cui scurisce il mondo: se qui
     // si usasse un grigio qualunque, l'erba dentro l'ombra sarebbe di una tinta
     // e il blocco sotto di un'altra — e il difetto si vede proprio sul confine
-    vec3 amb = uAmbienteErba * mix(uOmbraFatt, vec3(1.0), vSole);
+    // e le LAMPADE si sommano all'ambiente, esattamente come nel mondo: senza,
+    // di notte dentro la pozza di un lampione il terreno era arancione e l'erba
+    // che ci cresce sopra restava blu notte
+    vec3 amb = uAmbienteErba * mix(uOmbraFatt, vec3(1.0), vSole) + vLuce;
     gl_FragColor = vec4(col * amb, 1.0);
   }
 `;
@@ -323,7 +361,6 @@ export class Erba {
         uTempo: { value: 0 },
         uVento: { value: new THREE.Vector4(1, 0, 0.22, 0.35) },
         uMobili: { value: Array.from({ length: 4 }, () => new THREE.Vector4(0, 0, 0, 0)) },
-        uNascita: { value: 0.5 },
         uAmbienteErba: { value: new THREE.Color(1, 1, 1) },
         uCamera: { value: new THREE.Vector3() },
         uSfuma: { value: new THREE.Vector2(30, 52) },
@@ -332,6 +369,7 @@ export class Erba {
         // per RIFERIMENTO: restano agganciate al ciclo del giorno da sole
         ...uniformiOmbraSole(),
         ...uniformiScatole(),
+        ...uniformiLuci(),
       },
     });
     this.mesh = new THREE.Mesh(g, this.materiale);

@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { CAMERA } from '../config.js?v=ms91g5zy';
+import { CAMERA } from '../config.js?v=ms92pb4b';
 
 /**
  * Il browser sta disegnando via SOFTWARE (niente GPU)?
@@ -24,35 +24,38 @@ export function disegnaInSoftware(gpu) {
   return /\bsoftware\b|basic render/i.test(s);
 }
 
-// TILT-SHIFT IN UNA PASSATA SOLA.
+// LA PASSATA D'USCITA: una sola, e fa DUE cose che devono stare insieme.
 //
-// Prima erano tre quad a schermo intero: blur orizzontale, blur verticale e
-// OutputPass (conversione sRGB). Su una GPU a piastrelle come la Mali-G68 del
-// committente ogni passata è una lettura E una scrittura dell'intero schermo in
-// mezza precisione: la banda di memoria, non i calcoli, è quello che costa —
-// misurato sul suo telefono, il tilt-shift da solo vale 8 fps su 41 (diagnostica
-// del 2026-07-26). Le due gaussiane separabili diventano un kernel 3×3 e la
-// conversione sRGB si fa qui: da 3 passate a UNA, cioè un terzo del traffico.
+// (1) LA CURVA sRGB. Il gioco disegna in luce LINEARE — sommare due luci vuol
+//     dire sommare due numeri, e questo funziona solo in lineare — ma un monitor
+//     vuole sRGB. La conversione va fatta UNA volta, alla fine, su tutto.
 //
-// Perché 3×3 basta: il kernel separabile a 5 tap aveva varianza 2,68 (in unità
-// di `passo`). Un 3 tap con pesi 0,264 / 0,472 / 0,264 e scarto ±2,253 ha la
-// STESSA varianza, quindi la stessa quantità di sfocatura percepita — e col
-// raggio massimo di 2,6 px la differenza di forma non è visibile (verificata a
-// pixel contro la vecchia catena: vedi il commit).
-const TS_OFF = 2.253;
-const TS_W = [0.264, 0.472, 0.264];
-
-const ShaderTiltShift = {
-  name: 'TiltShiftLantern',
-  uniforms: {
-    tDiffuse: { value: null },
-    risoluzione: { value: new THREE.Vector2(1, 1) },
-    fuoco: { value: 0.45 },      // centro banda (0..1 in verticale schermo)
-    banda: { value: 0.13 },      // semi-ampiezza nitida
-    sfuma: { value: 0.32 },      // transizione
-    quantita: { value: 2.2 },    // pixel di blur massimo
-    versoSchermo: { value: 1 },  // 1 = scrive sul canvas (converte in sRGB), 0 = resta lineare
-  },
+// (2) L'INGRANDIMENTO quando la scala di rendering è sotto 1: la scena si
+//     disegna in un bersaglio più piccolo e questa passata lo stira sul canvas
+//     pieno col filtro scelto (`nitido` = NearestFilter, pixel a bordo vivo).
+//
+// ⚠ ED È SEMPRE NELLA CATENA, sempre, anche a scala piena. Prima ci si entrava
+// solo col tilt-shift acceso o a scala ridotta, e a seconda del caso la scena
+// finiva in due spazi colore DIVERSI. Il motivo è che i materiali scritti a mano
+// (erba, foglie, nuvole, pioggia, cielo, particelle) sono ShaderMaterial grezzi:
+// three non ci infila la conversione d'uscita, quindi scrivono lineare e basta.
+//   · senza composer  → il valore lineare finiva tale e quale sul canvas, che lo
+//                       legge come se fosse già sRGB: erba e foglie SPENTE;
+//   · con il composer → questa passata converte, e tornavano giuste.
+// Cioè accendere il tilt-shift (o abbassare la risoluzione!) cambiava il colore
+// della vegetazione. È il «bug grave che rende l'erba e le foglie scure» — non
+// c'entrava il blur, c'entrava quale delle due strade prendeva il frame.
+// Adesso la strada è una sola e i materiali grezzi vivono tutti in lineare, come
+// il resto della scena.
+//
+// (QUI C'ERA IL TILT-SHIFT: kernel 3×3 separabile, banda a fuoco che inseguiva
+// il gatto, intensità nelle Impostazioni. Tolto su richiesta del committente —
+// «per adesso toglierei totalmente il tilt shift» — insieme alle sue opzioni.
+// Con lui se ne va anche l'unico motivo per cui questa passata aveva bisogno di
+// sapere dove guardava la camera.)
+const ShaderUscita = {
+  name: 'UscitaLantern',
+  uniforms: { tDiffuse: { value: null } },
   vertexShader: /* glsl */`
     varying vec2 vUv;
     void main() {
@@ -61,41 +64,12 @@ const ShaderTiltShift = {
     }`,
   fragmentShader: /* glsl */`
     uniform sampler2D tDiffuse;
-    uniform vec2 risoluzione;
-    uniform float fuoco, banda, sfuma, quantita, versoSchermo;
     varying vec2 vUv;
-
-    const float OFF = ${TS_OFF.toFixed(4)};
-    const float W0 = ${TS_W[0].toFixed(4)};
-    const float W1 = ${TS_W[1].toFixed(4)};
-
     void main() {
-      float d = abs(vUv.y - fuoco);
-      float f = smoothstep(banda, banda + sfuma, d) * quantita;
-      vec2 passo = OFF * f / risoluzione;
-
-      vec4 c;
-      if (f < 0.02) {
-        c = texture2D(tDiffuse, vUv);          // dentro la banda a fuoco: un solo tap
-      } else {
-        // 3×3 separabile srotolato: i pesi per riga/colonna si moltiplicano
-        c  = (texture2D(tDiffuse, vUv + vec2(-passo.x, -passo.y))
-            + texture2D(tDiffuse, vUv + vec2( passo.x, -passo.y))
-            + texture2D(tDiffuse, vUv + vec2(-passo.x,  passo.y))
-            + texture2D(tDiffuse, vUv + vec2( passo.x,  passo.y))) * (W0 * W0);
-        c += (texture2D(tDiffuse, vUv + vec2(0.0, -passo.y))
-            + texture2D(tDiffuse, vUv + vec2(0.0,  passo.y))) * (W1 * W0);
-        c += (texture2D(tDiffuse, vUv + vec2(-passo.x, 0.0))
-            + texture2D(tDiffuse, vUv + vec2( passo.x, 0.0))) * (W0 * W1);
-        c += texture2D(tDiffuse, vUv) * (W1 * W1);
-      }
-
-      // era il lavoro dell'OutputPass, che così non serve più (niente tone
-      // mapping in questo gioco: solo la curva sRGB)
-      if (versoSchermo > 0.5) {
-        vec3 v = max(c.rgb, vec3(0.0));
-        c.rgb = mix(pow(v, vec3(0.4166666667)) * 1.055 - 0.055, v * 12.92, vec3(lessThanEqual(v, vec3(0.0031308))));
-      }
+      vec4 c = texture2D(tDiffuse, vUv);
+      vec3 v = max(c.rgb, vec3(0.0));
+      // era il lavoro dell'OutputPass di three, che cosi' non serve
+      c.rgb = mix(pow(v, vec3(0.4166666667)) * 1.055 - 0.055, v * 12.92, vec3(lessThanEqual(v, vec3(0.0031308))));
       gl_FragColor = c;
     }`,
 };
@@ -149,11 +123,12 @@ export class Rig {
 
     // la catena tilt-shift si costruisce SOLO alla prima attivazione: su mobile
     // (dove parte spento) non si allocano nemmeno i 2 render target full-res
+    // IL COMPOSER C'E' SEMPRE (vedi ShaderUscita): la sua unica passata fa la
+    // curva sRGB e l'ingrandimento. Costa un quad a schermo intero — misurato
+    // sul Chromebook del committente, spegnerlo non risparmiava niente — e in
+    // cambio TUTTA la scena vive in un solo spazio colore.
     this.composer = null;
-    this._tilt = null;
-    this.tiltShift = false;
-    this._tiltQ = 0;
-    this._fuoco = 0.45;
+    this._uscita = null;
     // risoluzione INTERNA (0.4…1) e come la si ingrandisce sul canvas pieno
     this.scalaInterna = 1;
     this.nitido = true;
@@ -162,6 +137,7 @@ export class Rig {
     this.solido = null;          // (x,y,z) => bool, iniettato da main
     this.fantasma = false;
 
+    this._creaComposer();          // prima del primo dimensionamento
     this._ridimensiona = this._ridimensiona.bind(this);
     addEventListener('resize', this._ridimensiona);
     document.addEventListener('visibilitychange', this._ridimensiona);
@@ -195,8 +171,6 @@ export class Rig {
       const dpr = this.renderer.getPixelRatio() * this.scalaInterna;
       this.composer.setPixelRatio(dpr);
       this.composer.setSize(w, h);
-      this._tilt.uniforms.risoluzione.value.set(w * dpr, h * dpr);
-      this._applicaTilt();
       this._filtroInterno();
     }
     this.camera.aspect = w / h;
@@ -206,8 +180,8 @@ export class Rig {
   _creaComposer() {
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scena, this.camera));
-    this._tilt = new ShaderPass(ShaderTiltShift);   // blur + sRGB + ingrandimento: è anche l'output
-    this.composer.addPass(this._tilt);
+    this._uscita = new ShaderPass(ShaderUscita);   // sRGB + ingrandimento: è l'output
+    this.composer.addPass(this._uscita);
     this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));
   }
 
@@ -223,23 +197,6 @@ export class Rig {
     for (const rt of [this.composer.renderTarget1, this.composer.renderTarget2]) {
       if (rt.texture.magFilter !== f) { rt.texture.magFilter = f; rt.texture.minFilter = f; rt.texture.needsUpdate = true; }
     }
-  }
-
-  /** Intensità del tilt-shift (0 = spento). */
-  impostaTiltShift(quantita) {
-    this.tiltShift = quantita > 0;
-    this._tiltQ = quantita;
-    if (this.tiltShift && !this.composer) this._creaComposer();
-    if (!this.composer) return;
-    this._applicaTilt();
-  }
-
-  /** Il blur è espresso in PIXEL del bersaglio: se la scala di rendering scende,
-   *  quegli stessi pixel valgono una fetta più grande di schermo e la sfocatura
-   *  raddoppierebbe da sola. Si compensa, così abbassare la risoluzione cambia
-   *  gli fps e non l'aspetto. */
-  _applicaTilt() {
-    this._tilt.uniforms.quantita.value = (this._tiltQ || 0) * Math.max(0.1, this.scalaInterna);
   }
 
   /**
@@ -259,21 +216,7 @@ export class Rig {
     const s = Math.max(0.4, Math.min(1, f));
     if (Math.abs(s - this.scalaInterna) < 0.02) return;
     this.scalaInterna = s;
-    // sotto scala piena serve il composer ANCHE senza tilt-shift: è lui a
-    // disegnare a risoluzione ridotta e a ingrandire con il filtro giusto
-    if (s < 0.995 && !this.composer) this._creaComposer();
-    else this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));
-  }
-
-  /** La banda a fuoco insegue un punto del mondo (il gatto), con dolcezza. */
-  fuocoSu(puntoMondo, dt) {
-    if (!this.tiltShift || !this.composer) return;   // niente lavoro se il blur è spento
-    const p = puntoMondo.clone().project(this.camera);
-    if (p.z < 1) {
-      const y = THREE.MathUtils.clamp((p.y + 1) / 2, 0.12, 0.88);
-      this._fuoco += (y - this._fuoco) * Math.min(1, dt * 5);
-    }
-    this._tilt.uniforms.fuoco.value = this._fuoco;
+    this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));
   }
 
   orbita(dx, dy) {
@@ -330,8 +273,9 @@ export class Rig {
   // resize. Via anche quello.)
 
   render() {
-    // il composer serve anche a scala ridotta senza tilt: è lui l'ingranditore
-    if (this.composer && (this.tiltShift || this.scalaInterna < 0.995)) this.composer.render();
+    // SEMPRE dal composer: e' lui a fare la curva sRGB, quindi saltarlo
+    // cambierebbe il colore di tutti i materiali scritti a mano
+    if (this.composer) this.composer.render();
     else this.renderer.render(this.scena, this.camera);
   }
 }

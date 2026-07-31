@@ -21,7 +21,14 @@ export const CAMERA = {
   fov: 38,
   distanza: 16, distMin: 5, distMax: 90,   // zoom largo per gli open world
   lontano: 700,                            // far plane: render distance ampia
-  yaw: -Math.PI / 4, pitch: 0.62, pitchMin: 0.15, pitchMax: 1.35,
+  // ⚠ pitchMin È NEGATIVO: la camera può scendere SOTTO il giocatore e guardare
+  // in su, cioè si può vedere il cielo. Prima si fermava a +0.15 rad sopra
+  // l'orizzonte e il cielo — cupola, gradiente, sole, luna, stelle, nuvole — era
+  // roba che esisteva solo di sfondo, mai inquadrabile. −0.45 rad sono una
+  // ventina di gradi sotto: bastano a mettere il sole in mezzo allo schermo
+  // senza far sprofondare la camera dentro il terreno (che comunque la
+  // collisione dei muri respinge, vedi Rig.aggiorna).
+  yaw: -Math.PI / 4, pitch: 0.62, pitchMin: -0.45, pitchMax: 1.35,
   inseguimento: 5,     // lerp verso il player
 };
 

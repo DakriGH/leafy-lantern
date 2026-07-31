@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms91g5zy';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms91g5zy';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms92pb4b';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms92pb4b';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -1866,6 +1866,56 @@ export function uniformiScatole() {
     uDinNum: uniformi.uDinNum,
   };
 }
+/**
+ * LE LUCI-SFERA PER CHI HA UNO SHADER SUO (erba, foglie, particelle).
+ *
+ * Era il buco più vistoso della vegetazione, e il committente l'ha detto con una
+ * frase sola: «erba e foglie non si illuminano con la luce quando ad esempio c'è
+ * un lampione». Vero: il prato prendeva SOLO il colore d'ambiente del ciclo, e
+ * di notte, dentro la pozza di un lampione, restava blu notte mentre il terreno
+ * sotto era arancione. Un lampione che illumina la terra e non l'erba che ci
+ * cresce sopra è la cosa che rompe l'incantesimo più di qualunque altra.
+ *
+ * È LA STESSA MATEMATICA DEL MONDO — stessa caduta lineare, stesse bande
+ * concentriche (BANDE_LUCE) — perché se fosse anche solo simile si vedrebbe il
+ * disaccordo proprio sul confine fra il filo e il blocco.
+ *
+ * NIENTE OCCLUSIONE, e non è pigrizia: il cammino nella griglia dei voxel è il
+ * termine più caro dello shader del mondo, e qui gira una volta per FILO (nel
+ * vertex) su ventimila fili. L'erba cresce all'aperto: la lampada dietro un muro
+ * che illumina il prato davanti è un caso che non capita quasi mai, e quando
+ * capita costa molto meno di quanto costerebbe cercarlo.
+ */
+export function uniformiLuci() {
+  return {
+    uLuciPosRaggio: uniformi.uLuciPosRaggio,
+    uLuciColore: uniformi.uLuciColore,
+    uLuciNum: uniformi.uLuciNum,
+  };
+}
+export const GLSL_LUCI_VERTICE = /* glsl */`
+  uniform vec4 uLuciPosRaggio[${LUCI_MAX}];
+  uniform vec4 uLuciColore[${LUCI_MAX}];
+  uniform int uLuciNum;
+
+  /** Quanta luce di lampada arriva in P: da sommare all'ambiente, come nel mondo. */
+  vec3 luciIn(vec3 P) {
+    vec3 acc = vec3(0.0);
+    if (uLuciNum == 0) return acc;              // giorno senza lampade: costo zero
+    for (int i = 0; i < ${LUCI_MAX}; i++) {
+      if (i >= uLuciNum) break;
+      vec4 pr = uLuciPosRaggio[i];
+      vec3 dv = P - pr.xyz;
+      float d2 = dot(dv, dv);
+      if (d2 >= pr.w * pr.w) continue;          // sqrt solo dentro la sfera
+      float f = 1.0 - sqrt(d2) / pr.w;
+      float banda = ceil(min(f, 1.0) * ${GBANDE}) / ${GBANDE};
+      acc += uLuciColore[i].rgb * uLuciColore[i].a * banda;
+    }
+    return acc;
+  }
+`;
+
 /** ⚠ Chi lo include deve già dichiarare `uSoleDir`: la porta uniformiOmbraSole. */
 export const GLSL_SCATOLE_VERTICE = /* glsl */`
   uniform vec4 uDinPos[${SCATOLE_MAX}];

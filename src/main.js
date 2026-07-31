@@ -1,72 +1,72 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms91g5zy';
-import { Rig } from './engine/renderer.js?v=ms91g5zy';
-import { Input } from './engine/input.js?v=ms91g5zy';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms91g5zy';
-import { Cadenza } from './engine/cadenza.js?v=ms91g5zy';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms91g5zy';
-import { componiDiagnostica } from './engine/diagnostica.js?v=ms91g5zy';
-import { SCENE } from './engine/banco.js?v=ms91g5zy';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms91g5zy';
-import { Mondo } from './world/world.js?v=ms91g5zy';
-import { SimAcqua } from './world/acqua.js?v=ms91g5zy';
-import { Lobby } from './net/lobby.js?v=ms91g5zy';
-import { Segnalatore } from './net/segnalatore.js?v=ms91g5zy';
-import { Bolla } from './ui/bolla.js?v=ms91g5zy';
-import { Scelta } from './ui/scelta.js?v=ms91g5zy';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms91g5zy';
-import { Zaino } from './ui/zaino.js?v=ms91g5zy';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=ms91g5zy';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms91g5zy';
-import { generaMostra } from './world/mostra.js?v=ms91g5zy';
-import { generaCollaudo } from './world/collaudo.js?v=ms91g5zy';
-import { generaTestLuci } from './world/testLuci.js?v=ms91g5zy';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=ms91g5zy';
-import { generaTestMacchine } from './world/testMacchine.js?v=ms91g5zy';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=ms91g5zy';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms91g5zy';
-import { Meteo } from './fx/meteo.js?v=ms91g5zy';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms91g5zy';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms91g5zy';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=ms91g5zy';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms91g5zy';
-import { CicloGiorno } from './fx/daynight.js?v=ms91g5zy';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente } from './fx/materials.js?v=ms91g5zy';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms91g5zy';
-import { ModalitaAR } from './ar/ar.js?v=ms91g5zy';
-import { Nuvole } from './fx/nuvole.js?v=ms91g5zy';
-import { SagomaVista } from './fx/sagomaVista.js?v=ms91g5zy';
-import { Erba } from './fx/erba.js?v=ms91g5zy';
-import { Foglie } from './fx/foglie.js?v=ms91g5zy';
-import { SegnaPercorso } from './fx/percorso.js?v=ms91g5zy';
-import { ComandiTouch } from './ui/comandi-touch.js?v=ms91g5zy';
-import { RiflessoAcqua } from './fx/riflesso.js?v=ms91g5zy';
-import { Pioggia } from './fx/pioggia.js?v=ms91g5zy';
-import { Particelle } from './fx/particelle.js?v=ms91g5zy';
-import { Audio } from './fx/audio.js?v=ms91g5zy';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms91g5zy';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms91g5zy';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms91g5zy';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms91g5zy';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms91g5zy';
-import { Registro } from './ecs/registro.js?v=ms91g5zy';
-import { Orologio, Rng } from './ecs/orologio.js?v=ms91g5zy';
-import { Sistemi } from './ecs/sistemi.js?v=ms91g5zy';
-import { Agenda } from './ecs/agenda.js?v=ms91g5zy';
-import { Gatto } from './player/player.js?v=ms91g5zy';
-import { ManoStrumento } from './player/mano.js?v=ms91g5zy';
-import { dropDi } from './gioco/drop.js?v=ms91g5zy';
-import { Controller } from './player/controller.js?v=ms91g5zy';
-import { FURNI, centroide } from './furniture/registry.js?v=ms91g5zy';
-import { caricaModelli } from './furniture/loader.js?v=ms91g5zy';
-import { Arredo } from './furniture/furniture.js?v=ms91g5zy';
-import { HUD } from './ui/hud.js?v=ms91g5zy';
-import { MenuDebug } from './ui/debug.js?v=ms91g5zy';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms91g5zy';
-import { ModalitaXR } from './ar/ar-xr.js?v=ms91g5zy';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms91g5zy';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms92pb4b';
+import { Rig } from './engine/renderer.js?v=ms92pb4b';
+import { Input } from './engine/input.js?v=ms92pb4b';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms92pb4b';
+import { Cadenza } from './engine/cadenza.js?v=ms92pb4b';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms92pb4b';
+import { componiDiagnostica } from './engine/diagnostica.js?v=ms92pb4b';
+import { SCENE } from './engine/banco.js?v=ms92pb4b';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms92pb4b';
+import { Mondo } from './world/world.js?v=ms92pb4b';
+import { SimAcqua } from './world/acqua.js?v=ms92pb4b';
+import { Lobby } from './net/lobby.js?v=ms92pb4b';
+import { Segnalatore } from './net/segnalatore.js?v=ms92pb4b';
+import { Bolla } from './ui/bolla.js?v=ms92pb4b';
+import { Scelta } from './ui/scelta.js?v=ms92pb4b';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms92pb4b';
+import { Zaino } from './ui/zaino.js?v=ms92pb4b';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=ms92pb4b';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms92pb4b';
+import { generaMostra } from './world/mostra.js?v=ms92pb4b';
+import { generaCollaudo } from './world/collaudo.js?v=ms92pb4b';
+import { generaTestLuci } from './world/testLuci.js?v=ms92pb4b';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=ms92pb4b';
+import { generaTestMacchine } from './world/testMacchine.js?v=ms92pb4b';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=ms92pb4b';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms92pb4b';
+import { Meteo } from './fx/meteo.js?v=ms92pb4b';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms92pb4b';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms92pb4b';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=ms92pb4b';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms92pb4b';
+import { CicloGiorno } from './fx/daynight.js?v=ms92pb4b';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente } from './fx/materials.js?v=ms92pb4b';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms92pb4b';
+import { ModalitaAR } from './ar/ar.js?v=ms92pb4b';
+import { Nuvole } from './fx/nuvole.js?v=ms92pb4b';
+import { SagomaVista } from './fx/sagomaVista.js?v=ms92pb4b';
+import { Erba } from './fx/erba.js?v=ms92pb4b';
+import { Foglie } from './fx/foglie.js?v=ms92pb4b';
+import { SegnaPercorso } from './fx/percorso.js?v=ms92pb4b';
+import { ComandiTouch } from './ui/comandi-touch.js?v=ms92pb4b';
+import { RiflessoAcqua } from './fx/riflesso.js?v=ms92pb4b';
+import { Pioggia } from './fx/pioggia.js?v=ms92pb4b';
+import { Particelle } from './fx/particelle.js?v=ms92pb4b';
+import { Audio } from './fx/audio.js?v=ms92pb4b';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms92pb4b';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms92pb4b';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms92pb4b';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms92pb4b';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms92pb4b';
+import { Registro } from './ecs/registro.js?v=ms92pb4b';
+import { Orologio, Rng } from './ecs/orologio.js?v=ms92pb4b';
+import { Sistemi } from './ecs/sistemi.js?v=ms92pb4b';
+import { Agenda } from './ecs/agenda.js?v=ms92pb4b';
+import { Gatto } from './player/player.js?v=ms92pb4b';
+import { ManoStrumento } from './player/mano.js?v=ms92pb4b';
+import { dropDi } from './gioco/drop.js?v=ms92pb4b';
+import { Controller } from './player/controller.js?v=ms92pb4b';
+import { FURNI, centroide } from './furniture/registry.js?v=ms92pb4b';
+import { caricaModelli } from './furniture/loader.js?v=ms92pb4b';
+import { Arredo } from './furniture/furniture.js?v=ms92pb4b';
+import { HUD } from './ui/hud.js?v=ms92pb4b';
+import { MenuDebug } from './ui/debug.js?v=ms92pb4b';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms92pb4b';
+import { ModalitaXR } from './ar/ar-xr.js?v=ms92pb4b';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms92pb4b';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -468,9 +468,8 @@ async function _diagAlternati(voci, prog) {
 /** Applica UNA config di rendering muovendo SOLO le leve (scala, riflesso, tilt,
  *  ombre): le stesse di applicaQualita, a mano, senza toccare `opzioni` né il
  *  mesher (niente remesh). Ogni campo assente resta com'è. */
-function _diagApplica({ scala, rifl, tiltQ, occ, parti }) {
+function _diagApplica({ scala, rifl, occ, parti }) {
   if (scala !== undefined) rig.setScalaRender(scala);
-  if (tiltQ !== undefined) rig.impostaTiltShift(tiltQ);
   if (rifl !== undefined) riflesso.attivo = !!rifl;
   if (occ !== undefined) impostaOcclusione(!!occ);
   impostaParti(parti === undefined ? PARTI.tutte : parti);   // la batteria misura sempre a shader pieno, salvo lo scenario apposta
@@ -711,7 +710,6 @@ async function eseguiDiagnostica() {
   const base = {
     scala: rig.scalaInterna,
     rifl: !!riflesso.attivo,
-    tiltQ: rig.tiltShift ? (opzioni.tiltQ || 2.2) : 0,
     occ: uni.uOcclusione.value > 0.5,
   };
   const note = [];
@@ -740,10 +738,6 @@ async function eseguiDiagnostica() {
       ['ombre', [
         ['ombre_on', () => _diagApplica({ ...base, occ: true }), 'ombre voxel ACCESE'],
         ['ombre_off', () => _diagApplica({ ...base, occ: false }), 'ombre voxel SPENTE'],
-      ]],
-      ['tilt', [
-        ['tilt_on', () => _diagApplica({ ...base, tiltQ: opzioni.tiltQ || 2.2 }), 'tilt-shift ACCESO'],
-        ['tilt_off', () => _diagApplica({ ...base, tiltQ: 0 }), 'tilt-shift SPENTO'],
       ]],
       ['scala', [
         ['scala_1.00', () => _diagApplica({ ...base, scala: 1 }), 'scala render 1.00'],
@@ -779,8 +773,8 @@ async function eseguiDiagnostica() {
         ['notte_ombre', () => { ciclo.t = 0.0; ciclo.aggiorna(0); _diagApplica({ ...base, occ: true }); }, 'notte con ombre'],
       ]],
       ['preset', [
-        ['preset_alta', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 1, rifl: true, tiltQ: 2.2, occ: true }); }, 'preset «alta»'],
-        ['preset_bassa', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 0.66, rifl: false, tiltQ: 0, occ: false }); }, 'preset «bassa»'],
+        ['preset_alta', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 1, rifl: true, occ: true }); }, 'preset «alta»'],
+        ['preset_bassa', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 0.66, rifl: false, occ: false }); }, 'preset «bassa»'],
       ]],
     ];
     const N = gruppi.length + SCENE.length + 4;   // +info +assaggio +baseline iniziale/finale +assemblaggio
@@ -2969,7 +2963,6 @@ const menuDebug = new MenuDebug({
       hud.toast(`⛰ ${mondo.contaBlocchi.toLocaleString('it')} blocchi — snapshot salvato`);
     }),
     fog: (f) => { ciclo.fattoreFog = f; hud.toast(`🌫 Fog ×${f}`); },
-    tiltShift: (q) => { qManuale = true; rig.impostaTiltShift(q); hud.toast(q > 0 ? `🎞 Tilt‑shift ${q} (qualità manuale)` : 'Tilt‑shift spento'); },
     riflessi: () => {
       riflessiUtente = !riflessiUtente;
       applicaQualita();
@@ -3187,22 +3180,31 @@ const _ombrePg = [];
 // si è spostato davvero o quando i mobili cambiano, se no la lista si rimescola
 // a ogni frame e le ombre in fondo sfarfallano.
 const SCATOLE_BUDGET = 32;
-// L'AREA DELLE OMBRE È LARGA IL DOPPIO DI PRIMA, ed è la diagnosi dell'utente:
-// «le ombre vengono caricate ma l'area è troppo piccola». A 34 blocchi le
-// sagome entravano nel budget praticamente addosso al gatto, e camminando le si
-// vedeva comparire. Il costo non è la distanza ma il BUDGET (quante scatole
-// finiscono nello shader), quindi allargare il raggio si paga solo con la
-// scelta — che è un ordinamento ogni due blocchi di cammino, non per frame.
-const SCATOLE_PORTATA = 70;
-const SCATOLE_DETTAGLIO = 20;      // entro questa distanza, la sagoma per intero
+// L'AREA DELLE OMBRE, e questo giro è la terza volta che la allargo perché ogni
+// volta l'ho allargata poco. Le parole del committente: «i pop-in delle ombre
+// che sono troppo ravvicinate quando appaiono sono fastidiosi, dovrebbe essere
+// enorme l'area di render e quando ti avvicini appaiono smooth senza cose a
+// scatto». Ha ragione su tutt'e due i pezzi, e sono due leve diverse:
+//
+//   · PORTATA = fin dove un mobile può proiettare. Non costa quasi niente
+//     allargarla, perché il prezzo vero è il BUDGET (quante sagome finiscono
+//     nello shader), non la distanza. 130 blocchi è oltre il fondo scala della
+//     camera: dentro un diorama non si vede più nascere niente.
+//   · SFUMA = quanto è larga la fascia in cui l'ombra prende corpo. A 18 blocchi
+//     l'ombra passava da niente a piena nel giro di pochi passi, e quello si
+//     legge come un'apparizione. A 55 ci vuole mezzo minuto di cammino, cioè
+//     non si nota il momento in cui succede — che è l'unica definizione utile
+//     di «smooth».
+const SCATOLE_PORTATA = 130;
+const SCATOLE_DETTAGLIO = 34;      // entro questa distanza, la sagoma per intero
 // La fascia in cui i due livelli di dettaglio si scambiano il posto. Larga:
 // il passaggio deve durare parecchi passi, se no si vede lo stesso.
-const SCATOLE_LOD_BANDA = 9;
+const SCATOLE_LOD_BANDA = 22;
 // LA FASCIA IN CUI L'OMBRA NASCE. Chi sta oltre `portata` non proietta; chi sta
 // negli ultimi metri prima del confine proietta a forza ridotta, così l'ombra
 // SI FA invece di apparire. È la stessa idea della nebbia: un confine netto si
 // vede sempre, uno sfumato non lo nota nessuno.
-const SCATOLE_SFUMA = 18;
+const SCATOLE_SFUMA = 55;
 const _scatole = [];        // l'uscita, riusata: nessuna allocazione per frame
 const _scelte = [];         // la SCELTA (stabile): sagoma copiata + chi la porta
 let _scatoleX = 1e9, _scatoleZ = 1e9, _scatoleN = -1;
@@ -3278,6 +3280,7 @@ function scatoleVicine() {
         cx: v.cx, cz: v.cz, det: v.det,
         box: { x0: s.x0, x1: s.x1, y0: s.y0, y1: s.y1, z0: s.z0, z1: s.z1,
                s0: s.s0, s1: s.s1, d0: s.d0, d1: s.d1, peso: 1 },
+        contatto: !!s.contatto,
       });
     }
     if (_scelte.length >= tetto) break;
@@ -3308,6 +3311,19 @@ function _dosaScatole(b) {
       (SCATOLE_DETTAGLIO + SCATOLE_LOD_BANDA - d) / SCATOLE_LOD_BANDA));
     p *= v.det ? t : 1 - t;
     if (p <= 0.01) continue;
+    // L'OMBRA DI CONTATTO CONTA SOLO CON L'ASTRO ALTO, e questo è metà della
+    // segnalazione «la base non ha niente a che fare con la sagoma». All'alba
+    // l'ombra vera è lunga dieci metri e si vede benissimo: aggiungerci sotto
+    // una macchia alla base è una toppa che non serve e che si nota. A
+    // mezzogiorno invece l'ombra vera sta tutta sotto l'oggetto, e senza quella
+    // macchia il lampione sembra appoggiato in aria. Quindi: nasce con l'astro
+    // che sale, e sotto i trenta gradi non esiste.
+    if (v.contatto) {
+      const alto = uniformiCondivise().uSoleDir.value.y;
+      const q = Math.max(0, Math.min(1, (alto - 0.50) / 0.30));
+      p *= q * q * (3 - 2 * q);
+      if (p <= 0.01) continue;
+    }
     // il rango si conta sulle ombre ACCESE, non sulle scelte: le copie spente
     // della staffetta non devono far sbiadire chi viene dopo
     const rango = _scatole.length;
@@ -3438,20 +3454,20 @@ const LIVELLI_Q = rig.mobile ? [
   // `sole` = celle di cammino per l'ombra del cielo (cel shading). È la prima
   // cosa che si spegne scendendo: è bella ma è un lusso, e a 0 non costa NIENTE
   // (lo shader esce alla prima riga).
-  { tilt: 0, rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 10, scatole: 20, scala: 1, dist: 700 },
-  { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 6, scatole: 12, scala: 0.9, dist: 500 },
-  { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 3, sole: 0, scatole: 6, scala: 0.82, dist: 500 },
-  { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 0, scatole: 0, scala: 0.66, dist: 360 },
-  { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scatole: 0, scala: 0.55, dist: 280 },
-  { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scatole: 0, scala: 0.45, dist: 220 },
+  { rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 10, scatole: 20, scala: 1, dist: 700 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 6, scatole: 12, scala: 0.9, dist: 500 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 3, sole: 0, scatole: 6, scala: 0.82, dist: 500 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 0, scatole: 0, scala: 0.66, dist: 360 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scatole: 0, scala: 0.55, dist: 280 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scatole: 0, scala: 0.45, dist: 220 },
 ] : [
   // `dinamiche` sta SOLO qui, in cima: le ombre dei corpi in movimento si provano
   // scatola per scatola a ogni frammento, ed è il termine più caro di tutti.
   // `sole` è la PORTATA dell'ombra del cielo in blocchi, e 13 è il tetto vero
   // (SOLE_RAGGIO_MAX in fx/materials.js): oltre, il cammino finisce i passi
   // prima della distanza e l'orlo dell'ombra torna a denti di sega.
-  { tilt: 2.2, rifl: true, ombre: true, schiuma: true, acquaRicca: true, maxOmbre: 8, sole: 13, scatole: 32, dinamiche: true, scala: 1, dist: 900, erba: 1.3, erbaR: 6 },
-  { tilt: 2.2, rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 12, scatole: 24, scala: 1, dist: 700, erba: 1, erbaR: 5 },
+  { rifl: true, ombre: true, schiuma: true, acquaRicca: true, maxOmbre: 8, sole: 13, scatole: 32, dinamiche: true, scala: 1, dist: 900, erba: 1.3, erbaR: 6 },
+  { rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 12, scatole: 24, scala: 1, dist: 700, erba: 1, erbaR: 5 },
   // ⚠ IL TILT-SHIFT NON SI SPEGNE PIU' QUI, e lo dicono le misure del
   // committente: sul suo Chromebook, in DUE giri diversi e con la voce misurata
   // alternata, spento costa il 6% di GPU IN PIU' (28,95 ms contro 27,26; e prima
@@ -3459,9 +3475,9 @@ const LIVELLI_Q = rig.mobile ? [
   // appena la scala scende sotto 1 — spegnerlo non risparmia niente e toglie
   // meta' dell'aspetto del diorama. Restava in scala per un'ipotesi mia mai
   // verificata: «e' un post-process, quindi costa». Non su quel chip.
-  { tilt: 1.8, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 8, scatole: 14, scala: 1, dist: 500, erba: 0.6, erbaR: 3 },
-  { tilt: 1.6, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 6, scatole: 8, scala: 0.82, dist: 500 },
-  { tilt: 1.4, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scatole: 4, scala: 0.66, dist: 360 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 8, scatole: 14, scala: 1, dist: 500, erba: 0.6, erbaR: 3 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 6, scatole: 8, scala: 0.82, dist: 500 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scatole: 4, scala: 0.66, dist: 360 },
   // ⚠ GLI ULTIMI DUE SCALINI SONO NUOVI, e li ha chiesti una misura precisa: sul
   // Chromebook del committente (Intel HD 400) il pass principale costa 69,8 ms a
   // scala 1 e 24,1 ms a scala 0,50 — cioè la RISOLUZIONE è la leva, e la scala
@@ -3469,8 +3485,8 @@ const LIVELLI_Q = rig.mobile ? [
   // «desktop» era tarato su un portatile lento, non su un chip integrato del
   // 2015: per quello serve arrivare dove arriva la scala mobile. Brutto, ma
   // giocabile — e sopra c'è tutta la scala per chi non ne ha bisogno.
-  { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scatole: 0, scala: 0.55, dist: 300 },
-  { tilt: 0, rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scatole: 0, scala: 0.45, dist: 240 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scatole: 0, scala: 0.55, dist: 300 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scatole: 0, scala: 0.45, dist: 240 },
 ];
 let qLivello = 0;
 let qManuale = false;        // qualità auto spenta: comandano le Impostazioni
@@ -3487,7 +3503,7 @@ const OPZ_CHIAVE = 'lantern.opzioni.v1';
 // del ~30%. Restano un opt-in per chi vuole e può permettersele; su desktop
 // restano accese. Chi ha un salvataggio vecchio con le ombre on: glielo dico,
 // oppure «Ripristina» le riporta al default giusto per il suo dispositivo.
-const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, tilt: !rig.mobile, autoQ: true, luceCotta: !rig.mobile, cameraFantasma: false, erba: true, foro: true, foroRaggio: 110, sagoma: false, sagomaTutti: false, scala: 1, riflForza: 1, tiltQ: 2.2, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.mobile, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale', nitido: true, ombraSole: !rig.mobile, solePassi: 12, soleTerm: true, soleForza: 1, ombreDin: false };
+const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, autoQ: true, luceCotta: !rig.mobile, cameraFantasma: false, erba: true, foro: true, foroRaggio: 110, sagoma: false, sagomaTutti: false, scala: 1, riflForza: 1, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.mobile, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale', nitido: true, ombraSole: !rig.mobile, solePassi: 12, soleTerm: true, soleForza: 1, ombreDin: false };
 const opzioni = Object.assign({}, OPZ_DEFAULT, JSON.parse(localStorage.getItem(OPZ_CHIAVE) || '{}'));
 
 // preset grafici: un tocco e la macchina va — comodi per testare
@@ -3495,17 +3511,43 @@ const opzioni = Object.assign({}, OPZ_DEFAULT, JSON.parse(localStorage.getItem(O
 // salvata, vedi applicaOpzioni). "bassa" le spegne SUBITO come fa col riflesso,
 // invece di aspettare che la qualità auto scenda: una macchina che tiene 30fps
 // con cali non scende mai sotto la soglia e resterebbe col marching acceso.
+//
+// ⚠ IL PROFILO ADESSO SCRIVE TUTTE LE VOCI DELLA PAGINA, e prima no: toccava
+// sette chiavi su tredici e lasciava dov'erano ombra del sole, chiaroscuro,
+// ombre dinamiche, portata dell'ombra, forza e pixel nitidi. Il committente
+// l'ha detto così: «i profili grafici non toccano alcune cose». È il difetto
+// peggiore che possa avere un preset — scegli «Bassa» perché va a scatti, e la
+// voce che costa di più resta accesa: il preset sembra non funzionare.
+//
+// Regola, da qui in avanti: se una manopola sta nella pagina Grafica, allora
+// ogni profilo deve dire quanto vale. Aggiungerne una senza metterla qui è un
+// bug, non un'omissione.
 const PRESET_GRAFICA = {
-  bassa: { scala: 0.66, riflessi: false, luceCotta: false, tilt: false, tiltQ: 0.8, riflForza: 0.6, dist: 250, fog: 0.9, autoQ: true },
-  media: { scala: 0.85, riflessi: false, luceCotta: true, tilt: true, tiltQ: 1.6, riflForza: 0.8, dist: 450, fog: 0.7, autoQ: true },
-  alta: { scala: 1, riflessi: true, luceCotta: true, tilt: true, tiltQ: 2.2, riflForza: 1, dist: 700, fog: 0.55, autoQ: true },
-  ultra: { scala: 1, riflessi: true, luceCotta: true, tilt: true, tiltQ: 2.6, riflForza: 1.2, dist: 900, fog: 0.4, autoQ: false },
+  bassa: {
+    scala: 0.66, riflessi: false, luceCotta: false, riflForza: 0.6, dist: 250, fog: 0.9,
+    nitido: true, ombraSole: false, solePassi: 0, soleTerm: false, soleForza: 1, ombreDin: false,
+    erba: true, autoQ: true,
+  },
+  media: {
+    scala: 0.85, riflessi: false, luceCotta: true, riflForza: 0.8, dist: 450, fog: 0.7,
+    nitido: true, ombraSole: true, solePassi: 8, soleTerm: true, soleForza: 1, ombreDin: false,
+    erba: true, autoQ: true,
+  },
+  alta: {
+    scala: 1, riflessi: true, luceCotta: true, riflForza: 1, dist: 700, fog: 0.55,
+    nitido: true, ombraSole: true, solePassi: 12, soleTerm: true, soleForza: 1, ombreDin: false,
+    erba: true, autoQ: true,
+  },
+  ultra: {
+    scala: 1, riflessi: true, luceCotta: true, riflForza: 1.2, dist: 900, fog: 0.4,
+    nitido: true, ombraSole: true, solePassi: 13, soleTerm: true, soleForza: 1, ombreDin: true,
+    erba: true, autoQ: false,
+  },
 };
 
 let _riflDim = '';
 function applicaQualita() {
   const q = LIVELLI_Q[qLivello];
-  rig.impostaTiltShift(qManuale ? (opzioni.tilt ? opzioni.tiltQ : 0) : Math.min(q.tilt, opzioni.tiltQ || 2.2));
   rig.setScalaRender(qManuale ? opzioni.scala : Math.min(q.scala, opzioni.scala));
   // l'orizzonte segue la qualità: quando è auto NON supera mai quello del livello,
   // così un telefono in affanno smette di disegnare i chunk che la nebbia già copre
@@ -3643,8 +3685,6 @@ function aggiornaUIOpzioni() {
   document.getElementById('valScala').textContent = `${Math.round(opzioni.scala * 100)}%`;
   document.getElementById('opzRiflForza').value = Math.round(opzioni.riflForza * 100);
   document.getElementById('valRifl').textContent = `×${opzioni.riflForza.toFixed(1)}`;
-  document.getElementById('opzTiltQ').value = Math.round(opzioni.tiltQ * 100);
-  document.getElementById('valTiltQ').textContent = opzioni.tiltQ.toFixed(1);
   document.getElementById('opzArRot').value = opzioni.arRot;
   document.getElementById('valArRot').textContent = `${opzioni.arRot}°`;
   document.getElementById('opzArScala').value = Math.round(opzioni.arScala * 100);
@@ -3655,7 +3695,6 @@ function aggiornaUIOpzioni() {
   document.getElementById('valArFuoco').textContent = opzioni.arFuoco === null ? 'auto (2 tocchi)' : opzioni.arFuoco.toFixed(2);
   document.getElementById('opzRiflessi').classList.toggle('attivo', opzioni.riflessi);
   document.getElementById('opzLuce').classList.toggle('attivo', opzioni.luceCotta !== false);
-  document.getElementById('opzTilt').classList.toggle('attivo', opzioni.tilt);
   document.getElementById('opzPioggia').classList.toggle('attivo', pioggia.attiva);
   document.getElementById('opzAutoQ').classList.toggle('attivo', opzioni.autoQ);
   document.getElementById('opzNitido').classList.toggle('attivo', opzioni.nitido !== false);
@@ -3816,7 +3855,6 @@ document.getElementById('opzFog').addEventListener('input', (e) => { opzioni.fog
 document.getElementById('opzDist').addEventListener('input', (e) => { opzioni.dist = Number(e.target.value); applicaOpzioni(); });
 document.getElementById('opzScala').addEventListener('input', (e) => { opzioni.scala = e.target.value / 100; applicaOpzioni(); });
 document.getElementById('opzRiflForza').addEventListener('input', (e) => { opzioni.riflForza = e.target.value / 100; applicaOpzioni(); });
-document.getElementById('opzTiltQ').addEventListener('input', (e) => { opzioni.tiltQ = e.target.value / 100; applicaOpzioni(); });
 document.getElementById('opzArRot').addEventListener('input', (e) => { opzioni.arRot = Number(e.target.value); applicaOpzioni(); });
 document.getElementById('opzArScala').addEventListener('input', (e) => { opzioni.arScala = e.target.value / 100; applicaOpzioni(); });
 document.getElementById('opzArEspo').addEventListener('change', async (e) => {
@@ -3836,7 +3874,6 @@ document.getElementById('opzArFuoco').addEventListener('dblclick', async () => {
 });
 document.getElementById('opzRiflessi').addEventListener('click', () => { opzioni.riflessi = !opzioni.riflessi; applicaOpzioni(); });
 document.getElementById('opzLuce').addEventListener('click', () => { opzioni.luceCotta = opzioni.luceCotta === false; applicaOpzioni(); });
-document.getElementById('opzTilt').addEventListener('click', () => { opzioni.tilt = !opzioni.tilt; opzioni.autoQ = false; applicaOpzioni(); });
 document.getElementById('opzAutoQ').addEventListener('click', () => { opzioni.autoQ = !opzioni.autoQ; applicaOpzioni(); });
 document.getElementById('opzNitido').addEventListener('click', () => { opzioni.nitido = opzioni.nitido === false; applicaOpzioni(); });
 document.getElementById('opzSole').addEventListener('click', () => { opzioni.ombraSole = opzioni.ombraSole === false; applicaOpzioni(); });
@@ -4023,8 +4060,12 @@ function passo(adesso, frameXR) {
   pioggia.impostaNuvole(nuvole.dischi(_dischiNuvole), 1.8 + 2.6 * meteo.forza);
   // la distanza della camera allarga il campo di pioggia: a sessanta blocchi si
   // guarda un panorama, e la pioggia deve esserci su tutto il panorama
+  // `pixelPerBlocco` = quanti blocchi copre UN pixel a distanza 1 dalla camera:
+  // serve alla pioggia per non disegnare gocce più sottili di un pixel (che il
+  // rasterizzatore cancellerebbe) senza per questo ingrassarle.
   const _fPioggia = pioggia.aggiorna(dt, adesso / 1000, rig.bersaglio,
-    rig.camera.position.distanceTo(rig.bersaglio));
+    rig.camera.position.distanceTo(rig.bersaglio),
+    2 * Math.tan(rig.camera.fov * Math.PI / 360) / Math.max(1, rig.renderer.domElement.height));
   impostaPioggia(_fPioggia);
   schizziPioggia(dt, _fPioggia);
 
@@ -4198,7 +4239,6 @@ function passo(adesso, frameXR) {
   aggiornaLuci(controller.pos);
   rig.segui(_seguiV.set(controller.pos.x, controller.pos.y + 1, controller.pos.z), dt);
   rig.aggiorna();
-  rig.fuocoSu(_fuocoGatto.set(controller.pos.x, controller.pos.y + 0.8, controller.pos.z), dt);
 
   // in AR il mondo vive su un pivot scalato: i render ausiliari in spazio
   // mondo (riflesso, silhouette schiuma) si spengono, resta la schiuma di riva

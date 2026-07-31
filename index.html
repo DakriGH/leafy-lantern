@@ -230,6 +230,12 @@
   .opz-pagina { display: none; }
   .opz-pagina.attivo { display: block; }
   .opz-tit-sez { font-size: 11px; font-weight: 800; color: var(--muto); letter-spacing: .4px; margin: 12px 0 6px; }
+  /* la spiegazione sotto un gruppo: serve a non dover indovinare cosa fa una
+     voce. Le Impostazioni erano «troppe cose confusionarie» proprio perché ogni
+     riga era un'etichetta secca senza il perché. */
+  .opz-nota { font-size: 11px; font-weight: 500; line-height: 1.45; color: var(--muto); margin: 4px 0 2px; letter-spacing: 0; text-transform: none; }
+  .opz-tit-sez .opz-nota { display: inline; margin-left: 6px; }
+  .opz-etichetta { font-size: 11px; font-weight: 700; color: var(--muto); align-self: center; margin-right: 2px; }
   /* lista slot di salvataggio */
   .slot-lista { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
   .slot-lista:empty::before { content: 'Nessuna partita salvata: usa «Salva partita».'; font-size: 11px; color: var(--muto); }
@@ -1280,13 +1286,25 @@
     </div>
 
     <div class="opz-pagina" data-pagina="grafica">
-      <!-- Diagnostica anche QUI, in Grafica: chi ha cali di fps la cerca dove
-           stanno i preset, non nella scheda «Avanzate» (che sa di roba tecnica).
-           Stesso identico tasto della scheda Avanzate, stessa azione. -->
-      <button id="opzDiagnostica"
-        style="width:100%;min-height:52px;margin-bottom:12px;padding:12px;border-radius:12px;border:1px solid rgba(124,255,176,.5);background:linear-gradient(90deg,rgba(91,209,255,.22),rgba(124,255,176,.22));color:#eaf3ff;font:700 15px/1.3 system-ui,Segoe UI,Roboto,sans-serif;cursor:pointer">📊 Diagnostica completa (scarica report)</button>
-      <div class="opz-tit-sez">🎬 Limite FPS (fluidità costante)</div>
+      <!-- ORDINE: prima il PROFILO (che decide tutto), poi la fluidità, poi le
+           manopole per chi vuole smontare. Prima erano mescolate, e il profilo
+           non toccava metà delle voci sotto: si sceglieva «Alta» e le ombre del
+           sole restavano dov'erano. Adesso il profilo scrive TUTTE le voci di
+           questa pagina, e toccarne una a mano lo disattiva. -->
+      <div class="opz-tit-sez">🎮 Profilo grafico <span class="opz-nota">decide tutto quello che sta sotto</span></div>
+      <div class="opz-riga opz-toggles">
+        <button id="preBassa" class="opz-tgl">🥔 Bassa</button>
+        <button id="preMedia" class="opz-tgl">⚖️ Media</button>
+        <button id="preAlta" class="opz-tgl">✨ Alta</button>
+        <button id="preUltra" class="opz-tgl">🚀 Ultra</button>
+      </div>
+
+      <div class="opz-tit-sez">🎬 Fluidità</div>
+      <div class="opz-riga opz-toggles">
+        <button id="opzAutoQ" class="opz-tgl" title="Se gli fps calano, abbassa da sola gli effetti finché il gioco torna fluido. Quando è accesa comanda lei: le voci qui sotto restano come le hai messe, ma valgono da TETTO, non da minimo.">🚀 Qualità automatica</button>
+      </div>
       <div class="opz-riga opz-fps">
+        <span class="opz-etichetta">Limite fps</span>
         <button class="opz-tgl" data-fps="20">20</button>
         <button class="opz-tgl" data-fps="30">30</button>
         <button class="opz-tgl" data-fps="60">60</button>
@@ -1294,32 +1312,35 @@
         <button class="opz-tgl" data-fps="120">120</button>
         <button class="opz-tgl" data-fps="0">∞</button>
       </div>
-      <div class="opz-tit-sez">Preset (un tocco e via)</div>
-      <div class="opz-riga opz-toggles">
-        <button id="preBassa" class="opz-tgl">🥔 Bassa</button>
-        <button id="preMedia" class="opz-tgl">⚖️ Media</button>
-        <button id="preAlta" class="opz-tgl">✨ Alta</button>
-        <button id="preUltra" class="opz-tgl">🚀 Ultra</button>
-      </div>
+      <p class="opz-nota">∞ non vuol dire «senza limite»: nel browser il gioco disegna
+        quando lo dice il monitor, quindi il tetto vero è la frequenza dello
+        schermo (di solito 60 o 144). Il vsync non si può spegnere da qui e non
+        c'è nessuna impostazione nascosta che lo faccia — è il browser. Un limite
+        PIÙ BASSO serve invece a una cosa vera: un frame ogni 33 ms sempre uguali
+        si guarda meglio di uno che oscilla fra 40 e 90.</p>
+
+      <div class="opz-tit-sez">🖼 Dettaglio</div>
       <label class="opz-riga">🎚 Risoluzione <span id="valScala" class="opz-val"></span>
         <input id="opzScala" type="range" min="50" max="100" step="5">
       </label>
       <label class="opz-riga">✨ Forza riflessi <span id="valRifl" class="opz-val"></span>
         <input id="opzRiflForza" type="range" min="0" max="150" step="10">
       </label>
-      <label class="opz-riga">🎞 Quantità tilt‑shift <span id="valTiltQ" class="opz-val"></span>
-        <input id="opzTiltQ" type="range" min="0" max="300" step="10">
-      </label>
       <div class="opz-riga opz-toggles">
-        <button id="opzRiflessi" class="opz-tgl">✨ Riflessi</button>
-        <button id="opzLuce" class="opz-tgl" title="I lampioni non attraversano i muri: la luce si ferma dove la lampada non arriva davvero">💡 Luce nei muri</button>
-        <button id="opzTilt" class="opz-tgl">🎞 Tilt‑shift</button>
-        <button id="opzAutoQ" class="opz-tgl" title="Se gli fps calano, abbassa da sola gli effetti">🚀 Qualità auto</button>
+        <button id="opzRiflessi" class="opz-tgl">✨ Riflessi acqua</button>
         <button id="opzNitido" class="opz-tgl" title="Quando il gioco disegna a risoluzione ridotta: pixel quadrati e a bordo vivo (nitido) invece dell'impasto sfocato">🔲 Pixel nitidi</button>
+        <button id="opzLuce" class="opz-tgl" title="I lampioni non attraversano i muri: la luce si ferma dove la lampada non arriva davvero">💡 Luce nei muri</button>
+      </div>
+
+      <div class="opz-tit-sez">☀️ Ombre</div>
+      <div class="opz-riga opz-toggles">
         <button id="opzSole" class="opz-tgl" title="Ombra netta del sole (e della luna, più leggera), col colore del cielo invece del nero: alberi, lampioni e mobili la proiettano come i blocchi. Stesso stile piatto delle luci">☀️ Ombra del sole</button>
-        <button id="opzTerm" class="opz-tgl" title="Il chiaroscuro: i lati girati dalla parte opposta al sole si scuriscono, come l'ombra portata e con lo stesso salto netto. È ciò che fa leggere in 3D i cubi — ma su terreno a terrazze fitte si nota parecchio. Spegnilo per tenere solo le ombre proiettate">🌗 Chiaroscuro del sole</button>
+        <button id="opzTerm" class="opz-tgl" title="Il chiaroscuro: i lati girati dalla parte opposta al sole si scuriscono, come l'ombra portata e con lo stesso salto netto. È ciò che fa leggere in 3D i cubi — ma su terreno a terrazze fitte si nota parecchio. Spegnilo per tenere solo le ombre proiettate">🌗 Chiaroscuro</button>
         <button id="opzDin" class="opz-tgl" title="ALTISSIMO: il gatto, i gatti in rete e le palle proiettano un'ombra VERA — la forma del loro ingombro, inclinata e allungata secondo l'ora — invece del disco sotto i piedi. Costa: si prova un corpo alla volta per ogni pixel">🐾 Ombre dinamiche</button>
       </div>
+
+      <button id="opzDiagnostica"
+        style="width:100%;min-height:52px;margin-top:14px;padding:12px;border-radius:12px;border:1px solid rgba(124,255,176,.5);background:linear-gradient(90deg,rgba(91,209,255,.22),rgba(124,255,176,.22));color:#eaf3ff;font:700 15px/1.3 system-ui,Segoe UI,Roboto,sans-serif;cursor:pointer">📊 Diagnostica completa (scarica report)</button>
     </div>
 
     <div class="opz-pagina" data-pagina="ar">
@@ -1486,6 +1507,6 @@
   <div id="loading"><div><span class="lanterna">🏮</span><span id="loadingTxt">Un momento…</span></div></div>
 
   <input id="fileImporta" type="file" accept="application/json" style="display:none">
-  <script type="module" src="./src/main.js?v=ms91g5zy"></script>
+  <script type="module" src="./src/main.js?v=ms92pb4b"></script>
 </body>
 </html>

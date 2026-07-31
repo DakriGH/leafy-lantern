@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=ms91g5zy';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=ms91g5zy';
-import { FISICA } from '../config.js?v=ms91g5zy';
+import { CHUNK } from '../world/world.js?v=ms92pb4b';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=ms92pb4b';
+import { FISICA } from '../config.js?v=ms92pb4b';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -96,11 +96,6 @@ const HTML = /* html */`
       <button data-az="fog" data-f="1">vicina</button>
       <button data-az="fog" data-f="0.45">media</button>
       <button data-az="fog" data-f="0.18">lontana</button>
-      <span class="dbg-sep"></span>
-      tilt‑shift
-      <button data-az="ts" data-q="0">off</button>
-      <button data-az="ts" data-q="1.5">leggero</button>
-      <button data-az="ts" data-q="2.6">pieno</button>
     </div>
     <div class="dbg-riga">
       acqua
@@ -267,7 +262,6 @@ export class MenuDebug {
     else if (az === 'mondoGigante') this.azioni.mondoGigante();
     else if (az === 'testMacchine') this.azioni.testMacchine();
     else if (az === 'fog') this.azioni.fog(Number(b.getAttribute('data-f')));
-    else if (az === 'ts') this.azioni.tiltShift(Number(b.getAttribute('data-q')));
     else if (az === 'arProva') this.azioni.arProva();
     else if (az === 'riflessi') b.classList.toggle('attivo', this.azioni.riflessi());
     else if (az === 'pioggia') b.classList.toggle('attivo', this.azioni.pioggia());

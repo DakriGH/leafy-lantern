@@ -85,7 +85,7 @@ export class Pioggia {
         uForza: { value: 1 },      // 0 pioggerella … 1 tempesta
         uCentro: { value: new THREE.Vector3() },   // il giocatore, in MONDO
         uArea: { value: AREA_MIN },
-        uGoccia: { value: 1 },     // quanto ingrossare la goccia con la distanza
+        uPixel: { value: 0.002 },  // quanti BLOCCHI vale un pixel a distanza 1
         uNuvole: { value: Array.from({ length: NUVOLE_MAX }, () => new THREE.Vector4(0, 0, -1, 0)) },
         uNuvoleNum: { value: 0 },
       },
@@ -98,7 +98,7 @@ export class Pioggia {
         uniform float uForza;
         uniform vec3 uCentro;
         uniform float uArea;
-        uniform float uGoccia;
+        uniform float uPixel;
         uniform vec4 uNuvole[${NUVOLE_MAX}];   // (x, z, raggio, riserva) in MONDO
         uniform int uNuvoleNum;
 
@@ -149,16 +149,32 @@ export class Pioggia {
           float scesa = clamp((uCentro.y + alto * 0.85 - mondoY) / alto, 0.0, 1.0);
           p.xz += vec2(0.9, 0.35) * (1.0 - uNeve) * uForza * uForza * scesa * 2.4;
 
-          // ⚠ LA GOCCIA CRESCE CON LA DISTANZA, ed è l'altra metà del «quando
-          // dezoomo non vedo niente». Allargare il campo non basta: una goccia è
-          // larga sedici millesimi di blocco, e a novanta blocchi di camera è
-          // meno di un pixel — c'era, e non si vedeva. Qui non si simula
-          // niente di più: si tiene la goccia grande almeno UN PIXEL, che è la
-          // stessa cosa che fa il tratto di una matita quando disegni la pioggia
-          // in lontananza.
-          vec3 forma = position * uGoccia;
+          vec3 forma = position;
           forma.y *= mix(1.0, 0.14, uNeve) * mix(0.6, 1.6, uForza);
           forma.xz *= mix(1.0, 4.5, uNeve);
+          // ---- LARGHEZZA MINIMA IN PIXEL, non «goccia più grossa» -----------
+          //
+          // ⚠ IL PRIMO TENTATIVO ERA UNA PEZZA, e il committente l'ha vista al
+          // volo: «hai solo scalato, così quando la telecamera è lontana le
+          // gocce sembrano giganti?». Sì, ed era sbagliato — una goccia a venti
+          // metri diventava larga mezzo metro.
+          //
+          // Il problema vero non è la distanza, è che una goccia larga sedici
+          // millesimi di blocco è SOTTO il pixel: la rasterizzazione la
+          // cancella, e non perché sia lontana ma perché è più sottile di quanto
+          // lo schermo sappia disegnare. La cura giusta è quella che usano tutti
+          // i tratti sottili (linee, cavi, fili d'erba lontani): si tiene la
+          // larghezza VERA finché copre almeno un pixel, e solo sotto quella
+          // soglia la si allarga fino a un pixel — quindi da vicino la goccia è
+          // esattamente quella di prima, e lontano non è «gigante»: è larga un
+          // pixel, il minimo per esistere.
+          //
+          // uPixel = quanti blocchi vale un pixel a distanza 1 dalla camera;
+          // moltiplicato per la profondità dà il blocco-per-pixel qui.
+          float prof = -(modelViewMatrix * vec4(p, 1.0)).z;
+          float minLargo = uPixel * max(prof, 0.1) * 0.75;
+          float largo = max(length(forma.xz), 1e-6);
+          forma.xz *= max(1.0, minLargo / largo);
           // fuori dal rovescio la goccia non c'è: si chiude su se stessa
           forma *= step(0.02, sotto);
           vV = uv.y;
@@ -216,7 +232,7 @@ export class Pioggia {
    * camera a sessanta blocchi si guarda un panorama, e la pioggia deve esserci
    * su tutto il panorama.
    */
-  aggiorna(dt, tempo, bersaglio, distanzaCamera = 0) {
+  aggiorna(dt, tempo, bersaglio, distanzaCamera = 0, pixelPerBlocco = 0.002) {
     const verso = this.attiva ? 1 : 0;
     this._fade += (verso - this._fade) * Math.min(1, dt * 2.5);
     const un = this.materiale.uniforms;
@@ -230,8 +246,10 @@ export class Pioggia {
     // solo quando lo zoom cambia davvero.
     const voluta = Math.max(AREA_MIN, Math.min(AREA_MAX, distanzaCamera * 2.2));
     un.uArea.value = Math.round(voluta / 8) * 8;
-    // e la goccia si ingrossa con la stessa distanza: sotto il pixel non esiste
-    un.uGoccia.value = Math.max(1, Math.min(7, distanzaCamera / 15));
+    // QUANTO VALE UN PIXEL, in blocchi, a distanza 1 dalla camera: e' la
+    // costante che trasforma «almeno un pixel» in una larghezza di mondo.
+    // 2·tan(fov/2)/altezzaInPixel — la calcola chi chiama, che ha la camera.
+    un.uPixel.value = pixelPerBlocco;
     un.uT.value = tempo;
     un.uForza.value += ((this._forzaVerso ?? 0.5) - un.uForza.value) * Math.min(1, dt * 0.7);
     un.uAlpha.value = (0.30 + 0.34 * un.uForza.value) * this._fade;
