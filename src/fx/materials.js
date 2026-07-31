@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms8q8h3a';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms8q8h3a';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms8s2vf9';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms8s2vf9';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -1757,6 +1757,78 @@ export function uniformiOmbraSole() {
     uOmbraFatt: uniformi.uOmbraFatt,
   };
 }
+
+/**
+ * L'OMBRA DELLE SAGOME (alberi, lampioni, mobili) PER CHI LA VUOLE NEL VERTEX.
+ *
+ * Il mondo se la calcola per PIXEL, ed è giusto così: sul terreno l'orlo
+ * dell'ombra di una chioma è la cosa che si guarda. Ma erba e particelle non
+ * l'avevano affatto — l'unica ombra che ricevevano era quella del TERRENO, che
+ * arriva dalla heightmap, e gli alberi nella heightmap non ci sono. Risultato:
+ * un ciuffo d'erba in piena luce dentro l'ombra dell'albero che gli sta sopra, e
+ * una manciata di foglie che vola luminosa attraverso l'ombra. Il committente
+ * l'ha chiesto esplicitamente, e aveva ragione: è la cosa che tradisce il
+ * diorama, un oggetto che non sa dove si trova.
+ *
+ * QUI SI PAGA UNA VOLTA PER FILO, non per pixel, e SOLO sulle prime sagome della
+ * lista. Le sagome arrivano già ordinate per distanza dal giocatore (main.js,
+ * scatoleVicine) e il prato è seminato attorno al giocatore: le prime otto sono
+ * quelle che stanno sopra l'erba che si vede. Ventimila fili × otto scatole nel
+ * vertex shader sono spiccioli; ventimila × trentadue per pixel non lo
+ * sarebbero.
+ */
+export const SCATOLE_VERTICE = 8;
+export function uniformiScatole() {
+  return {
+    uDinPos: uniformi.uDinPos,
+    uDinMez: uniformi.uDinMez,
+    uDinDiag: uniformi.uDinDiag,
+    uDinNum: uniformi.uDinNum,
+  };
+}
+/** ⚠ Chi lo include deve già dichiarare `uSoleDir`: la porta uniformiOmbraSole. */
+export const GLSL_SCATOLE_VERTICE = /* glsl */`
+  uniform vec4 uDinPos[${SCATOLE_MAX}];
+  uniform vec4 uDinMez[${SCATOLE_MAX}];
+  uniform vec4 uDinDiag[${SCATOLE_MAX}];
+  uniform int uDinNum;
+
+  /** 0 = in piena ombra di una sagoma, 1 = niente sopra. Stessa prova a fette
+   *  del mondo (fx/materials.js, ombraScatole), su meno scatole. */
+  float sagomeAlSole(vec3 P) {
+    if (uDinNum == 0) return 1.0;
+    float forte = 0.0;
+    vec3 seg = vec3(uSoleDir.x >= 0.0 ? 1.0 : -1.0, uSoleDir.y >= 0.0 ? 1.0 : -1.0, uSoleDir.z >= 0.0 ? 1.0 : -1.0);
+    vec3 inv = seg / max(abs(uSoleDir), vec3(1e-4));
+    float sx = uSoleDir.x + uSoleDir.z, dx2 = uSoleDir.x - uSoleDir.z;
+    float invS = 1.0 / (abs(sx) < 1e-6 ? (sx < 0.0 ? -1e-6 : 1e-6) : sx);
+    float invD = 1.0 / (abs(dx2) < 1e-6 ? (dx2 < 0.0 ? -1e-6 : 1e-6) : dx2);
+    float fs = P.x + P.z, fd = P.x - P.z;
+    for (int i = 0; i < ${SCATOLE_VERTICE}; i++) {
+      if (i >= uDinNum) break;
+      vec4 p = uDinPos[i];
+      vec2 d = P.xz - p.xz;
+      if (dot(d, d) > p.w * p.w) continue;
+      vec3 h = uDinMez[i].xyz;
+      if (P.y > p.y + h.y) continue;
+      vec3 t0 = (p.xyz - h - P) * inv;
+      vec3 t1 = (p.xyz + h - P) * inv;
+      vec3 tmin = min(t0, t1), tmax = max(t0, t1);
+      float a = max(max(tmin.x, tmin.y), tmin.z);
+      float b = min(min(tmax.x, tmax.y), tmax.z);
+      vec4 dg = uDinDiag[i];
+      float sA = (dg.x - fs) * invS, sB = (dg.y - fs) * invS;
+      a = max(a, min(sA, sB)); b = min(b, max(sA, sB));
+      float dA = (dg.z - fd) * invD, dB = (dg.w - fd) * invD;
+      a = max(a, min(dA, dB)); b = min(b, max(dA, dB));
+      if (b > a && a > 0.04 && a < ${DIN_LUNG.toFixed(1)}) {
+        forte = max(forte, uDinMez[i].w);
+        if (forte >= 0.999) return 0.0;
+      }
+    }
+    return 1.0 - forte;
+  }
+`;
 
 /** Il colore ambiente corrente (per chi si tinge a mano, es. le nuvole). */
 export function ambienteAttuale() { return uniformi.uAmbiente.value; }

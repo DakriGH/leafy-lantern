@@ -2,9 +2,9 @@
 // t ∈ [0,1): 0 mezzanotte · 0.25 alba · 0.5 mezzogiorno · 0.75 tramonto.
 
 import * as THREE from 'three';
-import { TEMPO } from '../config.js?v=ms8q8h3a';
-import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=ms8q8h3a';
-import { Cielo } from './cielo.js?v=ms8q8h3a';
+import { TEMPO } from '../config.js?v=ms8s2vf9';
+import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=ms8s2vf9';
+import { Cielo } from './cielo.js?v=ms8s2vf9';
 
 // `ambiente` È IL GIORNO E LA NOTTE, e non serve altro: lo shader moltiplica
 // l'albedo per questo colore e ci somma sopra le luci-sfera. Un tentativo aveva
@@ -43,7 +43,15 @@ const CHIAVI = [
 // Quanta ombra resta quando l'astro è appena sopra l'orizzonte, in frazione di
 // quella di culmine. Alzarlo rende alba e tramonto più drammatici (ombre lunghe
 // e marcate), abbassarlo li appiattisce: a 0 si torna al comportamento vecchio.
-const FONDO_OMBRA = 0.32;
+//
+// MISURATO IL 31 LUGLIO 2026, ed è il motivo per cui è salito da 0.32 a 0.48.
+// Il committente diceva «le ombre durante il giorno non si vedono più» e aveva
+// ragione: con il bisturi (uOmbraFatt forzato a rosso) le ombre degli alberi si
+// vedevano esattamente dove dovevano, quindi il calcolo era giusto — era la
+// FORZA a essere sbagliata. Alle otto di mattina il verde in ombra era il 79%
+// di quello al sole, cioè un'ombra da un quinto di tono su un prato saturo:
+// c'era nei numeri e non c'era all'occhio.
+const FONDO_OMBRA = 0.48;
 // Sotto questa altezza dell'astro il fondo si spegne (vedi `sfuma`): è la
 // finestra in cui l'astro sta davvero sorgendo o tramontando.
 const ALBA = 0.22;
@@ -152,16 +160,16 @@ export class CicloGiorno {
     _sole.set(Math.cos(az) * oriz, Math.max(0.12, alt), Math.sin(az) * oriz);
 
     // QUANTO SCURISCE. La rampa sull'altezza serve a non far comparire la lama
-    // radente dell'alba, ma quadratica era troppo: alle nove di mattina lasciava
-    // un'ombra da un quarto di tono, cioè un'ombra che non si vede. Con 1.6
-    // l'ombra c'è per quasi tutta la giornata.
+    // radente dell'alba, ma ogni volta che l'ho ammorbidita per quel motivo ho
+    // finito per spegnere l'ombra anche a giorno pieno: la lama dell'alba dura
+    // dieci minuti, il giorno dura otto ore.
     //
     // LA RAMPA NON PARTE PIÙ DA ZERO, ed è un difetto che si vedeva solo
     // guardando la giornata intera di fila: alle sette e alle diciassette e mezza
     // `alt^1.6` valeva 0.04, cioè il mondo diventava PIATTO — nessun fianco
     // scuro, nessuna ombra portata, il cubo di pietra con le sei facce dello
     // stesso identico grigio — proprio nelle due ore in cui il cielo è più bello
-    // e uno si ferma a guardarlo. Il fondo (32%) tiene il rilievo minimo che fa
+    // e uno si ferma a guardarlo. Il fondo tiene il rilievo minimo che fa
     // leggere le forme; il resto della rampa continua a raccontare l'ora.
     // La lama nera di cui aveva paura la versione di prima non può comunque
     // arrivare: la portata dell'ombra è tagliata a uSolePassi BLOCCHI, non a
@@ -175,9 +183,21 @@ export class CicloGiorno {
     // accorgeva nessuno; con un fondo piatto sarebbe diventato uno scatto in
     // faccia. La finestrella liscia (0 → ALBA) tiene il fondo dove serve — le ore
     // radenti — e lo lascia sparire dove l'astro tramonta davvero.
+    //
+    // ⚠ I DUE NUMERI CHE DECIDONO SE L'OMBRA SI VEDE sono l'esponente della
+    // rampa e il fattore qui sotto, e per tre giri sono stati troppo bassi.
+    // L'esponente 1.6 è sceso a 0.85 e il fattore di giorno da 0.50 a 0.72.
+    // Perché quei valori e non altri — misurato leggendo i pixel a schermo, non
+    // a occhio (il verde del prato al sole contro lo stesso prato in ombra):
+    //   prima  alle 08:00  →  ombra al 79% del sole   (non si vede)
+    //   adesso alle 08:00  →  ombra al 60% del sole   (si vede)
+    //   adesso a mezzogiorno →  ombra al 53% del sole (ombra piena, cel shading)
+    // Sopra il 70% l'ombra sparisce dentro la saturazione del verde; sotto il
+    // 45% il diorama diventa a chiazze e i lampioni di sera non hanno più
+    // contrasto su cui lavorare. La finestra utile è stretta, ed è questa.
     const sfuma = _liscia(alt / ALBA);
-    const rampa = sfuma * (FONDO_OMBRA + (1 - FONDO_OMBRA) * Math.pow(alt, 1.6));
-    const k = Math.min(0.85, (notte ? 0.22 : 0.50) * rampa * this.forzaOmbra);
+    const rampa = sfuma * (FONDO_OMBRA + (1 - FONDO_OMBRA) * Math.pow(alt, 0.85));
+    const k = Math.min(0.85, (notte ? 0.30 : 0.72) * rampa * this.forzaOmbra);
     // IL COLORE DELL'OMBRA È IL COLORE DEL CIELO. All'ombra non c'è meno luce e
     // basta: c'è la luce del cielo invece di quella del sole, ed è per questo che
     // le ombre vere sono azzurre di giorno e blu notte di notte. Si prende la

@@ -5,7 +5,7 @@
 // Un solo THREE.Points, buffer riciclato: costo CPU e GPU irrisorio.
 
 import * as THREE from 'three';
-import { ambienteAttuale } from './materials.js?v=ms8q8h3a';
+import { ambienteAttuale, uniformiOmbraSole, uniformiScatole, GLSL_SCATOLE_VERTICE } from './materials.js?v=ms8s2vf9';
 
 const MAX = 180;
 
@@ -41,7 +41,13 @@ export class Particelle {
     // spruzzi unlit che allo stesso modo non devono accendersi al buio.
     this.materiale = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
-      uniforms: { uAmbiente: { value: new THREE.Color(1, 1, 1) }, uTempo: { value: 0 } },
+      uniforms: {
+        uAmbiente: { value: new THREE.Color(1, 1, 1) },
+        uTempo: { value: 0 },
+        // le stesse dell'erba e del mondo: restano agganciate al ciclo da sole
+        ...uniformiOmbraSole(),
+        ...uniformiScatole(),
+      },
       vertexShader: /* glsl */`
         attribute float aAlfa;
         attribute float aScala;
@@ -50,10 +56,51 @@ export class Particelle {
         varying float vAlfa;
         varying vec3 vCol;
         varying float vForma;
+        varying float vSole;
+        uniform sampler2D uCielo;
+        uniform vec4 uCieloInfo;
+        uniform vec3 uSoleDir;
+        uniform int uSolePassi;
+        uniform float uSoleForza;
+        uniform float uVoxCima;
+${GLSL_SCATOLE_VERTICE}
+
+        // ANCHE I PARTICELLARI STANNO ALL'OMBRA, ed è la richiesta esplicita del
+        // committente («le ombre non dovrebbero essere castate anche sui
+        // particellari e sull'erba?»). L'erba ce l'aveva già, questi no: una
+        // manciata di foglie che vola dentro l'ombra di un albero restava
+        // luminosa come se fosse al sole, e in un diorama quella è la cosa che
+        // tradisce il trucco — un oggetto che non sa dove si trova.
+        //
+        // Come per l'erba: UNA lettura per PARTICELLA nel vertex shader, non per
+        // pixel. Un puntino è largo qualche pixel, l'ombra al suo centro e ai
+        // suoi bordi è la stessa cosa. Quattro passi bastano: qui non serve
+        // l'orlo esatto, serve che dentro l'ombra siano scuri.
+        float particellaAlSole(vec3 p) {
+          if (uSoleForza <= 0.0 || uSolePassi == 0 || uSoleDir.y <= 0.02) return 1.0;
+          vec2 dirXZ = uSoleDir.xz;
+          float lenXZ = length(dirXZ);
+          if (lenXZ < 0.02) return 1.0;
+          vec2 dxz = dirXZ / lenXZ;
+          float salita = uSoleDir.y / lenXZ;
+          for (int k = 1; k <= 4; k++) {
+            float fk = float(k) * 2.2;
+            if (fk > float(uSolePassi)) break;
+            float y = p.y + salita * fk;
+            if (y >= uVoxCima) break;
+            vec2 uv = (p.xz + dxz * fk - uCieloInfo.xy) * uCieloInfo.z;
+            if (uv.x <= 0.0 || uv.x >= 1.0 || uv.y <= 0.0 || uv.y >= 1.0) break;
+            if (texture2D(uCielo, uv).r > y) return 0.0;
+          }
+          return 1.0;
+        }
+
         void main() {
           vAlfa = aAlfa;
           vCol = aColore;
           vForma = aForma;
+          // il terreno E le sagome: la più scura delle due (vedi fx/erba.js)
+          vSole = min(particellaAlSole(position), sagomeAlSole(position));
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_PointSize = aScala * 130.0 / max(1.0, -mv.z);
           gl_Position = projectionMatrix * mv;
@@ -62,7 +109,9 @@ export class Particelle {
         varying float vAlfa;
         varying vec3 vCol;
         varying float vForma;
+        varying float vSole;
         uniform vec3 uAmbiente;
+        uniform vec3 uOmbraFatt;      // di che colore scurisce l'ombra del cielo
         uniform float uTempo;
         void main() {
           vec2 d = gl_PointCoord - 0.5;
@@ -95,7 +144,8 @@ export class Particelle {
             // netti le particelle erano l'unica cosa molle.
             m = smoothstep(0.5, 0.44, length(d));
           }
-          gl_FragColor = vec4(vCol * uAmbiente, vAlfa * m);
+          vec3 amb = uAmbiente * mix(uOmbraFatt, vec3(1.0), vSole);
+          gl_FragColor = vec4(vCol * amb, vAlfa * m);
         }`,
     });
     this.punti = new THREE.Points(g, this.materiale);

@@ -30,9 +30,9 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms8q8h3a';
-import { CHUNK } from '../world/world.js?v=ms8q8h3a';
-import { uniformiOmbraSole } from './materials.js?v=ms8q8h3a';
+import { paletteBlocco } from '../world/stagioni.js?v=ms8s2vf9';
+import { CHUNK } from '../world/world.js?v=ms8s2vf9';
+import { uniformiOmbraSole, uniformiScatole, GLSL_SCATOLE_VERTICE } from './materials.js?v=ms8s2vf9';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -96,6 +96,10 @@ const GLSL_VERTEX = /* glsl */`
   uniform float uSoleForza;
   uniform float uVoxCima;
 
+  // le sagome dei mobili (alberi in testa): dichiara uDinPos/uDinMez/uDinDiag e
+  // la funzione sagomeAlSole. Vuole uSoleDir già dichiarata — è qui sopra.
+${GLSL_SCATOLE_VERTICE}
+
   // L'ERBA RICEVE L'OMBRA DEL SOLE, e la chiede alla stessa heightmap che usa il
   // mondo. Ma la chiede UNA VOLTA PER LAMELLA, nel vertex shader, non per pixel:
   // un ciuffo è alto mezzo blocco e largo un dito, l'ombra al suo piede e quella
@@ -152,7 +156,12 @@ const GLSL_VERTEX = /* glsl */`
     // camera costerebbe una seconda geometria e un secondo materiale — e a quel
     // punto si vedrebbe il passaggio FRA i due, che è lo stesso difetto spostato
     // di dieci metri più in là.
-    vSole = erbaAlSole(iPos.xyz);
+    // L'OMBRA È DUE COSE, e per un giro ne ho collegata una sola: il TERRENO
+    // (heightmap, la collina che ti sta davanti) e le SAGOME (l'albero che ti
+    // sta sopra). Gli alberi nella heightmap non ci sono — sono mobili, non
+    // blocchi — quindi il prato sotto una chioma restava in pieno sole mentre il
+    // terreno lì accanto era in ombra. Si prende la più scura delle due.
+    vSole = min(erbaAlSole(iPos.xyz), sagomeAlSole(iPos.xyz + vec3(0.0, 0.12, 0.0)));
     // DUE CONGEDI, E SI PRENDE IL PIU' FORTE. Servono tutti e due, e per un giro
     // ne ho messo uno solo — ecco perche' i pop-in erano ancora li'.
     //
@@ -317,6 +326,7 @@ export class Erba {
         uBordo: { value: new THREE.Vector2(40, 64) },
         // per RIFERIMENTO: restano agganciate al ciclo del giorno da sole
         ...uniformiOmbraSole(),
+        ...uniformiScatole(),
       },
     });
     this.mesh = new THREE.Mesh(g, this.materiale);

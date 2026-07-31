@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { CAMERA } from '../config.js?v=ms8q8h3a';
+import { CAMERA } from '../config.js?v=ms8s2vf9';
 
 /**
  * Il browser sta disegnando via SOFTWARE (niente GPU)?
