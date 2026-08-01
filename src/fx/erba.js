@@ -30,9 +30,9 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms9lc1am';
-import { CHUNK } from '../world/world.js?v=ms9lc1am';
-import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=ms9lc1am';
+import { paletteBlocco } from '../world/stagioni.js?v=ms9n1mnt';
+import { CHUNK } from '../world/world.js?v=ms9n1mnt';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=ms9n1mnt';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -202,9 +202,16 @@ ${GLSL_LUCI_VERTICE}
     // casuale del ciuffo: due fili vicini se ne vanno in momenti diversi, quindi
     // il prato si dirada invece di finire contro un muro. Un filo solo che
     // scompare in mezzo a ventimila non lo vede nessuno; una fila intera sì.
+    // ⚠ E L'ACCORCIAMENTO NON C'È PIÙ. Era «1 − vLontano²·0.82», cioè la lamella
+    // rientrava nel terreno mentre ti allontanavi: la stessa «animazione strana»
+    // che il committente ha bocciato quando nasceva, vista al contrario. Adesso
+    // il filo resta ALTO finché esiste, e a occuparsi del congedo è solo il
+    // colore — che nel fragment arriva al colore esatto del blocco PRIMA della
+    // morte più vicina (0.55). Quando la lamella sparisce è già indistinguibile
+    // dal terreno su cui sta: togliere qualcosa che non si vede non si vede.
     float soglia = fract(iDati.w * 0.1591549);
-    float vivo = step(vLontano, 0.30 + soglia * 0.70);
-    float eta = vivo * (1.0 - vLontano * vLontano * 0.82);
+    float vivo = step(vLontano, 0.55 + soglia * 0.45);
+    float eta = vivo;
 
     // RETTANGOLO, non lama: la larghezza si stringe appena in cima (0.82), non
     // fino a una punta. È la differenza fra un filo d'erba e una scheggia, ed è
@@ -299,8 +306,14 @@ const GLSL_FRAGMENT = /* glsl */`
     // e ogni ciuffo ha la SUA sfumatura: un prato di fili identici si legge come
     // una texture ripetuta, che è il difetto numero uno di questo effetto
     col *= 0.94 + vTinta * 0.13;
-    // e in lontananza si torna al colore esatto del blocco: vedi il vertex
-    col = mix(col, vCol, vLontano);
+    // e in lontananza si torna al colore esatto del blocco: vedi il vertex.
+    // ⚠ LA CURVA È FINITA A 0.50, non a 1.0, e il numero non è arbitrario: la
+    // lamella che muore prima se ne va a 0.55 (vedi il vertex), quindi a quel
+    // punto DEVE già essere il colore del blocco. Con la curva stesa fino a 1.0
+    // i fili morivano mentre erano ancora più chiari del terreno — ed è quello
+    // che si vedeva come pop-in: non «l'erba che cresce», l'erba che sparisce
+    // essendo ancora visibile.
+    col = mix(col, vCol, smoothstep(0.0, 0.50, vLontano));
     // l'ombra del sole, con LO STESSO colore con cui scurisce il mondo: se qui
     // si usasse un grigio qualunque, l'erba dentro l'ombra sarebbe di una tinta
     // e il blocco sotto di un'altra — e il difetto si vede proprio sul confine

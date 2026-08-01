@@ -10,7 +10,7 @@
 // aritmetica pura — così si prova per intero in Node (test/diagnostica.test.mjs)
 // senza un contesto grafico.
 
-import { riassuntoBanco } from './banco.js?v=ms9lc1am';
+import { riassuntoBanco } from './banco.js?v=ms9n1mnt';
 
 // 2 = c'è il banco standard: le scene se le costruisce la diagnostica, quindi i
 // numeri sono confrontabili fra dispositivi e fra versioni (prima no).
@@ -42,6 +42,7 @@ function fpsDi(m) {
 function gpuDisponibile(m) { return !!(m && m.gpu && m.gpu.disponibile); }
 
 function gpuTotale(m) { return gpuDisponibile(m) && typeof m.gpu.totaleMedia === 'number' ? m.gpu.totaleMedia : null; }
+function gpuP95(m) { return gpuDisponibile(m) && typeof m.gpu.totaleP95 === 'number' ? m.gpu.totaleP95 : null; }
 
 function gpuPassata(m, nome) {
   if (!gpuDisponibile(m) || !m.gpu.passate) return null;
@@ -105,21 +106,50 @@ export function riassuntoDiagnostica(dati) {
   //     usando tutto quello che ci danno — e allora cercare millisecondi dentro
   //     il frame è tempo perso, il limite viene da fuori. È l'errore che ho
   //     fatto per due giri di diagnostica, e questa riga esiste per non rifarlo.
-  if (base && base.rafFps > 0 && base.fps > 0) {
+  //
+  // ⚠ E IL CONFRONTO DA SOLO NON BASTA — è l'errore che ho pubblicato nel giro
+  // scorso. Col vsync, un frame che sfora il periodo fa slittare ANCHE il rAF
+  // successivo: il browser ci richiama al vsync dopo, quindi `inviti` scende
+  // insieme agli fps e i due numeri coincidono SEMPRE. Sul Chromebook la riga
+  // diceva «il tetto non è il costo del frame» mentre la GPU ne faceva 27,9 su
+  // un periodo di 16,7. Prima degli inviti va guardato IL LAVORO: CPU + GPU
+  // contro il passo dello schermo. Se il lavoro riempie il periodo, il tetto è
+  // nostro e basta; gli inviti diventano interessanti solo dopo.
+  if (base && base.fps > 0) {
+    // il PASSO del display: il più piccolo tempo di frame di tutta la batteria
+    // (col vsync agganciato tutti gli altri ne sono multipli interi)
+    const tempi = [base, ...Object.values(sw)]
+      .map((s) => s && s.frameMs).filter((v) => typeof v === 'number' && v > 1);
+    const passo = tempi.length ? Math.min(...tempi) : null;
+    const gpuMed = gpuTotale(base);
+    const disegno = gpuMed != null ? gpuMed : (base.disegnoMs || 0);
+    const disegnoP95 = gpuP95(base) != null ? gpuP95(base) : (base.disegnoP95 || 0);
+    const lavoro = (base.cpuMediana || 0) + disegno;
+    const lavoroP95 = (base.cpuP95 || 0) + disegnoP95;
     const inviti = base.rafFps, resi = base.fps;
-    const testa = `Il browser ci ha dato ${arr(inviti)} inviti a disegnare al secondo e ne abbiamo resi ${arr(resi)}`;
-    if (inviti > resi * 1.2) {
-      righe.push(`${testa}: ne buttiamo ${arr(inviti - resi)} perché il frame non sta nel tempo. `
-        + 'Il tetto è NOSTRO, e cpuSezioni dice dove.');
+    const dettaglio = `${arr(base.cpuMediana || 0)} ms CPU + ${arr(disegno)} ms di disegno`;
+
+    if (passo && lavoro >= passo * 0.85) {
+      righe.push(`⚠ IL TETTO È NOSTRO: un frame costa ${arr(lavoro)} ms (${dettaglio}) contro i ${arr(passo)} ms `
+        + 'di un giro di schermo. Non è un problema di fotogrammi concessi: è lavoro che non ci sta. Guarda cpuSezioni e le passate GPU.');
+      // ⚠ i picchi si denunciano SOLO se stiamo davvero perdendo fotogrammi: su
+      // una macchina veloce il 5% peggiore supera sempre la mediana di parecchio
+      // (compilazioni, GC, il primo frame di una passata) senza che a schermo
+      // manchi niente — e una riga d'allarme su un gioco che gira liscio a 144
+      // fps insegna solo a non fidarsi del riassunto.
+    } else if (passo && lavoroP95 >= passo * 1.5 && resi < (1000 / passo) * 0.9) {
+      righe.push(`⚠ IL TETTO SONO I PICCHI: il frame MEDIO ci sta (${arr(lavoro)} ms contro ${arr(passo)}), `
+        + `ma il 5% peggiore arriva a ${arr(lavoroP95)} ms — due o tre giri di schermo persi in un colpo. `
+        + 'È quello che a schermo si sente come calo camminando o ruotando, non come lentezza costante.');
+    } else if (inviti > 0 && inviti > resi * 1.2) {
+      righe.push(`Il browser ci ha dato ${arr(inviti)} inviti a disegnare al secondo, ne abbiamo resi ${arr(resi)}: `
+        + `ne buttiamo ${arr(inviti - resi)}. Il tetto è NOSTRO, e cpuSezioni dice dove.`);
     } else if (inviti >= 55) {
-      // usiamo tutto e il tutto è tanto: è il vsync dello schermo, e va bene così
-      righe.push(`${testa}: li stiamo usando tutti, e siamo agganciati al refresh dello schermo (${arr(inviti)} Hz). Qui non c'è niente da recuperare.`);
-    } else {
-      // usiamo tutto ma il tutto è poco: il limite non è il nostro frame
-      righe.push(`${testa}: li stiamo usando TUTTI, ma sono pochi. ⚠ Il tetto NON è il costo del frame — `
-        + 'il browser non ci sta chiamando di più. Guarda FUORI dal gioco: risparmio energetico o modalità '
-        + 'a basso consumo, schermo che scende a 30/60 Hz da solo, scheda in secondo piano, telefono caldo. '
-        + 'Ottimizzare il gioco non alza questo numero.');
+      righe.push(`Il frame costa ${arr(lavoro)} ms su ${arr(passo || 0)} di passo e rendiamo tutti i ${arr(inviti)} `
+        + 'inviti del browser: siamo agganciati al refresh dello schermo, qui non c\'è niente da recuperare.');
+    } else if (inviti > 0) {
+      righe.push(`Il frame costa poco (${dettaglio}) eppure il browser ci chiama solo ${arr(inviti)} volte al secondo. `
+        + '⚠ Il tetto sembra venire da FUORI: risparmio energetico, schermo che scende di Hz da solo, scheda in secondo piano.');
     }
   }
 

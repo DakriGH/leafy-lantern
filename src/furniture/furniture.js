@@ -4,10 +4,10 @@
 // (finta luce emessa, separata dal fake pointlight), fluttuazione di 1 px.
 
 import * as THREE from 'three';
-import { PX } from '../config.js?v=ms9lc1am';
-import { FURNI, celleOccupate, celleAppoggio, centroide } from './registry.js?v=ms9lc1am';
-import { defDi } from '../world/blocks.js?v=ms9lc1am';
-import { creaLuce, rimuoviLuce } from '../fx/materials.js?v=ms9lc1am';
+import { PX } from '../config.js?v=ms9n1mnt';
+import { FURNI, celleOccupate, celleAppoggio, centroide } from './registry.js?v=ms9n1mnt';
+import { defDi } from '../world/blocks.js?v=ms9n1mnt';
+import { creaLuce, rimuoviLuce } from '../fx/materials.js?v=ms9n1mnt';
 
 let prossimoId = 1;
 
@@ -88,7 +88,19 @@ const _va = new THREE.Vector3(), _vb = new THREE.Vector3(), _vc = new THREE.Vect
 // veri dei triangoli): l'intersezione dei sei slab è l'ottagono convesso ESATTO
 // della fetta. Per un pezzo squadrato le diagonali non tagliano niente (il palo
 // resta un palo); per uno smussato tagliano gli angoli, che è tutto il punto.
-const FETTA = 0.5;               // altezza di una fetta, in blocchi
+// ⚠ LA FETTA ERA MEZZO BLOCCO, E MEZZO BLOCCO È GROSSO. Ogni fetta prende il
+// MASSIMO della sagoma nella sua altezza, quindi una forma che si stringe in
+// fretta esce sistematicamente grassa di una fetta. Misurato sul modello vero
+// dell'albero (sezioni orizzontali esatte): a y+0.1 la base è 0.84, a y+0.25 il
+// tronco è 0.35 — con la fetta da mezzo blocco il tronco proiettava 0.84, cioè
+// un ceppo largo un blocco al posto di un tronco. Sulla chioma lo stesso: 2.47 →
+// 1.48 → 1.07 → 0.30 in due blocchi, letti a passo 0.5, davano un cono sempre
+// più largo del cono. A un quarto di blocco il profilo si segue davvero.
+// IL COSTO NELLO SHADER NON CAMBIA: le fette in più le richiude `riduci`, che
+// tiene lo stesso numero di scatole (SCATOLE_PER_FURNI) — solo che adesso può
+// METTERE I TAGLI DOVE SERVE invece che su una griglia fissa. Un palo resta una
+// scatola sola come prima (fette tutte uguali = fusione a costo zero).
+const FETTA = 0.25;              // altezza di una fetta, in blocchi
 const SCATOLE_PER_FURNI = 5;     // quante ne resta al massimo dopo la fusione
 const SCATOLE_LONTANO = 2;       // il LOD oltre la soglia: corpo e chioma, non uno scatolone
 const FONDI_SE = 0.10;           // due fette si fondono se i lati differiscono meno di così
@@ -148,6 +160,76 @@ export function riduci(scatole, n) {
   return s;
 }
 
+// ---- IL RITAGLIO DEL TRIANGOLO SULLA FETTA ---------------------------------
+// Due buffer che si scambiano, riempiti in loco: questa roba gira su ogni
+// triangolo di ogni mobile che si posa, e allocare qui vorrebbe dire regalare
+// lavoro al garbage collector proprio mentre si costruisce il mondo.
+const _pA = new Float64Array(8 * 3);
+const _pB = new Float64Array(8 * 3);
+
+/** Taglia il poligono in `src` (n vertici) contro il semispazio y ≥ q (sopra) o
+ *  y ≤ q, scrivendo in `dst`. Rende quanti vertici sono rimasti. */
+function _tagliaY(src, n, dst, q, sopra) {
+  let m = 0;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const ax = src[i * 3], ay = src[i * 3 + 1], az = src[i * 3 + 2];
+    const bx = src[j * 3], by = src[j * 3 + 1], bz = src[j * 3 + 2];
+    const dentroA = sopra ? ay >= q : ay <= q;
+    const dentroB = sopra ? by >= q : by <= q;
+    if (dentroA) { dst[m * 3] = ax; dst[m * 3 + 1] = ay; dst[m * 3 + 2] = az; m++; }
+    if (dentroA !== dentroB) {
+      // l'attraversamento: by ≠ ay per costruzione (uno sta dentro e l'altro no)
+      const t = (q - ay) / (by - ay);
+      dst[m * 3] = ax + (bx - ax) * t;
+      dst[m * 3 + 1] = q;
+      dst[m * 3 + 2] = az + (bz - az) * t;
+      m++;
+    }
+  }
+  return m;
+}
+
+/** Ritaglia il triangolo corrente (_va/_vb/_vc) alla fetta [y0,y1]. Lascia il
+ *  risultato in `_pA` e rende il numero di vertici. */
+function ritagliaFetta(y0, y1) {
+  _pA[0] = _va.x; _pA[1] = _va.y; _pA[2] = _va.z;
+  _pA[3] = _vb.x; _pA[4] = _vb.y; _pA[5] = _vb.z;
+  _pA[6] = _vc.x; _pA[7] = _vc.y; _pA[8] = _vc.z;
+  let n = _tagliaY(_pA, 3, _pB, y0, true);
+  if (n < 3) return 0;
+  return _tagliaY(_pB, n, _pA, y1, false);
+}
+
+/** I sei limiti (x, z e le due diagonali) del poligono in `_pA`. */
+function misuraPoligono(n, r) {
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  let s0 = Infinity, s1 = -Infinity, d0 = Infinity, d1 = -Infinity;
+  for (let i = 0; i < n; i++) {
+    const x = _pA[i * 3], z = _pA[i * 3 + 2];
+    if (x < x0) x0 = x; if (x > x1) x1 = x;
+    if (z < z0) z0 = z; if (z > z1) z1 = z;
+    const s = x + z, d = x - z;
+    if (s < s0) s0 = s; if (s > s1) s1 = s;
+    if (d < d0) d0 = d; if (d > d1) d1 = d;
+  }
+  r.x0 = x0; r.x1 = x1; r.z0 = z0; r.z1 = z1;
+  r.s0 = s0; r.s1 = s1; r.d0 = d0; r.d1 = d1;
+}
+
+/** Gli stessi sei limiti presi direttamente dai tre vertici (fetta unica). */
+function misuraTriangolo(r) {
+  r.x0 = Math.min(_va.x, _vb.x, _vc.x); r.x1 = Math.max(_va.x, _vb.x, _vc.x);
+  r.z0 = Math.min(_va.z, _vb.z, _vc.z); r.z1 = Math.max(_va.z, _vb.z, _vc.z);
+  // i limiti diagonali si misurano sui VERTICI, non sul rettangolo: è qui
+  // che l'ottagono impara la forma vera (su un vertice smussato x+z non
+  // arriva mai dove arriverebbe l'angolo del rettangolo)
+  r.s0 = Math.min(_va.x + _va.z, _vb.x + _vb.z, _vc.x + _vc.z);
+  r.s1 = Math.max(_va.x + _va.z, _vb.x + _vb.z, _vc.x + _vc.z);
+  r.d0 = Math.min(_va.x - _va.z, _vb.x - _vb.z, _vc.x - _vc.z);
+  r.d1 = Math.max(_va.x - _va.z, _vb.x - _vb.z, _vc.x - _vc.z);
+}
+
 /** La torta di OTTAGONI che approssima la sagoma di `oggetto`, in coordinate
  *  MONDO: [{x0,x1,y0,y1,z0,z1,s0,s1,d0,d1}] con s = x+z e d = x−z (i limiti
  *  diagonali). Vuota se il modello non ha triangoli. */
@@ -178,18 +260,33 @@ export function scatoleOmbra(oggetto) {
       _va.fromBufferAttribute(pos, a).applyMatrix4(m);
       _vb.fromBufferAttribute(pos, b).applyMatrix4(m);
       _vc.fromBufferAttribute(pos, c).applyMatrix4(m);
-      r.x0 = Math.min(_va.x, _vb.x, _vc.x); r.x1 = Math.max(_va.x, _vb.x, _vc.x);
-      r.z0 = Math.min(_va.z, _vb.z, _vc.z); r.z1 = Math.max(_va.z, _vb.z, _vc.z);
-      // i limiti diagonali si misurano sui VERTICI, non sul rettangolo: è qui
-      // che l'ottagono impara la forma vera (su un vertice smussato x+z non
-      // arriva mai dove arriverebbe l'angolo del rettangolo)
-      r.s0 = Math.min(_va.x + _va.z, _vb.x + _vb.z, _vc.x + _vc.z);
-      r.s1 = Math.max(_va.x + _va.z, _vb.x + _vb.z, _vc.x + _vc.z);
-      r.d0 = Math.min(_va.x - _va.z, _vb.x - _vb.z, _vc.x - _vc.z);
-      r.d1 = Math.max(_va.x - _va.z, _vb.x - _vb.z, _vc.x - _vc.z);
       const fa = Math.floor(Math.min(_va.y, _vb.y, _vc.y) / FETTA);
       const fb = Math.floor(Math.max(_va.y, _vb.y, _vc.y) / FETTA);
-      for (let f = fa; f <= fb; f++) allarga(f, r);
+      if (fa === fb) {
+        // il triangolo sta tutto in una fetta: il suo ingombro È il contributo
+        misuraTriangolo(r);
+        allarga(fa, r);
+        continue;
+      }
+      // ⚠ IL TRIANGOLO CHE ATTRAVERSA PIÙ FETTE VA TAGLIATO, e non farlo era il
+      // difetto che il committente ha visto per primo: «le ombre sono diverse
+      // dall'oggetto, sembra una hitbox mischiata storta». Vero alla lettera.
+      // Dare a OGNI fetta attraversata l'ingombro dell'INTERO triangolo vuol dire
+      // che il fianco di una chioma conica — un triangolo alto che va dal bordo
+      // largo alla punta — allarga anche la fetta della punta fino al bordo
+      // largo. Misurato sui modelli veri prima del taglio: il tronco dell'albero
+      // proiettava una fetta larga 1.06 (un tronco è 0.3) e il palo del lampione
+      // 0.39 (il palo è 0.17). L'ombra non era la sagoma dell'oggetto: era la
+      // sagoma del suo involucro, spalmata su tutta l'altezza.
+      // Qui il triangolo si ritaglia contro i due piani della fetta (Sutherland–
+      // Hodgman, al massimo cinque vertici) e si misura solo il pezzo che ci sta
+      // davvero dentro. Costa una volta sola, quando il mobile si posa.
+      for (let f = fa; f <= fb; f++) {
+        const n2 = ritagliaFetta(f * FETTA, (f + 1) * FETTA);
+        if (n2 < 3) continue;
+        misuraPoligono(n2, r);
+        allarga(f, r);
+      }
     }
   });
   if (!fette.size) return [];
