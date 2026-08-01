@@ -1,75 +1,75 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL } from './config.js?v=msaj51n5';
-import { Rig } from './engine/renderer.js?v=msaj51n5';
-import { Input } from './engine/input.js?v=msaj51n5';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=msaj51n5';
-import { Cadenza } from './engine/cadenza.js?v=msaj51n5';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=msaj51n5';
-import { componiDiagnostica } from './engine/diagnostica.js?v=msaj51n5';
-import { SCENE } from './engine/banco.js?v=msaj51n5';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=msaj51n5';
-import { Mondo } from './world/world.js?v=msaj51n5';
-import { SimAcqua } from './world/acqua.js?v=msaj51n5';
-import { Lobby } from './net/lobby.js?v=msaj51n5';
-import { Segnalatore } from './net/segnalatore.js?v=msaj51n5';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=msaj51n5';
-import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=msaj51n5';
-import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=msaj51n5';
-import { Bolla } from './ui/bolla.js?v=msaj51n5';
-import { Scelta } from './ui/scelta.js?v=msaj51n5';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=msaj51n5';
-import { Zaino } from './ui/zaino.js?v=msaj51n5';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=msaj51n5';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=msaj51n5';
-import { generaMostra } from './world/mostra.js?v=msaj51n5';
-import { generaCollaudo } from './world/collaudo.js?v=msaj51n5';
-import { generaTestLuci } from './world/testLuci.js?v=msaj51n5';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=msaj51n5';
-import { generaTestMacchine } from './world/testMacchine.js?v=msaj51n5';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=msaj51n5';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=msaj51n5';
-import { Meteo } from './fx/meteo.js?v=msaj51n5';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=msaj51n5';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=msaj51n5';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=msaj51n5';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=msaj51n5';
-import { CicloGiorno } from './fx/daynight.js?v=msaj51n5';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare } from './fx/materials.js?v=msaj51n5';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=msaj51n5';
-import { ModalitaAR } from './ar/ar.js?v=msaj51n5';
-import { Nuvole } from './fx/nuvole.js?v=msaj51n5';
-import { SagomaVista } from './fx/sagomaVista.js?v=msaj51n5';
-import { Erba } from './fx/erba.js?v=msaj51n5';
-import { Foglie } from './fx/foglie.js?v=msaj51n5';
-import { SegnaPercorso } from './fx/percorso.js?v=msaj51n5';
-import { ComandiTouch } from './ui/comandi-touch.js?v=msaj51n5';
-import { RiflessoAcqua } from './fx/riflesso.js?v=msaj51n5';
-import { Pioggia } from './fx/pioggia.js?v=msaj51n5';
-import { Particelle } from './fx/particelle.js?v=msaj51n5';
-import { Audio } from './fx/audio.js?v=msaj51n5';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=msaj51n5';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=msaj51n5';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=msaj51n5';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=msaj51n5';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=msaj51n5';
-import { Registro } from './ecs/registro.js?v=msaj51n5';
-import { Orologio, Rng } from './ecs/orologio.js?v=msaj51n5';
-import { Sistemi } from './ecs/sistemi.js?v=msaj51n5';
-import { Agenda } from './ecs/agenda.js?v=msaj51n5';
-import { Gatto } from './player/player.js?v=msaj51n5';
-import { ManoStrumento } from './player/mano.js?v=msaj51n5';
-import { dropDi } from './gioco/drop.js?v=msaj51n5';
-import { Controller } from './player/controller.js?v=msaj51n5';
-import { FURNI, centroide } from './furniture/registry.js?v=msaj51n5';
-import { caricaModelli } from './furniture/loader.js?v=msaj51n5';
-import { Arredo } from './furniture/furniture.js?v=msaj51n5';
-import { HUD } from './ui/hud.js?v=msaj51n5';
-import { MenuDebug } from './ui/debug.js?v=msaj51n5';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=msaj51n5';
-import { ModalitaXR } from './ar/ar-xr.js?v=msaj51n5';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=msaj51n5';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL } from './config.js?v=msakthua';
+import { Rig } from './engine/renderer.js?v=msakthua';
+import { Input } from './engine/input.js?v=msakthua';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=msakthua';
+import { Cadenza } from './engine/cadenza.js?v=msakthua';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=msakthua';
+import { componiDiagnostica } from './engine/diagnostica.js?v=msakthua';
+import { SCENE } from './engine/banco.js?v=msakthua';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=msakthua';
+import { Mondo } from './world/world.js?v=msakthua';
+import { SimAcqua } from './world/acqua.js?v=msakthua';
+import { Lobby } from './net/lobby.js?v=msakthua';
+import { Segnalatore } from './net/segnalatore.js?v=msakthua';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=msakthua';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=msakthua';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=msakthua';
+import { Bolla } from './ui/bolla.js?v=msakthua';
+import { Scelta } from './ui/scelta.js?v=msakthua';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=msakthua';
+import { Zaino } from './ui/zaino.js?v=msakthua';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=msakthua';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=msakthua';
+import { generaMostra } from './world/mostra.js?v=msakthua';
+import { generaCollaudo } from './world/collaudo.js?v=msakthua';
+import { generaTestLuci } from './world/testLuci.js?v=msakthua';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=msakthua';
+import { generaTestMacchine } from './world/testMacchine.js?v=msakthua';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=msakthua';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=msakthua';
+import { Meteo } from './fx/meteo.js?v=msakthua';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=msakthua';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=msakthua';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=msakthua';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=msakthua';
+import { CicloGiorno } from './fx/daynight.js?v=msakthua';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare } from './fx/materials.js?v=msakthua';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=msakthua';
+import { ModalitaAR } from './ar/ar.js?v=msakthua';
+import { Nuvole } from './fx/nuvole.js?v=msakthua';
+import { SagomaVista } from './fx/sagomaVista.js?v=msakthua';
+import { Erba } from './fx/erba.js?v=msakthua';
+import { Foglie } from './fx/foglie.js?v=msakthua';
+import { SegnaPercorso } from './fx/percorso.js?v=msakthua';
+import { ComandiTouch } from './ui/comandi-touch.js?v=msakthua';
+import { RiflessoAcqua } from './fx/riflesso.js?v=msakthua';
+import { Pioggia } from './fx/pioggia.js?v=msakthua';
+import { Particelle } from './fx/particelle.js?v=msakthua';
+import { Audio } from './fx/audio.js?v=msakthua';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=msakthua';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=msakthua';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=msakthua';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=msakthua';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=msakthua';
+import { Registro } from './ecs/registro.js?v=msakthua';
+import { Orologio, Rng } from './ecs/orologio.js?v=msakthua';
+import { Sistemi } from './ecs/sistemi.js?v=msakthua';
+import { Agenda } from './ecs/agenda.js?v=msakthua';
+import { Gatto } from './player/player.js?v=msakthua';
+import { ManoStrumento } from './player/mano.js?v=msakthua';
+import { dropDi } from './gioco/drop.js?v=msakthua';
+import { Controller } from './player/controller.js?v=msakthua';
+import { FURNI, centroide } from './furniture/registry.js?v=msakthua';
+import { caricaModelli } from './furniture/loader.js?v=msakthua';
+import { Arredo } from './furniture/furniture.js?v=msakthua';
+import { HUD } from './ui/hud.js?v=msakthua';
+import { MenuDebug } from './ui/debug.js?v=msakthua';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=msakthua';
+import { ModalitaXR } from './ar/ar-xr.js?v=msakthua';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=msakthua';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -2564,6 +2564,22 @@ function calpestaFoglie() {
 // `mioRuolo`. Sono due cose diverse apposta: l'ospite puo mentire a se stesso
 // quanto vuole, tanto a decidere e' la mappa dell'host.
 const ruoliOspiti = new Map();     // idCanale -> 'spettatore' | 'visitatore' | ...
+
+// ⚠ QUANTO PUO' PARLARE UN OSPITE. Senza un tetto, chiunque sia in stanza puo'
+// mandare eventi e chat a raffica: l'host li applica tutti, ricalcola la luce e
+// il mesher per ognuno, e il gioco di CHI OSPITA si inchioda. Non serve un
+// attaccante — basta un bug in una versione modificata. Il tetto e' generoso per
+// il gioco vero (venti azioni al secondo sono piu' di quante ne faccia un umano)
+// e stretto per una raffica automatica.
+const AZIONI_AL_SEC = 20, CHAT_AL_SEC = 3;
+const _quota = new Map();          // idCanale -> { azioni, chat, finestra }
+function quotaOk(id, tipo) {
+  const ora = performance.now();
+  let q = _quota.get(id);
+  if (!q || ora - q.finestra > 1000) { q = { azioni: 0, chat: 0, finestra: ora }; _quota.set(id, q); }
+  if (tipo === 'chat') return ++q.chat <= CHAT_AL_SEC;
+  return ++q.azioni <= AZIONI_AL_SEC;
+}
 let mioRuolo = 'completo';         // il mio, quando sono ospite a casa d'altri
 const gattiRemoti = new Map();
 const COLORI_GATTI = [[0xf5a742, 0xc07a20], [0xe36bb4, 0xb44a8e], [0x9b6bf0, 0x7648c9], [0x5bd0d0, 0x3aa8a8], [0xd6e26b, 0xb1bd44]];
@@ -2599,7 +2615,18 @@ function chatAggiungi(nome, testo, mio = false) {
   const log = document.getElementById('chatLog');
   const r = document.createElement('div');
   r.className = 'chat-riga' + (mio ? ' mia' : '');
-  r.innerHTML = `<b>${nome}</b> ${testo.replace(/</g, '&lt;')}`;
+  // ⚠ QUI C'ERA UNA FALLA VERA, e valeva la pena trovarla: `nome` arriva DALLA
+  // RETE (m.nome nel gestore della chat) e finiva dentro innerHTML senza essere
+  // ripulito. Bastava entrare in una stanza chiamandosi
+  // `<img src=x onerror=...>` per far eseguire codice nella pagina di chi
+  // ospita — cioe' nel browser di un'altra persona, con dentro il suo mondo, le
+  // sue impostazioni e il suo salvataggio.
+  // La cura NON e' filtrare meglio: e' non costruire HTML da testo altrui.
+  // `textContent` scrive testo e basta, e non c'e' sequenza al mondo che lo
+  // faccia diventare markup.
+  const chi = document.createElement('b');
+  chi.textContent = nome;
+  r.append(chi, ' ', testo);
   log.appendChild(r);
   while (log.children.length > 60) log.removeChild(log.firstChild);
   log.scrollTop = log.scrollHeight;
@@ -2613,7 +2640,12 @@ function aggiornaMembri() {
   const voce = (nome, id = null) => {
     const r = document.createElement('div');
     r.className = 'membro';
-    r.innerHTML = `<span>🐱 ${nome}</span>`;
+    // stessa ragione della chat: il nome viene dalla rete, quindi si scrive come
+    // TESTO. Un elenco di membri e' esattamente il posto dove un nome ostile
+    // vuole finire, perche' lo vedono tutti quelli che sono in stanza.
+    const sp = document.createElement('span');
+    sp.textContent = '🐱 ' + nome;
+    r.appendChild(sp);
     if (id !== null && lobby.ruolo === 'host') {
       const k = document.createElement('button');
       k.textContent = '✕';
@@ -2711,6 +2743,12 @@ lobby.onMessaggio = (m, daId) => {
     arrivoBenvenuto(m);                             // retro-compat: snapshot piccolo in un colpo
   } else if (m.t === 'benvPezzo' && lobby.ruolo === 'ospite' && typeof m.s === 'string') {
     // snapshot A PEZZI (i mondi veri superano il max-message-size SCTP)
+    // ⚠ `m.tot` VIENE DALLA RETE, e finiva dritto in `new Array(m.tot)`: un
+    // messaggio con tot = un miliardo faceva allocare un array da un miliardo di
+    // caselle nel browser di chi riceve. Non serve nemmeno malizia — basta un
+    // messaggio corrotto. Un mondo grande sta in poche centinaia di pezzi:
+    // oltre mille non e' uno snapshot, e si butta.
+    if (!Number.isInteger(m.tot) || m.tot < 1 || m.tot > 1000) return;
     if (!_pezziBenv || _pezziBenv.tot !== m.tot) _pezziBenv = { tot: m.tot, parti: new Array(m.tot).fill(null) };
     if (Number.isInteger(m.i) && m.i >= 0 && m.i < m.tot) _pezziBenv.parti[m.i] = m.s;
     if (_pezziBenv.parti.every((p) => p !== null)) {
@@ -2727,6 +2765,7 @@ lobby.onMessaggio = (m, daId) => {
     // rimbalza agli altri, altrimenti il rifiuto varrebbe solo per il diorama
     // dell'host e non per quello che vedono gli altri ospiti.
     if (lobby.ruolo === 'host') {
+      if (!quotaOk(daId, 'evento')) return;                // raffica: si lascia cadere
       const suo = ruoliOspiti.get(daId) || 'spettatore';   // ignoto = il minimo
       if (!ruoloPuo(suo, m.e)) {
         lobby.inviaA(daId, { t: 'negato', motivo: suo });
@@ -2742,6 +2781,7 @@ lobby.onMessaggio = (m, daId) => {
   } else if (m.t === 'tempo' && lobby.ruolo === 'host' && typeof m.v === 'number') {
     ciclo.t = Math.min(1, Math.max(0, m.v));          // richiesta dell'ospite: l'orologio resta MIO
   } else if (m.t === 'chat' && typeof m.testo === 'string') {
+    if (lobby.ruolo === 'host' && !quotaOk(daId, 'chat')) return;   // niente spam
     const nome = m.nome || nomeDi(m.id !== undefined ? m.id : daId);
     chatAggiungi(nome, m.testo.slice(0, 200));
     if (lobby.ruolo === 'host') lobby.invia({ ...m, nome }, daId);   // relay

@@ -29,8 +29,8 @@
 // ci passa dentro.
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=msaj51n5';
-import { uniformiLuci, GLSL_LUCI_VERTICE } from './materials.js?v=msaj51n5';
+import { CHUNK } from '../world/world.js?v=msakthua';
+import { uniformiLuci, GLSL_LUCI_VERTICE } from './materials.js?v=msakthua';
 
 // I due tipi di mucchio. Le secche sono la regola, il ciliegio la sorpresa.
 const TIPI = [
