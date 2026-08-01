@@ -1,73 +1,75 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL } from './config.js?v=msaimh0d';
-import { Rig } from './engine/renderer.js?v=msaimh0d';
-import { Input } from './engine/input.js?v=msaimh0d';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=msaimh0d';
-import { Cadenza } from './engine/cadenza.js?v=msaimh0d';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=msaimh0d';
-import { componiDiagnostica } from './engine/diagnostica.js?v=msaimh0d';
-import { SCENE } from './engine/banco.js?v=msaimh0d';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=msaimh0d';
-import { Mondo } from './world/world.js?v=msaimh0d';
-import { SimAcqua } from './world/acqua.js?v=msaimh0d';
-import { Lobby } from './net/lobby.js?v=msaimh0d';
-import { Segnalatore } from './net/segnalatore.js?v=msaimh0d';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=msaimh0d';
-import { Bolla } from './ui/bolla.js?v=msaimh0d';
-import { Scelta } from './ui/scelta.js?v=msaimh0d';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=msaimh0d';
-import { Zaino } from './ui/zaino.js?v=msaimh0d';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=msaimh0d';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=msaimh0d';
-import { generaMostra } from './world/mostra.js?v=msaimh0d';
-import { generaCollaudo } from './world/collaudo.js?v=msaimh0d';
-import { generaTestLuci } from './world/testLuci.js?v=msaimh0d';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=msaimh0d';
-import { generaTestMacchine } from './world/testMacchine.js?v=msaimh0d';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=msaimh0d';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=msaimh0d';
-import { Meteo } from './fx/meteo.js?v=msaimh0d';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=msaimh0d';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=msaimh0d';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=msaimh0d';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=msaimh0d';
-import { CicloGiorno } from './fx/daynight.js?v=msaimh0d';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare } from './fx/materials.js?v=msaimh0d';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=msaimh0d';
-import { ModalitaAR } from './ar/ar.js?v=msaimh0d';
-import { Nuvole } from './fx/nuvole.js?v=msaimh0d';
-import { SagomaVista } from './fx/sagomaVista.js?v=msaimh0d';
-import { Erba } from './fx/erba.js?v=msaimh0d';
-import { Foglie } from './fx/foglie.js?v=msaimh0d';
-import { SegnaPercorso } from './fx/percorso.js?v=msaimh0d';
-import { ComandiTouch } from './ui/comandi-touch.js?v=msaimh0d';
-import { RiflessoAcqua } from './fx/riflesso.js?v=msaimh0d';
-import { Pioggia } from './fx/pioggia.js?v=msaimh0d';
-import { Particelle } from './fx/particelle.js?v=msaimh0d';
-import { Audio } from './fx/audio.js?v=msaimh0d';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=msaimh0d';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=msaimh0d';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=msaimh0d';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=msaimh0d';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=msaimh0d';
-import { Registro } from './ecs/registro.js?v=msaimh0d';
-import { Orologio, Rng } from './ecs/orologio.js?v=msaimh0d';
-import { Sistemi } from './ecs/sistemi.js?v=msaimh0d';
-import { Agenda } from './ecs/agenda.js?v=msaimh0d';
-import { Gatto } from './player/player.js?v=msaimh0d';
-import { ManoStrumento } from './player/mano.js?v=msaimh0d';
-import { dropDi } from './gioco/drop.js?v=msaimh0d';
-import { Controller } from './player/controller.js?v=msaimh0d';
-import { FURNI, centroide } from './furniture/registry.js?v=msaimh0d';
-import { caricaModelli } from './furniture/loader.js?v=msaimh0d';
-import { Arredo } from './furniture/furniture.js?v=msaimh0d';
-import { HUD } from './ui/hud.js?v=msaimh0d';
-import { MenuDebug } from './ui/debug.js?v=msaimh0d';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=msaimh0d';
-import { ModalitaXR } from './ar/ar-xr.js?v=msaimh0d';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=msaimh0d';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL } from './config.js?v=msaj51n5';
+import { Rig } from './engine/renderer.js?v=msaj51n5';
+import { Input } from './engine/input.js?v=msaj51n5';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=msaj51n5';
+import { Cadenza } from './engine/cadenza.js?v=msaj51n5';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=msaj51n5';
+import { componiDiagnostica } from './engine/diagnostica.js?v=msaj51n5';
+import { SCENE } from './engine/banco.js?v=msaj51n5';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=msaj51n5';
+import { Mondo } from './world/world.js?v=msaj51n5';
+import { SimAcqua } from './world/acqua.js?v=msaj51n5';
+import { Lobby } from './net/lobby.js?v=msaj51n5';
+import { Segnalatore } from './net/segnalatore.js?v=msaj51n5';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=msaj51n5';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=msaj51n5';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=msaj51n5';
+import { Bolla } from './ui/bolla.js?v=msaj51n5';
+import { Scelta } from './ui/scelta.js?v=msaj51n5';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=msaj51n5';
+import { Zaino } from './ui/zaino.js?v=msaj51n5';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=msaj51n5';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=msaj51n5';
+import { generaMostra } from './world/mostra.js?v=msaj51n5';
+import { generaCollaudo } from './world/collaudo.js?v=msaj51n5';
+import { generaTestLuci } from './world/testLuci.js?v=msaj51n5';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=msaj51n5';
+import { generaTestMacchine } from './world/testMacchine.js?v=msaj51n5';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=msaj51n5';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=msaj51n5';
+import { Meteo } from './fx/meteo.js?v=msaj51n5';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=msaj51n5';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=msaj51n5';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=msaj51n5';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=msaj51n5';
+import { CicloGiorno } from './fx/daynight.js?v=msaj51n5';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare } from './fx/materials.js?v=msaj51n5';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=msaj51n5';
+import { ModalitaAR } from './ar/ar.js?v=msaj51n5';
+import { Nuvole } from './fx/nuvole.js?v=msaj51n5';
+import { SagomaVista } from './fx/sagomaVista.js?v=msaj51n5';
+import { Erba } from './fx/erba.js?v=msaj51n5';
+import { Foglie } from './fx/foglie.js?v=msaj51n5';
+import { SegnaPercorso } from './fx/percorso.js?v=msaj51n5';
+import { ComandiTouch } from './ui/comandi-touch.js?v=msaj51n5';
+import { RiflessoAcqua } from './fx/riflesso.js?v=msaj51n5';
+import { Pioggia } from './fx/pioggia.js?v=msaj51n5';
+import { Particelle } from './fx/particelle.js?v=msaj51n5';
+import { Audio } from './fx/audio.js?v=msaj51n5';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=msaj51n5';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=msaj51n5';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=msaj51n5';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=msaj51n5';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=msaj51n5';
+import { Registro } from './ecs/registro.js?v=msaj51n5';
+import { Orologio, Rng } from './ecs/orologio.js?v=msaj51n5';
+import { Sistemi } from './ecs/sistemi.js?v=msaj51n5';
+import { Agenda } from './ecs/agenda.js?v=msaj51n5';
+import { Gatto } from './player/player.js?v=msaj51n5';
+import { ManoStrumento } from './player/mano.js?v=msaj51n5';
+import { dropDi } from './gioco/drop.js?v=msaj51n5';
+import { Controller } from './player/controller.js?v=msaj51n5';
+import { FURNI, centroide } from './furniture/registry.js?v=msaj51n5';
+import { caricaModelli } from './furniture/loader.js?v=msaj51n5';
+import { Arredo } from './furniture/furniture.js?v=msaj51n5';
+import { HUD } from './ui/hud.js?v=msaj51n5';
+import { MenuDebug } from './ui/debug.js?v=msaj51n5';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=msaj51n5';
+import { ModalitaXR } from './ar/ar-xr.js?v=msaj51n5';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=msaj51n5';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -1893,7 +1895,17 @@ document.getElementById('rcCrea').addEventListener('click', async () => {
     segnalatore.onStato = (t) => hud.toast(t);
     segnalatore.onBiglietto = (b) => chiediTurnAlServer(b);
     segnalatore.onCode = (c) => { box.textContent = c; hud.toast('🏠 Stanza «' + c + '» — dì il codice agli amici'); };
-    await segnalatore.creaStanza(url);
+    // la stanza porta con se' chi e' e SU CHE VERSIONE gira: il controllo di
+    // versione lo fa il server all'ingresso, ma il dato nasce qui
+    const io_ = leggiProfilo();
+    await segnalatore.creaStanza(url, {
+      nome: (document.getElementById('rcNomeStanza')?.value || '').trim() || (io_.nome + ' \u2014 casa'),
+      pubblica: !!document.getElementById('rcPubblica')?.checked,
+      pw: (document.getElementById('rcPassword')?.value || '').trim(),
+      bussare: document.getElementById('rcBussare') ? document.getElementById('rcBussare').checked : true,
+      build: VERSIONE_CODICE,
+      max: 8,
+    });
   } catch (e) { box.textContent = ''; hud.toast('Server non raggiungibile 😿'); console.warn(e); }
 });
 document.getElementById('rcEntra').addEventListener('click', async () => {
@@ -1905,7 +1917,17 @@ document.getElementById('rcEntra').addEventListener('click', async () => {
     segnalatore = new Segnalatore(lobby);
     segnalatore.onStato = (t) => hud.toast(t);
     segnalatore.onBiglietto = (b) => chiediTurnAlServer(b);
-    await segnalatore.entra(url, code);
+    segnalatore.onRuolo = (r) => {
+      mioRuolo = r;
+      const d = RUOLO_DESCR[r];
+      if (d) hud.toast(`${d.icona} Sei ${d.titolo} — ${d.dice}`);
+      aggiornaMembri();
+    };
+    const me = leggiProfilo();
+    await segnalatore.entra(url, code, {
+      nome: me.nome, colore: me.colore, build: VERSIONE_CODICE,
+      pw: (document.getElementById('rcPasswordEntra')?.value || '').trim(),
+    });
     hud.toast('🚪 Entro nella stanza «' + code + '»…');
   } catch (e) { hud.toast('Server non raggiungibile 😿'); console.warn(e); }
 });
@@ -2537,6 +2559,12 @@ function calpestaFoglie() {
   }
 }
 
+// ---- I RUOLI DEGLI OSPITI ---------------------------------------------------
+// L'host tiene qui che permessi ha dato a ognuno; l'ospite tiene il PROPRIO in
+// `mioRuolo`. Sono due cose diverse apposta: l'ospite puo mentire a se stesso
+// quanto vuole, tanto a decidere e' la mappa dell'host.
+const ruoliOspiti = new Map();     // idCanale -> 'spettatore' | 'visitatore' | ...
+let mioRuolo = 'completo';         // il mio, quando sono ospite a casa d'altri
 const gattiRemoti = new Map();
 const COLORI_GATTI = [[0xf5a742, 0xc07a20], [0xe36bb4, 0xb44a8e], [0x9b6bf0, 0x7648c9], [0x5bd0d0, 0x3aa8a8], [0xd6e26b, 0xb1bd44]];
 let mioIdRete = null;             // assegnato dall'host nel benvenuto
@@ -2692,8 +2720,25 @@ lobby.onMessaggio = (m, daId) => {
       catch { hud.toast('Snapshot non valido 😿'); }
     }
   } else if (m.t === 'evento') {
+    // ⚠ QUI SI APPLICANO I PERMESSI, e qui soltanto. Nascondere i pulsanti a chi
+    // non puo usarli e' garbo, non sicurezza: chiunque apra la console del
+    // browser manda questo messaggio a mano. L'host e' l'autorita' — se l'evento
+    // non e' permesso al ruolo di chi l'ha spedito, non si applica E non si
+    // rimbalza agli altri, altrimenti il rifiuto varrebbe solo per il diorama
+    // dell'host e non per quello che vedono gli altri ospiti.
+    if (lobby.ruolo === 'host') {
+      const suo = ruoliOspiti.get(daId) || 'spettatore';   // ignoto = il minimo
+      if (!ruoloPuo(suo, m.e)) {
+        lobby.inviaA(daId, { t: 'negato', motivo: suo });
+        return;
+      }
+    }
     applicaEventoRemoto(m.e);
     if (lobby.ruolo === 'host') lobby.invia(m, daId);          // relay agli altri
+  } else if (m.t === 'negato') {
+    // l'host ha rifiutato qualcosa: si dice PERCHE', se no sembra un bug del gioco
+    const d = RUOLO_DESCR[m.motivo];
+    hud.toast(d ? `${d.icona} Sei ${d.titolo}: ${d.dice}` : 'Non hai il permesso per farlo');
   } else if (m.t === 'tempo' && lobby.ruolo === 'host' && typeof m.v === 'number') {
     ciclo.t = Math.min(1, Math.max(0, m.v));          // richiesta dell'ospite: l'orologio resta MIO
   } else if (m.t === 'chat' && typeof m.testo === 'string') {
