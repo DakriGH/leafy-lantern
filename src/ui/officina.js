@@ -6,9 +6,9 @@
 // Persistenza in localStorage; in P2P le definizioni viaggiano nel benvenuto
 // così l'ospite vede i blocchi custom dell'host.
 
-import { BLOCCHI, registraBlocco, rimuoviBlocco } from '../world/blocks.js?v=msa9n2gf';
+import { BLOCCHI, registraBlocco, rimuoviBlocco } from '../world/blocks.js?v=msaa48qp';
 import { SCHEMI, LATI_BLOCCO, FABBRICHE, valoriDefault, campiVisibili,
-         hexInt, intHex } from '../officina/schemi.js?v=msa9n2gf';
+         hexInt, intHex } from '../officina/schemi.js?v=msaa48qp';
 
 const CHIAVE = 'lantern.officina.v1';
 
