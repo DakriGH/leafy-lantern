@@ -1,77 +1,77 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL } from './config.js?v=msaumltq';
-import { Rig } from './engine/renderer.js?v=msaumltq';
-import { Input } from './engine/input.js?v=msaumltq';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=msaumltq';
-import { Cadenza } from './engine/cadenza.js?v=msaumltq';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=msaumltq';
-import { componiDiagnostica } from './engine/diagnostica.js?v=msaumltq';
-import { SCENE } from './engine/banco.js?v=msaumltq';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=msaumltq';
-import { Mondo } from './world/world.js?v=msaumltq';
-import { SimAcqua } from './world/acqua.js?v=msaumltq';
-import { Lobby } from './net/lobby.js?v=msaumltq';
-import { Segnalatore } from './net/segnalatore.js?v=msaumltq';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=msaumltq';
-import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=msaumltq';
-import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=msaumltq';
-import { PannelloInsieme } from './ui/multiplayer.js?v=msaumltq';
-import { Targhetta } from './ui/targhetta.js?v=msaumltq';
-import { Bolla } from './ui/bolla.js?v=msaumltq';
-import { Scelta } from './ui/scelta.js?v=msaumltq';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=msaumltq';
-import { Zaino } from './ui/zaino.js?v=msaumltq';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=msaumltq';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=msaumltq';
-import { generaMostra } from './world/mostra.js?v=msaumltq';
-import { generaCollaudo } from './world/collaudo.js?v=msaumltq';
-import { generaTestLuci } from './world/testLuci.js?v=msaumltq';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=msaumltq';
-import { generaTestMacchine } from './world/testMacchine.js?v=msaumltq';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=msaumltq';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=msaumltq';
-import { Meteo } from './fx/meteo.js?v=msaumltq';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=msaumltq';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=msaumltq';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=msaumltq';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=msaumltq';
-import { CicloGiorno } from './fx/daynight.js?v=msaumltq';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare } from './fx/materials.js?v=msaumltq';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=msaumltq';
-import { ModalitaAR } from './ar/ar.js?v=msaumltq';
-import { Nuvole } from './fx/nuvole.js?v=msaumltq';
-import { SagomaVista } from './fx/sagomaVista.js?v=msaumltq';
-import { Erba } from './fx/erba.js?v=msaumltq';
-import { Foglie } from './fx/foglie.js?v=msaumltq';
-import { SegnaPercorso } from './fx/percorso.js?v=msaumltq';
-import { ComandiTouch } from './ui/comandi-touch.js?v=msaumltq';
-import { RiflessoAcqua } from './fx/riflesso.js?v=msaumltq';
-import { Pioggia } from './fx/pioggia.js?v=msaumltq';
-import { Particelle } from './fx/particelle.js?v=msaumltq';
-import { Audio } from './fx/audio.js?v=msaumltq';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=msaumltq';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=msaumltq';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=msaumltq';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=msaumltq';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=msaumltq';
-import { Registro } from './ecs/registro.js?v=msaumltq';
-import { Orologio, Rng } from './ecs/orologio.js?v=msaumltq';
-import { Sistemi } from './ecs/sistemi.js?v=msaumltq';
-import { Agenda } from './ecs/agenda.js?v=msaumltq';
-import { Gatto } from './player/player.js?v=msaumltq';
-import { ManoStrumento } from './player/mano.js?v=msaumltq';
-import { dropDi } from './gioco/drop.js?v=msaumltq';
-import { Controller } from './player/controller.js?v=msaumltq';
-import { FURNI, centroide } from './furniture/registry.js?v=msaumltq';
-import { caricaModelli } from './furniture/loader.js?v=msaumltq';
-import { Arredo } from './furniture/furniture.js?v=msaumltq';
-import { HUD } from './ui/hud.js?v=msaumltq';
-import { MenuDebug } from './ui/debug.js?v=msaumltq';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=msaumltq';
-import { ModalitaXR } from './ar/ar-xr.js?v=msaumltq';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=msaumltq';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL } from './config.js?v=msawkv5r';
+import { Rig } from './engine/renderer.js?v=msawkv5r';
+import { Input } from './engine/input.js?v=msawkv5r';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=msawkv5r';
+import { Cadenza } from './engine/cadenza.js?v=msawkv5r';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=msawkv5r';
+import { componiDiagnostica } from './engine/diagnostica.js?v=msawkv5r';
+import { SCENE } from './engine/banco.js?v=msawkv5r';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=msawkv5r';
+import { Mondo } from './world/world.js?v=msawkv5r';
+import { SimAcqua } from './world/acqua.js?v=msawkv5r';
+import { Lobby } from './net/lobby.js?v=msawkv5r';
+import { Segnalatore } from './net/segnalatore.js?v=msawkv5r';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=msawkv5r';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=msawkv5r';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=msawkv5r';
+import { PannelloInsieme } from './ui/multiplayer.js?v=msawkv5r';
+import { Targhetta } from './ui/targhetta.js?v=msawkv5r';
+import { Bolla } from './ui/bolla.js?v=msawkv5r';
+import { Scelta } from './ui/scelta.js?v=msawkv5r';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=msawkv5r';
+import { Zaino } from './ui/zaino.js?v=msawkv5r';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=msawkv5r';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=msawkv5r';
+import { generaMostra } from './world/mostra.js?v=msawkv5r';
+import { generaCollaudo } from './world/collaudo.js?v=msawkv5r';
+import { generaTestLuci } from './world/testLuci.js?v=msawkv5r';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=msawkv5r';
+import { generaTestMacchine } from './world/testMacchine.js?v=msawkv5r';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=msawkv5r';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=msawkv5r';
+import { Meteo } from './fx/meteo.js?v=msawkv5r';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=msawkv5r';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=msawkv5r';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=msawkv5r';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=msawkv5r';
+import { CicloGiorno } from './fx/daynight.js?v=msawkv5r';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare } from './fx/materials.js?v=msawkv5r';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=msawkv5r';
+import { ModalitaAR } from './ar/ar.js?v=msawkv5r';
+import { Nuvole } from './fx/nuvole.js?v=msawkv5r';
+import { SagomaVista } from './fx/sagomaVista.js?v=msawkv5r';
+import { Erba } from './fx/erba.js?v=msawkv5r';
+import { Foglie } from './fx/foglie.js?v=msawkv5r';
+import { SegnaPercorso } from './fx/percorso.js?v=msawkv5r';
+import { ComandiTouch } from './ui/comandi-touch.js?v=msawkv5r';
+import { RiflessoAcqua } from './fx/riflesso.js?v=msawkv5r';
+import { Pioggia } from './fx/pioggia.js?v=msawkv5r';
+import { Particelle } from './fx/particelle.js?v=msawkv5r';
+import { Audio } from './fx/audio.js?v=msawkv5r';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=msawkv5r';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=msawkv5r';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=msawkv5r';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=msawkv5r';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=msawkv5r';
+import { Registro } from './ecs/registro.js?v=msawkv5r';
+import { Orologio, Rng } from './ecs/orologio.js?v=msawkv5r';
+import { Sistemi } from './ecs/sistemi.js?v=msawkv5r';
+import { Agenda } from './ecs/agenda.js?v=msawkv5r';
+import { Gatto } from './player/player.js?v=msawkv5r';
+import { ManoStrumento } from './player/mano.js?v=msawkv5r';
+import { dropDi } from './gioco/drop.js?v=msawkv5r';
+import { Controller } from './player/controller.js?v=msawkv5r';
+import { FURNI, centroide } from './furniture/registry.js?v=msawkv5r';
+import { caricaModelli } from './furniture/loader.js?v=msawkv5r';
+import { Arredo } from './furniture/furniture.js?v=msawkv5r';
+import { HUD } from './ui/hud.js?v=msawkv5r';
+import { MenuDebug } from './ui/debug.js?v=msawkv5r';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=msawkv5r';
+import { ModalitaXR } from './ar/ar-xr.js?v=msawkv5r';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=msawkv5r';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -1940,7 +1940,27 @@ document.getElementById('rcEntra').addEventListener('click', async () => {
 // motivo non e' eleganza, e' che quel modulo mostra testo scritto da altre
 // persone, e tenerlo ignorante di tutto il resto vuol dire che l'unica cosa che
 // puo' fare con quel testo e' mostrarlo.
-const _chiDentro = new Map();      // gid → { nome, colore } di chi e' in stanza
+// ⚠ DUE MONDI, DUE CHIAVI, E VANNO CUCITE. Il server di segnalazione conosce gli
+// ospiti col SUO identificativo (`gid`, tipo «a1b2c3.4»); la lobby P2P li conosce
+// col numero del canale (1, 2, 3…). Sono due cose diverse e non c'e' modo di
+// dedurre l'una dall'altra: nascono in due posti che non si parlano.
+// Finche' non erano cucite, `ruoliOspiti` veniva SCRITTA col gid (quando ammetti)
+// e LETTA col numero di canale (quando arriva un evento) — quindi il filtro dei
+// permessi non trovava mai niente e ripiegava su «spettatore». Falliva dalla
+// parte sicura, per fortuna, ma un ospite promosso a costruttore non poteva
+// costruire e nessuno capiva perche'.
+// Il cucito e' possibile perche' l'host serve un ospite alla volta (vedi
+// Segnalatore._servi): il prossimo canale che si apre e' del prossimo ammesso.
+const _chiDentro = new Map();      // idCanale → { nome, colore } di chi e' in stanza
+const _inArrivo = [];              // { gid, chi, ruolo } ammessi, in attesa del canale
+const _bussanti = new Map();       // gid → { nome, colore } di chi ha bussato e aspetta
+const _gidDelCanale = new Map();   // idCanale → gid del segnalatore (per parlargli dopo)
+// 🛡 CHI STA GUARDANDO SENZA FARSI VEDERE. Un moderatore entrato in incognito
+// e' collegato come tutti — riceve il mondo, le pose, la chat — ma da questa
+// parte non esiste: niente gatto, niente targhetta, niente riga nella lista,
+// niente conteggio, niente annuncio. E le sue pose vengono buttate PRIMA del
+// rimbalzo agli altri, se no comparirebbe nel diorama di chiunque altro.
+const _spie = new Set();           // idCanale dei moderatori invisibili
 let _codiceStanza = null;
 
 function _apriStanzaDaPannello(opz) {
@@ -1955,7 +1975,9 @@ function _apriStanzaDaPannello(opz) {
   })();
 }
 
-function _entraDaPannello(code, pw) {
+let _sonoSpia = false;   // sto guardando una stanza da moderatore, in incognito
+
+function _entraDaPannello(code, pw, spia) {
   const url = urlSegnala(); if (!url) return;
   (async () => {
     try {
@@ -1963,8 +1985,9 @@ function _entraDaPannello(code, pw) {
       segnalatore = new Segnalatore(lobby);
       _agganciaSegnalatore();
       const me = leggiProfilo();
-      await segnalatore.entra(url, code, { nome: me.nome, colore: me.colore, build: VERSIONE_CODICE, pw: pw || '' });
-      hud.toast('🚪 Entro nella stanza «' + code + '»…');
+      _sonoSpia = !!spia;
+      await segnalatore.entra(url, code, { nome: me.nome, colore: me.colore, build: VERSIONE_CODICE, pw: pw || '', spia: spia || '' });
+      hud.toast(spia ? '🛡 Entro a guardare «' + code + '» senza farmi vedere' : '🚪 Entro nella stanza «' + code + '»…');
     } catch (e) { hud.toast('Server non raggiungibile 😿'); console.warn(e); }
   })();
 }
@@ -1989,9 +2012,25 @@ function _agganciaSegnalatore() {
     insieme.aggiorna();
   };
   segnalatore.onAttesa = (msg) => insieme.attesa(msg);
+  segnalatore.onSgombero = (motivo) => {
+    // si esce sul serio: canali P2P giu', segnalazione giu', stanza dimenticata
+    try { lobby.chiudi(); } catch { /* gia' chiusa */ }
+    if (segnalatore) segnalatore.chiudi();
+    _codiceStanza = null;
+    _chiDentro.clear(); ruoliOspiti.clear(); _gidDelCanale.clear(); _inArrivo.length = 0; _spie.clear(); _sonoSpia = false;
+    insieme.avviso(motivo, 'no');
+    insieme.aggiorna();
+    hud.toast('⭘ ' + motivo);
+  };
   segnalatore.onRespinto = (codice, dati) => insieme.respinto(codice, dati);
+  segnalatore.onIngresso = (gid, chi, spia) => {
+    // entra senza bussare: o la stanza e' aperta a tutti, o e' un moderatore.
+    // Se l'host l'ha appena ammesso a mano e' gia' in coda: non si raddoppia.
+    if (_inArrivo.some((a) => a.gid === gid)) return;
+    _inArrivo.push({ gid, chi, ruolo: spia ? 'spettatore' : 'visitatore', spia: !!spia });
+  };
   segnalatore.onBussata = (gid, chi) => {
-    _chiDentro.set(gid, chi);
+    _bussanti.set(gid, chi);
     const g = gattiRemoti.get(gid);
     if (g && g.targhetta) g.targhetta.imposta(chi.nome, chi.colore);
     insieme.bussano(gid, chi);
@@ -2003,8 +2042,8 @@ const insieme = new PannelloInsieme({
   get urlServer() { return ANALITICA_URL; },
   get versione() { return VERSIONE_CODICE; },
   apri: (opz) => _apriStanzaDaPannello(opz),
-  entra: (code, pw) => _entraDaPannello(code, pw),
-  chiudi: () => { if (segnalatore) segnalatore.chiudi(); lobby.chiudi && lobby.chiudi(); _codiceStanza = null; insieme.aggiorna(); },
+  entra: (code, pw, spia) => _entraDaPannello(code, pw, spia),
+  chiudi: () => { if (segnalatore) segnalatore.chiudi(); lobby.chiudi && lobby.chiudi(); _codiceStanza = null; _sonoSpia = false; _spie.clear(); insieme.aggiorna(); },
   // ⚠ «SONO L'HOST» LO DICE IL CODICE, NON LA LOBBY. `lobby.ruolo` diventa
   // 'host' solo quando qualcuno si COLLEGA davvero: fra l'apertura della stanza
   // e il primo ospite resta null, e in quella finestra — che e' proprio quella in
@@ -2015,29 +2054,46 @@ const insieme = new PannelloInsieme({
     dentro: !!lobby.connessa || !!_codiceStanza,
     ruolo: lobby.ruolo || (_codiceStanza ? 'host' : null),
     codice: _codiceStanza,
-    testo: document.getElementById('stanzaStato') ? document.getElementById('stanzaStato').textContent : '',
+    // ⚠ IL TESTO SE LO FA DA SE'. Prima lo leggeva dal vecchio pannello nascosto,
+    // che e' un modo elegante per farsi trovare disallineati: quel nodo lo scrive
+    // `lobby.onStato`, che parla di CANALI, mentre qui interessa la stanza — e
+    // una stanza aperta senza nessuno dentro non e' «da soli», e' «in attesa».
+    testo: (() => {
+      if (!_codiceStanza && !lobby.connessa) return 'da soli';
+      const n = lobby.membri.filter((x) => !_spie.has(x)).length;
+      if (_codiceStanza) return n ? `${n} ospite${n === 1 ? '' : 'i'} da te` : 'stanza aperta, in attesa';
+      return 'a casa di qualcun altro';
+    })(),
   }),
-  membri: () => ((lobby.ruolo === 'host' || _codiceStanza) ? lobby.membri : []).map((gid) => ({
+  membri: () => ((lobby.ruolo === 'host' || _codiceStanza) ? lobby.membri : []).filter((gid) => !_spie.has(gid)).map((gid) => ({
     gid,
     nome: (_chiDentro.get(gid) || {}).nome || ('ospite ' + gid),
     colore: (_chiDentro.get(gid) || {}).colore,
     ruolo: ruoliOspiti.get(gid) || 'visitatore',
   })),
   ammetti: (gid, ruolo) => {
-    ruoliOspiti.set(gid, ruolo);
+    // si mette in CODA: il ruolo verra' scritto sulla chiave giusta appena il
+    // canale P2P di questo ospite si apre (vedi lobby.onStato)
+    _inArrivo.push({ gid, chi: _bussanti.get(gid) || {}, ruolo });
+    _bussanti.delete(gid);
     if (segnalatore && segnalatore.ws) segnalatore.ws.send(JSON.stringify({ t: 'ammetti', gid, ruolo }));
     insieme.aggiorna();
   },
   rifiuta: (gid) => {
-    _chiDentro.delete(gid);
+    _bussanti.delete(gid);
     if (segnalatore && segnalatore.ws) segnalatore.ws.send(JSON.stringify({ t: 'rifiuta', gid }));
   },
-  cambiaRuolo: (gid, ruolo) => {
+  cambiaRuolo: (idCanale, ruolo) => {
+    const gid = idCanale;
     // ⚠ SI SCRIVE PRIMA QUI, e poi lo si dice all'ospite: la mappa dell'host e'
     // quella che decide davvero cosa passa. Se l'avviso si perdesse per strada,
     // il permesso sarebbe comunque gia' cambiato dove conta.
-    ruoliOspiti.set(gid, ruolo);
-    if (segnalatore && segnalatore.ws) segnalatore.ws.send(JSON.stringify({ t: 'ruolo', gid, ruolo }));
+    ruoliOspiti.set(idCanale, ruolo);
+    // ⚠ la mappa dell'host e' quella che DECIDE: si scrive prima li'. L'avviso
+    // all'ospite serve solo a fargli vedere l'etichetta giusta, e se si
+    // perdesse per strada il permesso sarebbe comunque gia' cambiato dove conta.
+    const seg = _gidDelCanale.get(idCanale);
+    if (seg && segnalatore && segnalatore.ws) segnalatore.ws.send(JSON.stringify({ t: 'ruolo', gid: seg, ruolo }));
     insieme.aggiorna();
   },
   esci: (gid) => { lobby.chiudiCanale ? lobby.chiudiCanale(gid) : null; ruoliOspiti.delete(gid); _chiDentro.delete(gid); insieme.aggiorna(); },
@@ -2915,6 +2971,7 @@ lobby.onMessaggio = (m, daId) => {
   } else if (m.t === 'posa' && Array.isArray(m.p) && m.p.length === 3) {
     // chi è? host: il canale da cui arriva · ospite: l'id dentro al messaggio
     const id = lobby.ruolo === 'host' ? daId : (m.id !== undefined ? m.id : 'h');
+    if (lobby.ruolo === 'host' && _spie.has(id)) return;   // il moderatore non ha corpo
     const g = gattoRemotoDi(id);
     if (!g.posa) g.pos.set(m.p[0], m.p[1], m.p[2]);
     g.posa = m;
@@ -2927,7 +2984,7 @@ lobby.onMessaggio = (m, daId) => {
 lobby.onStato = (s, id) => {
   const icone = { creazione: '🟡', 'in-attesa': '🟡', aperta: '🟢', chiusa: '⭘', errore: '🔴' };
   menuDebug.netStato(icone[s] || '⭘');
-  const n = lobby.ruolo === 'host' ? lobby.membri.length : null;
+  const n = lobby.ruolo === 'host' ? lobby.membri.filter((x) => !_spie.has(x)).length : null;
   const pill = {
     creazione: '🟡 preparo…', 'in-attesa': '🟡 in attesa dell’amico…',
     aperta: lobby.ruolo === 'host' ? `🟢 ${n} ospite${n === 1 ? '' : 'i'} da te` : '🟢 a casa dell’amico',
@@ -2935,11 +2992,32 @@ lobby.onStato = (s, id) => {
   };
   document.getElementById('stanzaStato').textContent = pill[s] || '🔴 da soli';
   aggiornaMembri();
+  // ⚠ E ANCHE IL PANNELLO NUOVO. Senza questa riga la lista dei membri restava
+  // com'era al momento in cui l'avevi aperta: l'ospite era collegato, il gioco
+  // lo sapeva, ma a schermo continuava a dire «da soli». Lo stato di una stanza
+  // cambia per conto suo — quando qualcuno arriva o se ne va — quindi chi lo
+  // mostra va svegliato da chi lo sa, non lasciato a indovinare.
+  if (typeof insieme !== 'undefined') insieme.aggiorna();
   if (s === 'aperta') {
     apriFaseStanza(null);
     // chiaro CHI ospita: si gioca sempre nel diorama di chi ha creato la stanza
     if (lobby.ruolo === 'host') {
-      hud.toast(`🟢 ${nomeDi(id)} sta arrivando nel TUO diorama!`);
+      // QUI si cuciono le due chiavi: il canale appena aperto e' del primo
+      // ammesso in coda, perche' l'host ne serve uno alla volta
+      const arrivo = _inArrivo.shift();
+      if (arrivo) {
+        ruoliOspiti.set(id, arrivo.ruolo);          // ORA la chiave e' quella giusta
+        _gidDelCanale.set(id, arrivo.gid);
+        if (arrivo.spia) {
+          _spie.add(id);                            // c'e', ma da qui non si vede
+        } else {
+          _chiDentro.set(id, arrivo.chi);
+          const g = gattiRemoti.get(id);
+          if (g && g.targhetta) g.targhetta.imposta(arrivo.chi.nome, arrivo.chi.colore);
+        }
+      }
+      insieme.aggiorna();
+      if (!_spie.has(id)) hud.toast(`🟢 ${nomeDi(id)} sta arrivando nel TUO diorama!`);
       lobby.inviaGrandeA(id, 'benvenuto', {
         dati: serializza(mondo, arredo, ciclo),
         posa: [controller.pos.x, controller.pos.y, controller.pos.z],
@@ -2955,6 +3033,14 @@ lobby.onStato = (s, id) => {
     // qualcuno se n'è andato (o è arrivato): via i gatti orfani
     if (lobby.ruolo === 'host') {
       for (const gid of [...gattiRemoti.keys()]) if (!lobby.membri.includes(gid)) rimuoviGattoRemoto(gid);
+      // ⚠ E VIA ANCHE QUELLO CHE NON SI VEDE. Di un ospite andato via restavano
+      // il ruolo, il nome e la corrispondenza col segnalatore: roba piccola, ma
+      // questa stanza deve reggere una serata intera con gente che entra ed esce,
+      // e quattro mappe che crescono e non calano mai sono una perdita lenta.
+      for (const gid of [...ruoliOspiti.keys()]) {
+        if (lobby.membri.includes(gid)) continue;
+        ruoliOspiti.delete(gid); _chiDentro.delete(gid); _gidDelCanale.delete(gid); _spie.delete(gid);
+      }
     }
   }
   if (s === 'chiusa' && !lobby.connessa) {
@@ -4793,7 +4879,8 @@ function passo(adesso, frameXR) {
         _ultimoInvioPosa = performance.now();
         const m = { t: 'posa', p: [controller.pos.x, controller.pos.y, controller.pos.z], vx: controller.vel.x, vz: controller.vel.z, aTerra: controller.aTerra, att, uso: _usoContatore };
         if (lobby.ruolo === 'host') { m.tempo = ciclo.t; m.id = 'h'; }
-        lobby.invia(m);
+        if (!_sonoSpia) lobby.invia(m);   // in incognito non si manda dove si sta
+
       }
     }
   }

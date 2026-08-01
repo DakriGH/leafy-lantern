@@ -15,6 +15,7 @@ export class Segnalatore {
     this.onBussata = null;   // (gid, chi) HOST: qualcuno chiede di entrare
     this.onAttesa = null;    // OSPITE: ho bussato, aspetto
     this.onRespinto = null;  // (codice, dati) la porta si e' chiusa, e si dice perche'
+    this.onSgombero = null;  // (motivo) la stanza e' stata chiusa: si esce davvero
     this._occupato = false;
   }
 
@@ -36,7 +37,15 @@ export class Segnalatore {
       let m; try { m = JSON.parse(e.data); } catch { return; }
       if (m.t === 'code') { if (m.biglietto && this.onBiglietto) this.onBiglietto(m.biglietto); if (this.onCode) this.onCode(m.code); }
       else if (m.t === 'bussa') { if (this.onBussata) this.onBussata(m.gid, m.chi || {}); }
-      else if (m.t === 'join') { this._coda.push(m.gid); this._servi(); }
+      else if (m.t === 'join') {
+        // ⚠ SI AVVISA PRIMA DI SERVIRE. Il canale P2P si aprira' fra un istante e
+        // chi ospita deve gia' sapere di chi e': senza questo avviso, un ospite
+        // entrato in una stanza SENZA bussata non finiva in nessuna lista e il
+        // suo ruolo restava ignoto — cioe' «spettatore», cioe' non poteva fare
+        // niente pur avendo scritto «Visitatore» sullo schermo.
+        if (this.onIngresso) this.onIngresso(m.gid, m.chi || {}, !!m.spia);
+        this._coda.push(m.gid); this._servi();
+      }
       else if (m.t === 'answer') { try { await this.lobby.completa(m.sdp); } catch (err) { console.warn(err); } this._occupato = false; this._servi(); }
       else if (m.t === 'left') { /* l'ospite se n'è andato: la lobby lo rileva da sé */ }
     };
@@ -70,7 +79,17 @@ export class Segnalatore {
       } else if (m.t === 'attesa') {
         if (this.onAttesa) this.onAttesa(m.msg);
         if (this.onStato) this.onStato('🚪 ' + (m.msg || 'ho bussato'));
-      } else if (m.t === 'hostgone') { if (this.onStato) this.onStato('🔴 l’host ha chiuso la stanza'); }
+      } else if (m.t === 'hostgone') {
+        // ⚠ NON BASTA DIRLO: bisogna USCIRE. Il collegamento fra due giocatori e'
+        // diretto, quindi il server puo' avvisare ma non puo' tagliarlo — se il
+        // gioco si limita a mostrare un messaggio, la stanza «chiusa» resta
+        // aperta nei fatti e la moderazione non modera niente.
+        if (this.onSgombero) this.onSgombero(m.motivo || 'la stanza e\u2019 stata chiusa');
+        if (this.onStato) this.onStato('🔴 ' + (m.motivo || 'l\u2019host ha chiuso la stanza'));
+      } else if (m.t === 'chiusa') {
+        // arriva a chi OSPITA quando la chiude un moderatore
+        if (this.onSgombero) this.onSgombero(m.motivo || 'la tua stanza e\u2019 stata chiusa');
+      }
     };
     // il codice si normalizza QUI e non solo sul server: chi lo digita ci mette
     // spazi e minuscole, e un rifiuto per una lettera minuscola sarebbe assurdo

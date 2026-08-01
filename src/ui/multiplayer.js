@@ -22,8 +22,8 @@
 // interroga il server ogni cinque secondi è, su cento giocatori, un migliaio di
 // richieste al minuto per disegnare qualcosa che nessuno sta guardando.
 
-import { RUOLI, DESCRIZIONE } from '../net/permessi.js?v=msaumltq';
-import { leggiProfilo, salvaProfilo, COLORI } from '../net/profilo.js?v=msaumltq';
+import { RUOLI, DESCRIZIONE } from '../net/permessi.js?v=msawkv5r';
+import { leggiProfilo, salvaProfilo, COLORI } from '../net/profilo.js?v=msawkv5r';
 
 const OGNI_STANZE_MS = 6000;
 
@@ -259,10 +259,10 @@ export class PannelloInsieme {
     });
   }
 
-  _entra(code, pw) {
+  _entra(code, pw, spia) {
     const c = String(code || '').trim().toUpperCase();
     if (c.length < 3) return;
-    this.api.entra(c, pw !== undefined ? pw : '');
+    this.api.entra(c, pw !== undefined ? pw : '', spia || '');
   }
 
   _manda() {
@@ -491,7 +491,12 @@ export class PannelloInsieme {
         if (st.conPassword) su.append(el('span', 'mp-tag', '🔒'));
         r2.append(su);
         const giu = el('div', 'mp-riga');
-        giu.append(bottone('Entra a guardare', 'mp-b', () => this._entra(st.code, '')));
+        // in incognito: il gettone viaggia col `join` e il server apre la porta
+        // senza avvisare nessuno. Senza gettone sarebbe un ingresso qualsiasi.
+        giu.append(bottone('Entra a guardare', 'mp-b', () => {
+          this._entra(st.code, '', this.gettoneAdmin);
+          this.apri(false);
+        }));
         giu.append(bottone('Chiudi', 'mp-b mp-no', async () => {
           await fetch(`${base}/admin/chiudi?g=${encodeURIComponent(this.gettoneAdmin)}`, {
             method: 'POST', headers: { 'content-type': 'application/json' },
