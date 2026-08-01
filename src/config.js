@@ -51,7 +51,7 @@ export const LUCI_MAX = 24;      // cap luci-sfera per frame
 // dire «ci sono»; il conto si guarda su <quell'URL>/pannello. Vedi
 // src/net/analitica.js per l'elenco esatto di cosa viene mandato: un id casuale
 // di sessione, telefono sì/no, la build e gli fps. Nient'altro.
-export const ANALITICA_URL = '';
+export const ANALITICA_URL = 'https://long-deer-5744.dakrigh.deno.net';
 // ANELLI DI POSTERIZZAZIONE della luce-sfera, ED È L'ASPETTO DEL GIOCO: la
 // caduta è lineare e viene tagliata a 3 bande nette. Non è un'approssimazione
 // da raffinare — è la scelta grafica. Un tentativo l'aveva sostituita con una

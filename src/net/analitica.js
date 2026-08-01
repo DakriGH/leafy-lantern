@@ -27,7 +27,7 @@
 // giocatore), e un ping ogni trenta secondi — il server considera «vivo» chi si
 // è fatto sentire negli ultimi novanta, quindi due ping persi sono tollerati.
 
-import { ANALITICA_URL } from '../config.js?v=msa8w36m';
+import { ANALITICA_URL } from '../config.js?v=msa9f72o';
 
 const OGNI_MS = 30_000;
 
