@@ -329,9 +329,28 @@
   .mp-msg.mio { opacity: .85; }
   .mp-msg b { color: #9fe4ff; }
   .mp-admin { opacity: .92; }
+  .mp-schede { display: flex; gap: 5px; margin-bottom: 10px; }
+  .mp-scheda { flex: 1 1 auto; padding: 7px 6px; border-radius: 10px; font-size: 12px;
+    background: rgba(255,255,255,.06); color: var(--testo); border: 1px solid transparent;
+    font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .mp-scheda.attiva { background: linear-gradient(180deg, rgba(91,209,255,.28), rgba(28,38,62,.6));
+    border-color: rgba(120,230,255,.55); }
+  .mp-avviso { display: none; padding: 9px 11px; border-radius: 10px; margin-bottom: 10px;
+    font-size: 12.5px; line-height: 1.45; border: 1px solid transparent; }
+  .mp-avviso.attesa { background: rgba(255,209,102,.14); border-color: rgba(255,209,102,.45); }
+  .mp-avviso.no { background: rgba(255,120,130,.14); border-color: rgba(255,120,130,.45); }
+  .mp-avviso.si { background: rgba(124,255,176,.14); border-color: rgba(124,255,176,.45); }
   @media (max-width: 640px) { #mp { max-height: calc(100vh - 70px); top: 58px; } }
 
-  #stanza {
+  /* ⚠ IL VECCHIO PANNELLO NON SI APRE PIU'. Non e' stato cancellato dal DOM di
+     proposito: `lobby.onStato` e mezza dozzina di altri punti gli scrivono
+     dentro lo stato della connessione, e strappare quei nodi vorrebbe dire
+     inseguire ogni riferimento con la lente. Resta come intelaiatura muta —
+     il gioco ci scrive, nessuno lo vede — e la porta d'ingresso e' una sola:
+     il tasto 🌐. Averne due, con una che non sapeva mostrare le bussate, e'
+     esattamente il motivo per cui non si riusciva a entrare nelle stanze. */
+  #stanza { display: none !important; }
+  #stanza-vecchio-non-usato {
     top: calc(max(10px, env(safe-area-inset-top)) + 100px); right: 12px;
     width: min(330px, calc(100vw - 24px));
     max-height: calc(100vh - 130px - env(safe-area-inset-bottom));
@@ -1286,7 +1305,6 @@
       </div>
       <div id="hudIcone">
         <button id="btnOpzioni" class="pannello ico" title="Impostazioni">⚙️</button>
-        <button id="btnStanza" class="pannello ico" title="Gioca insieme (P2P)">👥</button>
         <button id="btnInsieme" class="pannello ico" title="Insieme: stanze, permessi, chat">🌐</button>
       </div>
     </div>
@@ -1568,6 +1586,6 @@
   <div id="loading"><div><span class="lanterna">🏮</span><span id="loadingTxt">Un momento…</span></div></div>
 
   <input id="fileImporta" type="file" accept="application/json" style="display:none">
-  <script type="module" src="./src/main.js?v=msalm33s"></script>
+  <script type="module" src="./src/main.js?v=msaumltq"></script>
 </body>
 </html>

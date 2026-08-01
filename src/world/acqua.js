@@ -10,8 +10,8 @@
 // La sim scrive silenziosa (niente eventi): in multiplayer si sincronizzano
 // solo le azioni sulle sorgenti, il resto è deterministico.
 
-import { ACQUA } from '../config.js?v=msalm33s';
-import { defDi, livelloAcqua } from './blocks.js?v=msalm33s';
+import { ACQUA } from '../config.js?v=msaumltq';
+import { defDi, livelloAcqua } from './blocks.js?v=msaumltq';
 
 const LATI = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const chiave = (x, y, z) => x + ',' + y + ',' + z;

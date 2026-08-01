@@ -22,8 +22,8 @@
 // interroga il server ogni cinque secondi è, su cento giocatori, un migliaio di
 // richieste al minuto per disegnare qualcosa che nessuno sta guardando.
 
-import { RUOLI, DESCRIZIONE } from '../net/permessi.js?v=msalm33s';
-import { leggiProfilo, salvaProfilo, COLORI } from '../net/profilo.js?v=msalm33s';
+import { RUOLI, DESCRIZIONE } from '../net/permessi.js?v=msaumltq';
+import { leggiProfilo, salvaProfilo, COLORI } from '../net/profilo.js?v=msaumltq';
 
 const OGNI_STANZE_MS = 6000;
 
@@ -68,16 +68,55 @@ export class PannelloInsieme {
     testa.append(this.stato, bottone('✕', 'mp-x', () => this.apri(false)));
     p.append(testa);
 
-    p.append(this._sezioneProfilo());
-    p.append(this._sezioneMiaStanza());
-    p.append(this._sezioneStanzeAperte());
-    p.append(this._sezioneChat());
-    p.append(this._sezioneAdmin());
+    // ⚠ SCHEDE, NON UNA COLONNA UNICA. La prima versione metteva le cinque
+    // sezioni una sotto l'altra e il committente l'ha bocciata in una parola:
+    // «confusionaria». Aveva ragione, e la ragione e' che quelle cinque cose non
+    // si guardano MAI insieme — o stai cercando dove giocare, o sei in una stanza
+    // e guardi chi c'e', o stai chattando. Metterle tutte a schermo insieme
+    // costringe a leggerle tutte per trovarne una.
+    const barra = el('div', 'mp-schede');
+    this.schede = {};
+    this.pagine = {};
+    const definisci = (chiave, etichetta, contenuto) => {
+      const b = bottone(etichetta, 'mp-scheda', () => this.mostra(chiave));
+      barra.append(b);
+      this.schede[chiave] = b;
+      this.pagine[chiave] = contenuto;
+      contenuto.classList.add('mp-pagina');
+      p.append(contenuto);
+    };
+    p.append(barra);
+    definisci('gioca', '🚪 Entra', this._paginaGioca());
+    definisci('stanza', '🏠 La tua stanza', this._paginaMiaStanza());
+    definisci('chat', '💬 Chat', this._sezioneChat());
+    definisci('admin', '🛡', this._sezioneAdmin());
 
     document.body.appendChild(p);
+    this.mostra('gioca');
   }
 
   _titolo(t) { return el('div', 'mp-tit', t); }
+
+  /** Mostra una scheda sola. */
+  mostra(chiave) {
+    this.scheda = chiave;
+    for (const k of Object.keys(this.pagine)) {
+      this.pagine[k].style.display = k === chiave ? 'block' : 'none';
+      this.schede[k].classList.toggle('attiva', k === chiave);
+    }
+    if (chiave === 'gioca') this._chiediStanze();
+    if (chiave === 'admin' && this.gettoneAdmin) this._adminAggiorna();
+    if (chiave === 'stanza') this.aggiorna();
+  }
+
+  /** «Entra»: il profilo e le stanze dove andare. Le due cose che servono PRIMA. */
+  _paginaGioca() {
+    const d = el('div');
+    d.append(this._sezioneProfilo(), this._sezioneStanzeAperte());
+    return d;
+  }
+
+  _paginaMiaStanza() { return this._sezioneMiaStanza(); }
 
   _sezioneProfilo() {
     const s = el('div', 'mp-sez');
@@ -273,6 +312,44 @@ export class PannelloInsieme {
     this.chatBox.append(r);
     while (this.chatBox.children.length > 80) this.chatBox.removeChild(this.chatBox.firstChild);
     this.chatBox.scrollTop = this.chatBox.scrollHeight;
+  }
+
+  /**
+   * Il momento piu' delicato di tutto il multiplayer: hai chiesto di entrare e
+   * non sta succedendo niente. Senza una riga che lo dica, un'attesa di tre
+   * secondi e un rifiuto silenzioso si assomigliano — e il committente ha
+   * passato una prova intera senza capire perche' non entrava.
+   */
+  attesa(msg) {
+    this.avviso(msg || 'Ho bussato: aspetto che ti facciano entrare…', 'attesa');
+    this.mostra('stanza');
+    this.apri(true);
+  }
+
+  /** Un rifiuto, o un errore che ha un perche'. Si dice, non si tace. */
+  respinto(codice, dati = {}) {
+    const testi = {
+      versione: `Quella stanza gira una versione diversa del gioco (${dati.stanza || '?'}, tu hai ${dati.tuo || '?'}). Ricarica la pagina per aggiornarti.`,
+      password: 'Password sbagliata.',
+      piena: 'La stanza è piena.',
+      rifiutato: 'Non ti hanno fatto entrare.',
+      'gia-dentro': 'Sei già in una stanza: esci prima di entrarne in un\u2019altra.',
+      'gia-aperta': 'Hai già una stanza aperta.',
+    };
+    this.avviso(testi[codice] || dati.msg || 'Non si è potuto entrare.', 'no');
+    this.mostra('stanza');
+    this.apri(true);
+  }
+
+  /** La riga di avviso in cima al pannello: una sola, sempre nello stesso posto. */
+  avviso(testo, tipo) {
+    if (!this.avvisoEl) {
+      this.avvisoEl = el('div', 'mp-avviso');
+      this.el.querySelector('.mp-schede').after(this.avvisoEl);
+    }
+    this.avvisoEl.className = 'mp-avviso ' + (tipo || '');
+    this.avvisoEl.textContent = testo || '';
+    this.avvisoEl.style.display = testo ? 'block' : 'none';
   }
 
   /** Lo stato della stanza: codice, testo in cima, elenco membri coi ruoli. */

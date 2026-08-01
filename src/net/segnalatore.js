@@ -14,6 +14,7 @@ export class Segnalatore {
     this.onRuolo = null;     // (ruolo) che permessi mi ha dato l'host
     this.onBussata = null;   // (gid, chi) HOST: qualcuno chiede di entrare
     this.onAttesa = null;    // OSPITE: ho bussato, aspetto
+    this.onRespinto = null;  // (codice, dati) la porta si e' chiusa, e si dice perche'
     this._occupato = false;
   }
 
@@ -59,7 +60,7 @@ export class Segnalatore {
     const ws = await this._apri(url);
     ws.onmessage = async (e) => {
       let m; try { m = JSON.parse(e.data); } catch { return; }
-      if (m.t === 'err') { if (this.onStato) this.onStato('🔴 ' + (m.msg || 'errore')); }
+      if (m.t === 'err') { if (this.onRespinto) this.onRespinto(m.codice || '', m); if (this.onStato) this.onStato('🔴 ' + (m.msg || 'errore')); }
       else if (m.t === 'joined') { if (m.biglietto && this.onBiglietto) this.onBiglietto(m.biglietto); if (m.ruolo && this.onRuolo) this.onRuolo(m.ruolo); if (this.onStato) this.onStato('🟡 nella stanza, mi collego…'); }
       else if (m.t === 'offer') {
         try { const risp = await this.lobby.rispondi(m.sdp); ws.send(JSON.stringify({ t: 'answer', sdp: risp })); }
