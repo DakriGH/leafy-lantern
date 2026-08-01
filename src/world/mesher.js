@@ -9,13 +9,13 @@
 // Il mondo è a chunk: si ricostruiscono solo i chunk sporchi.
 
 import * as THREE from 'three';
-import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=msa8bsmh';
-import { paletteBlocco, coloreFaccia } from './stagioni.js?v=msa8bsmh';
-import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=msa8bsmh';
-import { tintaPalette } from './motivi.js?v=msa8bsmh';
-import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=msa8bsmh';
-import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel, mondoVelato } from '../fx/materials.js?v=msa8bsmh';
-import { CHUNK } from './world.js?v=msa8bsmh';
+import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=msa8lr4a';
+import { paletteBlocco, coloreFaccia } from './stagioni.js?v=msa8lr4a';
+import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=msa8lr4a';
+import { tintaPalette } from './motivi.js?v=msa8lr4a';
+import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=msa8lr4a';
+import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel, mondoVelato } from '../fx/materials.js?v=msa8lr4a';
+import { CHUNK } from './world.js?v=msa8lr4a';
 
 const U = 1 / 16;                 // 1 pixel in unità mondo
 const COPPIE_SMUSSO = [[0, 1], [0, 2], [1, 2]];

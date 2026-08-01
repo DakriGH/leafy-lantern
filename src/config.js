@@ -44,6 +44,14 @@ export const TEMPO = {
 };
 
 export const LUCI_MAX = 24;      // cap luci-sfera per frame
+
+// ---- DOVE STA IL NOSTRO SERVER DI PRESENZA ---------------------------------
+// Vuoto = SPENTO, e nessun dato lascia il dispositivo di nessuno. Mettici l'URL
+// del signaling deployato (es. 'https://leafy.deno.dev') e il gioco comincia a
+// dire «ci sono»; il conto si guarda su <quell'URL>/pannello. Vedi
+// src/net/analitica.js per l'elenco esatto di cosa viene mandato: un id casuale
+// di sessione, telefono sì/no, la build e gli fps. Nient'altro.
+export const ANALITICA_URL = '';
 // ANELLI DI POSTERIZZAZIONE della luce-sfera, ED È L'ASPETTO DEL GIOCO: la
 // caduta è lineare e viene tagliata a 3 bande nette. Non è un'approssimazione
 // da raffinare — è la scelta grafica. Un tentativo l'aveva sostituita con una
