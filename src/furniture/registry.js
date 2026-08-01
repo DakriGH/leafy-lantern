@@ -9,9 +9,9 @@
 // Generatore (che PRIMA era cablato in main come `sincronizzaPalle`) e lo
 // Scintillatore-demo (nato solo per provare che il gancio regge).
 
-import { creaEntitaPalla, distruggiPalla } from '../gioco/palla.js?v=msa8lr4a';
-import { svegliaMacchina, impostaConfig } from '../gioco/macchine.js?v=msa8lr4a';
-import { defDi } from '../world/blocks.js?v=msa8lr4a';
+import { creaEntitaPalla, distruggiPalla } from '../gioco/palla.js?v=msa8w36m';
+import { svegliaMacchina, impostaConfig } from '../gioco/macchine.js?v=msa8w36m';
+import { defDi } from '../world/blocks.js?v=msa8w36m';
 
 // ---- COMODITÀ PER LE MANOPOLE ---------------------------------------------
 // Tre ritmi con gli stessi tre nomi ovunque: chi impara "🐌 / 🚶 / ⚡" su una

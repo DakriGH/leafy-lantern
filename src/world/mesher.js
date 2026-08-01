@@ -9,13 +9,13 @@
 // Il mondo è a chunk: si ricostruiscono solo i chunk sporchi.
 
 import * as THREE from 'three';
-import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=msa8lr4a';
-import { paletteBlocco, coloreFaccia } from './stagioni.js?v=msa8lr4a';
-import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=msa8lr4a';
-import { tintaPalette } from './motivi.js?v=msa8lr4a';
-import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=msa8lr4a';
-import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel, mondoVelato } from '../fx/materials.js?v=msa8lr4a';
-import { CHUNK } from './world.js?v=msa8lr4a';
+import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=msa8w36m';
+import { paletteBlocco, coloreFaccia } from './stagioni.js?v=msa8w36m';
+import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=msa8w36m';
+import { tintaPalette } from './motivi.js?v=msa8w36m';
+import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=msa8w36m';
+import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel, mondoVelato } from '../fx/materials.js?v=msa8w36m';
+import { CHUNK } from './world.js?v=msa8w36m';
 
 const U = 1 / 16;                 // 1 pixel in unità mondo
 const COPPIE_SMUSSO = [[0, 1], [0, 2], [1, 2]];
@@ -817,9 +817,23 @@ export class Mesher {
     const colonne = [];
     if (mondo) {
       for (const { x, y, z, tipo } of mondo.blocchiDelChunk(kc)) {
+        // ⚠ QUANTO OCCLUDE DAVVERO, non «un blocco intero e amen». La quota qui
+        // dentro È l'ombra portata dal terreno, e finché tutto valeva y+1 un
+        // FIORE proiettava l'ombra di un cubo pieno: il committente l'ha visto
+        // come «i blocchi con mesh diversa fanno ombre sbagliate», ed era
+        // esatto. La forma la conosce già il def, basta chiedergliela.
+        //   · croce  = due quad incrociati (piante, fiori): non occlude niente,
+        //              e mettergli un cubo d'ombra è il difetto in questione;
+        //   · lastra = mezza cella: occlude mezzo blocco;
+        //   · acqua  = trasparente, la luce ci passa;
+        //   · pilastro resta pieno: è sottile ma alto, e a un texel per blocco
+        //     la larghezza non è esprimibile — meglio l'ombra che il buco.
+        const d = defDi(tipo);
+        if (!d || d.acqua || d.forma === 'croce') continue;
+        const alt = y + (d.forma === 'lastra' ? 0.5 : 1);
         const k = (x - cx * CHUNK) * CHUNK + (z - cz * CHUNK);
         const q = quote.get(k);
-        if (q === undefined || y + 1 > q) quote.set(k, y + 1);
+        if (q === undefined || alt > q) quote.set(k, alt);
       }
     }
     for (let ix = 0; ix < CHUNK; ix++) {

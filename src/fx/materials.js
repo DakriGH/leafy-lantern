@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=msa8lr4a';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=msa8lr4a';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=msa8w36m';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=msa8w36m';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -60,9 +60,26 @@ const CIELO_DIM = 256;
 const CIELO_ORIGINE = -128;
 const _cieloDati = new Float32Array(CIELO_DIM * CIELO_DIM).fill(-1000);
 const _cieloTex = new THREE.DataTexture(_cieloDati, CIELO_DIM, CIELO_DIM, THREE.RedFormat, THREE.FloatType);
+// ⚠ NEAREST = SCALETTA. La mappa ha un texel per blocco: campionata a gradini
+// secchi, il bordo dell'ombra cade sempre su un confine di colonna e in diagonale
+// quei confini fanno i denti di sega. Col filtro LINEARE la quota fra due colonne
+// si interpola, il campo diventa continuo e il bordo smette di essere agganciato
+// alla griglia — e non costa niente, il bilineare lo fa la scheda in hardware.
+// Si accende da renderer.js solo se c'è OES_texture_float_linear: senza quella
+// estensione filtrare una texture float è comportamento indefinito (nero, di
+// solito), quindi il ripiego resta Nearest.
 _cieloTex.magFilter = THREE.NearestFilter;
 _cieloTex.minFilter = THREE.NearestFilter;
 _cieloTex.needsUpdate = true;
+
+/** Accende il filtro bilineare sulla heightmap: lo chiama il renderer quando la
+ *  scheda dichiara OES_texture_float_linear. Senza, si resta a Nearest. */
+export function filtroCieloLineare(si) {
+  const f = si ? THREE.LinearFilter : THREE.NearestFilter;
+  if (_cieloTex.magFilter === f) return;
+  _cieloTex.magFilter = f; _cieloTex.minFilter = f;
+  _cieloTex.needsUpdate = true;
+}
 
 /** Scrive le quote di un chunk (mappa "x,z" → quota superficie). */
 export function aggiornaCielo(colonne) {
@@ -1080,8 +1097,17 @@ const GLSL_FRAGMENT = /* glsl */`
     float salita = uSoleDir.y / lenXZ;   // ...fa salire il raggio di tanto
     vec3 p0 = vPosMondo + uSoleDir * ${GSCARTO};
     float occ = 0.0;
+    // ⚠ IL PASSO CRESCE, e sono due guadagni in uno. Vicino al frammento serve
+    // finezza — è lì che il bordo dell'ombra si legge — mentre a dieci blocchi di
+    // distanza un errore di mezzo blocco non lo vede nessuno. Con il passo fisso
+    // a 1 si pagavano tredici letture per arrivare a tredici blocchi; con questa
+    // crescita ci si arriva in NOVE, e con le stesse nove si arriverebbe a
+    // venticinque. Sul Chromebook l'ombra del cielo è la voce più cara di tutto
+    // il frame (+19,7 ms nel banco): un terzo di letture in meno si sente.
+    // Funziona perché il campo è continuo (filtro lineare, vedi sopra): con
+    // Nearest un passo lungo salterebbe colonne intere.
     for (int k = 1; k <= ${SOLE_PASSI_MAX}; k++) {
-      float fk = float(k);
+      float fk = float(k) + 0.085 * float(k) * float(k - 1);
       if (fk > float(uSolePassi)) break;          // la portata, in blocchi
       float y = p0.y + salita * fk;
       // sopra la cima del mondo non c'e' piu' niente da incontrare, e il raggio

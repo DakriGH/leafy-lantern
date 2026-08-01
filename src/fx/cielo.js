@@ -205,7 +205,17 @@ const FRAG = /* glsl */`
         float k = cos(uFase * 6.28318);
         float yy = clamp(uv.y / 0.5, -1.0, 1.0);
         float term = k * sqrt(max(0.0, 1.0 - yy * yy)) * 0.5;
-        float acceso = uFase <= 0.5 ? step(term, uv.x) : step(uv.x, -term);
+        // ⚠ ERA UNO «step», ED ERA L'ULTIMO BORDO NON ANTIALIASATO DEL CIELO.
+        // Il disco e la corona qui sopra si smussano già di un pixel (fwidth); il
+        // terminatore no, e siccome è una linea curva che attraversa un disco
+        // largo pochi pixel, quel bordo faceva la scaletta e la faceva CAMMINARE
+        // muovendo la camera — che è la cosa che si nota, più della scaletta
+        // ferma. Mezzo pixel di sfumatura la toglie e il taglio resta netto:
+        // fwidth misura quanto vale UN PIXEL qui, quindi non è una sfocatura, è
+        // il bordo disegnato alla risoluzione giusta.
+        float bt = fwidth(uv.x) * 0.75;
+        float acceso = uFase <= 0.5 ? smoothstep(term - bt, term + bt, uv.x)
+                                    : smoothstep(-term + bt, -term - bt, uv.x);
         // la parte in ombra NON sparisce: resta un disco appena più chiaro del
         // cielo, come la luna vera illuminata di rimbalzo dalla Terra. Senza,
         // una falce sembra un ritaglio di carta invece di una sfera.

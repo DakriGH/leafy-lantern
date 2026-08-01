@@ -30,9 +30,9 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=msa8lr4a';
-import { CHUNK } from '../world/world.js?v=msa8lr4a';
-import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=msa8lr4a';
+import { paletteBlocco } from '../world/stagioni.js?v=msa8w36m';
+import { CHUNK } from '../world/world.js?v=msa8w36m';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=msa8w36m';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -132,7 +132,9 @@ ${GLSL_LUCI_VERTICE}
     // terreno sotto ce l'ha morbido, e si vede il disaccordo
     float occ = 0.0;
     for (int k = 1; k <= 6; k++) {
-      float fk = float(k) * 1.6;                 // passo più lungo: sei letture bastano
+      // passo che cresce, come nel mondo (fx/materials.js): sei letture coprono
+      // molto più terreno e il campo è continuo, quindi non si saltano colonne
+      float fk = float(k) * 1.4 + 0.16 * float(k) * float(k - 1);
       if (fk > float(uSolePassi)) break;
       float y = p.y + salita * fk;
       if (y >= uVoxCima) break;
