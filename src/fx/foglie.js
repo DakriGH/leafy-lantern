@@ -29,8 +29,8 @@
 // ci passa dentro.
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=ms9odadh';
-import { uniformiLuci, GLSL_LUCI_VERTICE } from './materials.js?v=ms9odadh';
+import { CHUNK } from '../world/world.js?v=msa8bsmh';
+import { uniformiLuci, GLSL_LUCI_VERTICE } from './materials.js?v=msa8bsmh';
 
 // I due tipi di mucchio. Le secche sono la regola, il ciliegio la sorpresa.
 const TIPI = [
@@ -473,7 +473,13 @@ export class Foglie {
     this._t += dt;
     const u = this.materiale.uniforms;
     u.uTempo.value = this._t;
-    u.uMobili.value[0].set(pos.x, pos.y, pos.z, 1.25);
+    // ⚠ IL RAGGIO ERA TROPPO LARGO, e il committente l'ha descritto esatto: «è
+    // strano passare a un blocco di distanza e vedere le foglie muoversi». Il
+    // gatto è largo poco più di mezzo blocco: un raggio di 1.25 blocchi voleva dire
+    // spostare la vegetazione che sta a due terzi di blocco di distanza dal suo fianco, cioè
+    // toccarla senza toccarla. Adesso il bordo dell'influenza sta appena fuori
+    // dal corpo: si muove quello che il gatto sfiora davvero.
+    u.uMobili.value[0].set(pos.x, pos.y, pos.z, 0.66);
     if (ambiente) u.uAmbienteFoglie.value.copy(ambiente);
 
     const ccx = Math.floor(pos.x / CHUNK), ccz = Math.floor(pos.z / CHUNK);

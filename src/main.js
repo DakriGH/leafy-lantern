@@ -1,72 +1,72 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms9odadh';
-import { Rig } from './engine/renderer.js?v=ms9odadh';
-import { Input } from './engine/input.js?v=ms9odadh';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms9odadh';
-import { Cadenza } from './engine/cadenza.js?v=ms9odadh';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms9odadh';
-import { componiDiagnostica } from './engine/diagnostica.js?v=ms9odadh';
-import { SCENE } from './engine/banco.js?v=ms9odadh';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms9odadh';
-import { Mondo } from './world/world.js?v=ms9odadh';
-import { SimAcqua } from './world/acqua.js?v=ms9odadh';
-import { Lobby } from './net/lobby.js?v=ms9odadh';
-import { Segnalatore } from './net/segnalatore.js?v=ms9odadh';
-import { Bolla } from './ui/bolla.js?v=ms9odadh';
-import { Scelta } from './ui/scelta.js?v=ms9odadh';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms9odadh';
-import { Zaino } from './ui/zaino.js?v=ms9odadh';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=ms9odadh';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms9odadh';
-import { generaMostra } from './world/mostra.js?v=ms9odadh';
-import { generaCollaudo } from './world/collaudo.js?v=ms9odadh';
-import { generaTestLuci } from './world/testLuci.js?v=ms9odadh';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=ms9odadh';
-import { generaTestMacchine } from './world/testMacchine.js?v=ms9odadh';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=ms9odadh';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms9odadh';
-import { Meteo } from './fx/meteo.js?v=ms9odadh';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms9odadh';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms9odadh';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=ms9odadh';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms9odadh';
-import { CicloGiorno } from './fx/daynight.js?v=ms9odadh';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente } from './fx/materials.js?v=ms9odadh';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms9odadh';
-import { ModalitaAR } from './ar/ar.js?v=ms9odadh';
-import { Nuvole } from './fx/nuvole.js?v=ms9odadh';
-import { SagomaVista } from './fx/sagomaVista.js?v=ms9odadh';
-import { Erba } from './fx/erba.js?v=ms9odadh';
-import { Foglie } from './fx/foglie.js?v=ms9odadh';
-import { SegnaPercorso } from './fx/percorso.js?v=ms9odadh';
-import { ComandiTouch } from './ui/comandi-touch.js?v=ms9odadh';
-import { RiflessoAcqua } from './fx/riflesso.js?v=ms9odadh';
-import { Pioggia } from './fx/pioggia.js?v=ms9odadh';
-import { Particelle } from './fx/particelle.js?v=ms9odadh';
-import { Audio } from './fx/audio.js?v=ms9odadh';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms9odadh';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms9odadh';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms9odadh';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms9odadh';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms9odadh';
-import { Registro } from './ecs/registro.js?v=ms9odadh';
-import { Orologio, Rng } from './ecs/orologio.js?v=ms9odadh';
-import { Sistemi } from './ecs/sistemi.js?v=ms9odadh';
-import { Agenda } from './ecs/agenda.js?v=ms9odadh';
-import { Gatto } from './player/player.js?v=ms9odadh';
-import { ManoStrumento } from './player/mano.js?v=ms9odadh';
-import { dropDi } from './gioco/drop.js?v=ms9odadh';
-import { Controller } from './player/controller.js?v=ms9odadh';
-import { FURNI, centroide } from './furniture/registry.js?v=ms9odadh';
-import { caricaModelli } from './furniture/loader.js?v=ms9odadh';
-import { Arredo } from './furniture/furniture.js?v=ms9odadh';
-import { HUD } from './ui/hud.js?v=ms9odadh';
-import { MenuDebug } from './ui/debug.js?v=ms9odadh';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms9odadh';
-import { ModalitaXR } from './ar/ar-xr.js?v=ms9odadh';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms9odadh';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=msa8bsmh';
+import { Rig } from './engine/renderer.js?v=msa8bsmh';
+import { Input } from './engine/input.js?v=msa8bsmh';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=msa8bsmh';
+import { Cadenza } from './engine/cadenza.js?v=msa8bsmh';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=msa8bsmh';
+import { componiDiagnostica } from './engine/diagnostica.js?v=msa8bsmh';
+import { SCENE } from './engine/banco.js?v=msa8bsmh';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=msa8bsmh';
+import { Mondo } from './world/world.js?v=msa8bsmh';
+import { SimAcqua } from './world/acqua.js?v=msa8bsmh';
+import { Lobby } from './net/lobby.js?v=msa8bsmh';
+import { Segnalatore } from './net/segnalatore.js?v=msa8bsmh';
+import { Bolla } from './ui/bolla.js?v=msa8bsmh';
+import { Scelta } from './ui/scelta.js?v=msa8bsmh';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=msa8bsmh';
+import { Zaino } from './ui/zaino.js?v=msa8bsmh';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=msa8bsmh';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=msa8bsmh';
+import { generaMostra } from './world/mostra.js?v=msa8bsmh';
+import { generaCollaudo } from './world/collaudo.js?v=msa8bsmh';
+import { generaTestLuci } from './world/testLuci.js?v=msa8bsmh';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=msa8bsmh';
+import { generaTestMacchine } from './world/testMacchine.js?v=msa8bsmh';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=msa8bsmh';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=msa8bsmh';
+import { Meteo } from './fx/meteo.js?v=msa8bsmh';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=msa8bsmh';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=msa8bsmh';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=msa8bsmh';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=msa8bsmh';
+import { CicloGiorno } from './fx/daynight.js?v=msa8bsmh';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente } from './fx/materials.js?v=msa8bsmh';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=msa8bsmh';
+import { ModalitaAR } from './ar/ar.js?v=msa8bsmh';
+import { Nuvole } from './fx/nuvole.js?v=msa8bsmh';
+import { SagomaVista } from './fx/sagomaVista.js?v=msa8bsmh';
+import { Erba } from './fx/erba.js?v=msa8bsmh';
+import { Foglie } from './fx/foglie.js?v=msa8bsmh';
+import { SegnaPercorso } from './fx/percorso.js?v=msa8bsmh';
+import { ComandiTouch } from './ui/comandi-touch.js?v=msa8bsmh';
+import { RiflessoAcqua } from './fx/riflesso.js?v=msa8bsmh';
+import { Pioggia } from './fx/pioggia.js?v=msa8bsmh';
+import { Particelle } from './fx/particelle.js?v=msa8bsmh';
+import { Audio } from './fx/audio.js?v=msa8bsmh';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=msa8bsmh';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=msa8bsmh';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=msa8bsmh';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=msa8bsmh';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=msa8bsmh';
+import { Registro } from './ecs/registro.js?v=msa8bsmh';
+import { Orologio, Rng } from './ecs/orologio.js?v=msa8bsmh';
+import { Sistemi } from './ecs/sistemi.js?v=msa8bsmh';
+import { Agenda } from './ecs/agenda.js?v=msa8bsmh';
+import { Gatto } from './player/player.js?v=msa8bsmh';
+import { ManoStrumento } from './player/mano.js?v=msa8bsmh';
+import { dropDi } from './gioco/drop.js?v=msa8bsmh';
+import { Controller } from './player/controller.js?v=msa8bsmh';
+import { FURNI, centroide } from './furniture/registry.js?v=msa8bsmh';
+import { caricaModelli } from './furniture/loader.js?v=msa8bsmh';
+import { Arredo } from './furniture/furniture.js?v=msa8bsmh';
+import { HUD } from './ui/hud.js?v=msa8bsmh';
+import { MenuDebug } from './ui/debug.js?v=msa8bsmh';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=msa8bsmh';
+import { ModalitaXR } from './ar/ar-xr.js?v=msa8bsmh';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=msa8bsmh';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -3465,8 +3465,17 @@ function _dosaScatole(b) {
   // che ho capito che il limite non era dove pensavo. Ora il taglio è la
   // distanza dell'ultima sagoma ACCETTATA nel giro precedente — un fotogramma di
   // ritardo su un valore che comunque insegue piano.
+  // ⚠⚠ E IL TAGLIO NON PUÒ DIPENDERE DA SÉ STESSO — è il difetto che ha fatto
+  // SFARFALLARE tutte le ombre insieme, ed era un anello chiuso: il taglio
+  // spegneva le sagome lontane → ne passavano meno → il budget non mordeva più →
+  // il taglio si allargava → ne ripassavano di più → il budget mordeva di nuovo.
+  // Un oscillatore, e a schermo un tremolio su OGNI ombra della scena.
+  // Si spezza contando a parte: `nUtili` sono le sagome che passano tutti i
+  // filtri TRANNE il taglio, e siccome la lista è ordinata per distanza quel
+  // conteggio non dipende da dove sta il taglio. Il taglio decide solo QUANTO
+  // scurisce l'ultima fascia, mai chi entra.
   const taglio = _taglioScatole;
-  let dUltima = SCATOLE_PORTATA;
+  let dUltima = SCATOLE_PORTATA, nUtili = 0;
   for (let i = 0; i < _scelte.length; i++) {
     if (_scatole.length >= _scatoleBudget) break;
     const v = _scelte[i];
@@ -3510,6 +3519,8 @@ function _dosaScatole(b) {
       p *= q * q * (3 - 2 * q);
       if (p <= 0.01) continue;
     }
+    // qui la sagoma è «utile»: entrerebbe nel budget anche senza il taglio
+    if (++nUtili === _scatoleBudget) dUltima = d;
     // la coda del budget si spegne sulla DISTANZA: continua nello spazio, quindi
     // continua anche camminando
     if (d > taglio - SCATOLE_CODA) {
@@ -3519,7 +3530,6 @@ function _dosaScatole(b) {
     // il peso viaggia con la scatola: `impostaOmbre` lo mette in uDinMez.w
     v.box.peso = p;
     _scatole.push(v.box);
-    if (_scatole.length >= _scatoleBudget) dUltima = d;   // il budget ha morso QUI
   }
   // il taglio insegue: quando il budget non morde il bersaglio è la portata
   // piena, quando morde è la distanza dell'ultima che ci è stata. Sempre a
@@ -3546,8 +3556,19 @@ function spruzzo(x, y, z, quante) {
 const _schiumaCerchi = [];
 function aggiornaSchiumaAcqua() {
   arredo.radice.traverse((o) => o.layers.enable(LAYER_SCHIUMA));
-  gatto.gruppo.traverse((o) => o.layers.enable(LAYER_SCHIUMA));
-  for (const g of gattiRemoti.values()) g.gatto.gruppo.traverse((o) => o.layers.enable(LAYER_SCHIUMA));
+  // ⚠ LA SCHIUMA DI UN GATTO CHE NON È IN ACQUA NON HA SENSO, e si vedeva: «stando
+  // a bordo riva la schiuma c'è anche se il player non è in acqua». La schiuma è
+  // la SILHOUETTE dall'alto di quel che buca il pelo, quindi finché il gatto sta
+  // nel layer la sua sagoma disegna un anello anche da asciutto, un metro più in
+  // là. Ora entra nel layer solo se i piedi sono sotto il pelo (con un dito di
+  // margine, se no sul bordo l'anello lampeggia a ogni passo).
+  const _pelo = pianoAcquaVicino();
+  const _inAcqua = (g) => _pelo !== null && g.gruppo.position.y <= _pelo + 0.10;
+  gatto.gruppo.traverse((o) => { if (_inAcqua(gatto)) o.layers.enable(LAYER_SCHIUMA); else o.layers.disable(LAYER_SCHIUMA); });
+  for (const g of gattiRemoti.values()) {
+    const dentro = _inAcqua(g.gatto);
+    g.gatto.gruppo.traverse((o) => { if (dentro) o.layers.enable(LAYER_SCHIUMA); else o.layers.disable(LAYER_SCHIUMA); });
+  }
   for (const e of ecs.ognuna('sfera', 'vista')) ecs.leggi(e, 'vista').mesh.layers.enable(LAYER_SCHIUMA);
 
   // UN SOLO ANELLO PER COLONNA. Il mesher segna un impatto per ogni cella che
@@ -3906,7 +3927,6 @@ function aggiornaUIOpzioni() {
   document.getElementById('opzNitido').classList.toggle('attivo', opzioni.nitido !== false);
   document.getElementById('opzSole').classList.toggle('attivo', opzioni.ombraSole !== false);
   document.getElementById('opzTerm').classList.toggle('attivo', opzioni.soleTerm !== false);
-  document.getElementById('opzDin').classList.toggle('attivo', !!opzioni.ombreDin);
   document.getElementById('opzCamera').classList.toggle('attivo', opzioni.cameraFantasma);
   document.getElementById('opzErba').classList.toggle('attivo', opzioni.erba !== false);
   document.getElementById('opzForo').classList.toggle('attivo', opzioni.foro !== false);
@@ -4087,13 +4107,38 @@ document.getElementById('opzTerm').addEventListener('click', () => { opzioni.sol
 // le ombre dinamiche pretendono la qualità in cima: accenderle con la qualità
 // auto attiva vorrebbe dire vederle sparire al primo calo, che si legge come un
 // bug. Quindi accenderle passa in manuale, esattamente come fa il tilt-shift.
-document.getElementById('opzDin').addEventListener('click', () => { opzioni.ombreDin = !opzioni.ombreDin; if (opzioni.ombreDin) opzioni.autoQ = false; applicaOpzioni(); });
 document.getElementById('opzPioggia').addEventListener('click', () => { meteo.manuale(); pioggia.imposta(!pioggia.attiva); aggiornaUIOpzioni(); });
 document.getElementById('opzMeteo').addEventListener('click', () => {
   opzioni.meteoAuto = !opzioni.meteoAuto;
   meteo.attivaAuto(opzioni.meteoAuto);
   applicaOpzioni();
 });
+// ---- LO SCHERMO NON SI SPEGNE MENTRE SI GIOCA -------------------------------
+//
+// Richiesta del committente per poter provare il gioco dal telefono senza che il
+// display si spenga ogni mezzo minuto. È la Screen Wake Lock API: si chiede al
+// sistema di tenere acceso lo schermo finché la pagina è VISIBILE, e il sistema
+// la revoca da solo appena si cambia scheda o si blocca il telefono — quindi non
+// c'è modo che resti appesa e svuoti la batteria a gioco chiuso.
+//
+// SI RICHIEDE ANCHE AL RIENTRO, e non è un dettaglio: una revoca automatica non
+// si annulla da sola, quindi senza il gancio su `visibilitychange` basterebbe
+// guardare una notifica per perdere il blocco per il resto della sessione.
+// Dove l'API non c'è (Safari vecchi, desktop datati) non succede niente: è un
+// `if`, non una dipendenza.
+let _schermoSveglio = null;
+async function tieniSchermoAcceso() {
+  if (!('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+  try {
+    _schermoSveglio = await navigator.wakeLock.request('screen');
+    _schermoSveglio.addEventListener('release', () => { _schermoSveglio = null; });
+  } catch { _schermoSveglio = null; }   // batteria scarica o permesso negato: pazienza
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !_schermoSveglio) tieniSchermoAcceso();
+});
+tieniSchermoAcceso();
+
 addEventListener('resize', () => riflesso.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight), rig.renderer.getPixelRatio()));
 
 /** Il piano d'acqua più vicino al fuoco della camera (per il riflesso). */

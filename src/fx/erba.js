@@ -30,9 +30,9 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms9odadh';
-import { CHUNK } from '../world/world.js?v=ms9odadh';
-import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=ms9odadh';
+import { paletteBlocco } from '../world/stagioni.js?v=msa8bsmh';
+import { CHUNK } from '../world/world.js?v=msa8bsmh';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=msa8bsmh';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -214,8 +214,8 @@ ${GLSL_LUCI_VERTICE}
     // più) e si congeda DA SOLA prima che tocchi al chunk. Le soglie non sono a
     // occhio: un chunk può cambiare classe solo quando dista almeno un chunk
     // pieno, quindi una lamella che sparirà al passaggio 1→2 sta comunque a
-    // sedici blocchi o più — spegnerla entro sedici la rende invisibile PRIMA che
-    // il diradamento la tolga. Stesso conto per 2→4 a quarantotto.
+    // TRENTADUE blocchi o più — spegnerla entro trentadue la rende invisibile PRIMA
+    // che il diradamento la tolga. Stesso conto per 2→4 a sessantaquattro.
     float v2 = clamp((dalPg - uLiv.x) / max(uLiv.y - uLiv.x, 0.001), 0.0, 1.0);
     float v1 = clamp((dalPg - uLiv.z) / max(uLiv.w - uLiv.z, 0.001), 0.0, 1.0);
     float viaLiv = step(0.5, iPos.w) * mix(v1, v2, step(1.5, iPos.w));
@@ -263,7 +263,13 @@ ${GLSL_LUCI_VERTICE}
     // La spinta è PICCOLA e cresce piano — la prima versione spostava la lamella
     // di un blocco e mezzo, cioè tre volte la sua altezza, e il ciuffo si
     // strappava di lato invece di piegarsi. Era «tutta distorta», ed era vero.
-    vec3 base = iPos.xyz;
+    // ⚠ DUE CENTIMETRI SOTTO IL PELO DEL BLOCCO, e non è pignoleria: con la base
+    // ESATTAMENTE a quota iPos.y il quad della lamella e la faccia superiore del
+    // blocco sono COMPLANARI, e due superfici complanari in z-buffer litigano —
+    // è la «lineetta nera/bianca» che compare e sparisce alla base dei ciuffi
+    // muovendo la camera. L'affondamento sta qui e non nel dato perché iPos.y è
+    // la quota VERA del ciuffo: la usano l'ombra, le lampade e i test.
+    vec3 base = iPos.xyz - vec3(0.0, 0.02, 0.0);
     vec2 spostaMob = vec2(0.0);
     for (int i = 0; i < 4; i++) {
       float r = uMobili[i].w;
@@ -366,9 +372,19 @@ const GLSL_FRAGMENT = /* glsl */`
 // ANELLI DI DIRADAMENTO, in chunk di distanza: quanto spesso si semina una
 // cella. Vicino tutte, poi una ogni due, poi una ogni quattro. È così che il
 // prato arriva all'orizzonte senza che il conto delle lamelle esploda.
+// ⚠ ERANO 1 / 3, e il congedo per livello cadeva TROPPO VICINO — a sedici
+// blocchi il prato perdeva quindici lamelle su sedici, e siccome il congedo le
+// porta al colore piatto del blocco prima di toglierle, attorno al giocatore si
+// vedeva sia il diradamento sia la perdita della sfumatura. Le soglie non le
+// posso spostare da sole: sono legate al punto in cui un chunk cambia classe,
+// che è il minimo a cui il diradamento può togliere qualcosa. Quindi si allarga
+// la classe: passo pieno fino a DUE chunk (confine a 32 blocchi) e passo 2 fino
+// a QUATTRO (confine a 64). Costa più lamelle nell'anello vicino — che è quello
+// che si guarda — e il tetto di `max` taglia comunque le più lontane, che sono
+// già in dissolvenza.
 function passoPerDistanza(dc) {
-  if (dc <= 1) return 1;
-  if (dc <= 3) return 2;
+  if (dc <= 2) return 1;
+  if (dc <= 4) return 2;
   return 4;
 }
 
@@ -432,7 +448,7 @@ export class Erba {
         uSfuma: { value: new THREE.Vector2(30, 52) },
         uCentro: { value: new THREE.Vector3() },
         uBordo: { value: new THREE.Vector2(40, 64) },
-        uLiv: { value: new THREE.Vector4(10, 16, 38, 48) },
+        uLiv: { value: new THREE.Vector4(22, 32, 48, 64) },
         // per RIFERIMENTO: restano agganciate al ciclo del giorno da sole
         ...uniformiOmbraSole(),
         ...uniformiScatole(),
@@ -586,7 +602,7 @@ export class Erba {
         // è la cosa che si nota per prima. Qui la lamella può stare ovunque
         // nella cella, e il reticolo sparisce.
         sPos[j] = x + 0.5 + (h1 - 0.5) * (0.42 + tipo.apri);
-        sPos[j + 1] = y;
+sPos[j + 1] = y;
         sPos[j + 2] = z + 0.5 + (h2 - 0.5) * (0.42 + tipo.apri);
         // IL LIVELLO DI DIRADAMENTO, e non l'istante di nascita: la nascita non
         // si anima piu' (il committente l'aveva bocciata) e quello slot serviva
@@ -658,7 +674,13 @@ export class Erba {
     const raffica = 0.30 + 0.75 * this._forza;
     u.uVento.value.set(Math.cos(a), Math.sin(a), fondo, raffica);
     // il giocatore è sempre il primo; gli altri li mette main (gatti, palle)
-    u.uMobili.value[0].set(pos.x, pos.y, pos.z, 1.1);
+    // ⚠ IL RAGGIO ERA TROPPO LARGO, e il committente l'ha descritto esatto: «è
+    // strano passare a un blocco di distanza e vedere le foglie muoversi». Il
+    // gatto è largo poco più di mezzo blocco: un raggio di 1.1 blocchi voleva dire
+    // spostare la vegetazione che sta a mezzo blocco di distanza dal suo fianco, cioè
+    // toccarla senza toccarla. Adesso il bordo dell'influenza sta appena fuori
+    // dal corpo: si muove quello che il gatto sfiora davvero.
+    u.uMobili.value[0].set(pos.x, pos.y, pos.z, 0.60);
     if (ambiente) u.uAmbienteErba.value.copy(ambiente);
     // IL CONGEDO SI MISURA DALLA CAMERA, non dal giocatore. L'avevo scritto al
     // contrario e a schermo il prato spariva del tutto: in vista a diorama la

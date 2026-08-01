@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=ms9odadh';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=ms9odadh';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=msa8bsmh';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=msa8bsmh';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -507,22 +507,22 @@ export function impostaOmbre(scatole, corpi, dinamiche = false) {
   // riempie chi resta fuori non proietta, e l'ombra che non può mancare è quella
   // del gatto che stai muovendo — un albero in meno in fondo allo schermo non se
   // lo fila nessuno, il proprio personaggio senza ombra sì.
-  if (dinamiche) {
-    for (const e of corpi) {
-      const h = e.h || (e.r * 2);
-      // `y0` quando c'è: il cono e la scatola non ancorano allo stesso punto
-      const base = e.y0 !== undefined ? e.y0 : e.y;
-      metti(e.x, base + h * 0.5, e.z, e.r, h * 0.5, e.r, null);
-    }
-    uniformi.uPgNum.value = 0;
-  }
+  // ⚠ I CORPI NON DIVENTANO PIÙ SCATOLE, e il committente ha ragione due volte:
+  // «non capisco perché hai dato l'ombra dinamica anche al player quando non ne
+  // ha bisogno, ed è anche sbagliata quella attuale». È sbagliata alla lettera:
+  // un gatto è una figura tondeggiante, la sua scatola è un parallelepipedo, e
+  // l'ombra che ne usciva era un rettangolo inclinato che con la sagoma del
+  // gatto non c'entra niente. E non serve: il disco sotto i piedi (uPgPos) dice
+  // «sono appoggiato qui», che è tutto quello che l'ombra di un personaggio deve
+  // dire in un diorama. `dinamiche` resta nella firma per non toccare i
+  // chiamanti, ma non fa più niente.
 
   for (const s of scatole) {
     metti((s.x0 + s.x1) * 0.5, (s.y0 + s.y1) * 0.5, (s.z0 + s.z1) * 0.5,
       (s.x1 - s.x0) * 0.5, (s.y1 - s.y0) * 0.5, (s.z1 - s.z0) * 0.5, s, s.peso ?? 1);
   }
 
-  if (!dinamiche) {
+  {
     const m = Math.min(corpi.length, 6);
     for (let i = 0; i < m; i++) {
       const e = corpi[i];
@@ -2031,6 +2031,13 @@ export const GLSL_SCATOLE_VERTICE = /* glsl */`
   /** 0 = in piena ombra di una sagoma, 1 = niente sopra. Stessa prova a fette
    *  del mondo (fx/materials.js, ombraScatole), su meno scatole. */
   float sagomeAlSole(vec3 P) {
+    // ⚠ SE L'OMBRA DEL SOLE È SPENTA, QUI NON SI ENTRA. Il mondo lo faceva già
+    // (ombraCielo esce alla prima riga quando uSoleForza è zero) ma questo blocco
+    // no, e lo includono erba, foglie e particelle: con l'interruttore delle
+    // Impostazioni spento il terreno tornava piatto e la vegetazione restava
+    // scura sotto gli alberi. Un'ombra che sopravvive al proprio interruttore è
+    // un difetto, e il committente l'ha vista subito.
+    if (uSoleForza <= 0.0 || uSoleDir.y <= 0.02) return 1.0;
     if (uQNum == 0) return 1.0;
     float forte = 0.0;
     vec3 seg = vec3(uSoleDir.x >= 0.0 ? 1.0 : -1.0, uSoleDir.y >= 0.0 ? 1.0 : -1.0, uSoleDir.z >= 0.0 ? 1.0 : -1.0);
