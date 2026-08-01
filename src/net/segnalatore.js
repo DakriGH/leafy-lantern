@@ -10,6 +10,7 @@ export class Segnalatore {
     this.onCode = null;      // (code) l'host riceve il codice stanza
     this.onStato = null;     // (testo)
     this._coda = [];         // gid degli ospiti da servire, uno alla volta
+    this.onBiglietto = null; // (biglietto) il permesso per chiedere il TURN
     this._occupato = false;
   }
 
@@ -29,7 +30,7 @@ export class Segnalatore {
     const ws = await this._apri(url);
     ws.onmessage = async (e) => {
       let m; try { m = JSON.parse(e.data); } catch { return; }
-      if (m.t === 'code') { if (this.onCode) this.onCode(m.code); }
+      if (m.t === 'code') { if (m.biglietto && this.onBiglietto) this.onBiglietto(m.biglietto); if (this.onCode) this.onCode(m.code); }
       else if (m.t === 'join') { this._coda.push(m.gid); this._servi(); }
       else if (m.t === 'answer') { try { await this.lobby.completa(m.sdp); } catch (err) { console.warn(err); } this._occupato = false; this._servi(); }
       else if (m.t === 'left') { /* l'ospite se n'è andato: la lobby lo rileva da sé */ }
@@ -53,7 +54,7 @@ export class Segnalatore {
     ws.onmessage = async (e) => {
       let m; try { m = JSON.parse(e.data); } catch { return; }
       if (m.t === 'err') { if (this.onStato) this.onStato('🔴 ' + (m.msg || 'errore')); }
-      else if (m.t === 'joined') { if (this.onStato) this.onStato('🟡 nella stanza, mi collego…'); }
+      else if (m.t === 'joined') { if (m.biglietto && this.onBiglietto) this.onBiglietto(m.biglietto); if (this.onStato) this.onStato('🟡 nella stanza, mi collego…'); }
       else if (m.t === 'offer') {
         try { const risp = await this.lobby.rispondi(m.sdp); ws.send(JSON.stringify({ t: 'answer', sdp: risp })); }
         catch (err) { console.warn(err); }

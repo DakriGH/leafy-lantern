@@ -1,73 +1,73 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL } from './config.js?v=msaa48qp';
-import { Rig } from './engine/renderer.js?v=msaa48qp';
-import { Input } from './engine/input.js?v=msaa48qp';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=msaa48qp';
-import { Cadenza } from './engine/cadenza.js?v=msaa48qp';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=msaa48qp';
-import { componiDiagnostica } from './engine/diagnostica.js?v=msaa48qp';
-import { SCENE } from './engine/banco.js?v=msaa48qp';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=msaa48qp';
-import { Mondo } from './world/world.js?v=msaa48qp';
-import { SimAcqua } from './world/acqua.js?v=msaa48qp';
-import { Lobby } from './net/lobby.js?v=msaa48qp';
-import { Segnalatore } from './net/segnalatore.js?v=msaa48qp';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=msaa48qp';
-import { Bolla } from './ui/bolla.js?v=msaa48qp';
-import { Scelta } from './ui/scelta.js?v=msaa48qp';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=msaa48qp';
-import { Zaino } from './ui/zaino.js?v=msaa48qp';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=msaa48qp';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=msaa48qp';
-import { generaMostra } from './world/mostra.js?v=msaa48qp';
-import { generaCollaudo } from './world/collaudo.js?v=msaa48qp';
-import { generaTestLuci } from './world/testLuci.js?v=msaa48qp';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=msaa48qp';
-import { generaTestMacchine } from './world/testMacchine.js?v=msaa48qp';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=msaa48qp';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=msaa48qp';
-import { Meteo } from './fx/meteo.js?v=msaa48qp';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=msaa48qp';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=msaa48qp';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=msaa48qp';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=msaa48qp';
-import { CicloGiorno } from './fx/daynight.js?v=msaa48qp';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare } from './fx/materials.js?v=msaa48qp';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=msaa48qp';
-import { ModalitaAR } from './ar/ar.js?v=msaa48qp';
-import { Nuvole } from './fx/nuvole.js?v=msaa48qp';
-import { SagomaVista } from './fx/sagomaVista.js?v=msaa48qp';
-import { Erba } from './fx/erba.js?v=msaa48qp';
-import { Foglie } from './fx/foglie.js?v=msaa48qp';
-import { SegnaPercorso } from './fx/percorso.js?v=msaa48qp';
-import { ComandiTouch } from './ui/comandi-touch.js?v=msaa48qp';
-import { RiflessoAcqua } from './fx/riflesso.js?v=msaa48qp';
-import { Pioggia } from './fx/pioggia.js?v=msaa48qp';
-import { Particelle } from './fx/particelle.js?v=msaa48qp';
-import { Audio } from './fx/audio.js?v=msaa48qp';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=msaa48qp';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=msaa48qp';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=msaa48qp';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=msaa48qp';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=msaa48qp';
-import { Registro } from './ecs/registro.js?v=msaa48qp';
-import { Orologio, Rng } from './ecs/orologio.js?v=msaa48qp';
-import { Sistemi } from './ecs/sistemi.js?v=msaa48qp';
-import { Agenda } from './ecs/agenda.js?v=msaa48qp';
-import { Gatto } from './player/player.js?v=msaa48qp';
-import { ManoStrumento } from './player/mano.js?v=msaa48qp';
-import { dropDi } from './gioco/drop.js?v=msaa48qp';
-import { Controller } from './player/controller.js?v=msaa48qp';
-import { FURNI, centroide } from './furniture/registry.js?v=msaa48qp';
-import { caricaModelli } from './furniture/loader.js?v=msaa48qp';
-import { Arredo } from './furniture/furniture.js?v=msaa48qp';
-import { HUD } from './ui/hud.js?v=msaa48qp';
-import { MenuDebug } from './ui/debug.js?v=msaa48qp';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=msaa48qp';
-import { ModalitaXR } from './ar/ar-xr.js?v=msaa48qp';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=msaa48qp';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL } from './config.js?v=msaimh0d';
+import { Rig } from './engine/renderer.js?v=msaimh0d';
+import { Input } from './engine/input.js?v=msaimh0d';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=msaimh0d';
+import { Cadenza } from './engine/cadenza.js?v=msaimh0d';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=msaimh0d';
+import { componiDiagnostica } from './engine/diagnostica.js?v=msaimh0d';
+import { SCENE } from './engine/banco.js?v=msaimh0d';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=msaimh0d';
+import { Mondo } from './world/world.js?v=msaimh0d';
+import { SimAcqua } from './world/acqua.js?v=msaimh0d';
+import { Lobby } from './net/lobby.js?v=msaimh0d';
+import { Segnalatore } from './net/segnalatore.js?v=msaimh0d';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=msaimh0d';
+import { Bolla } from './ui/bolla.js?v=msaimh0d';
+import { Scelta } from './ui/scelta.js?v=msaimh0d';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=msaimh0d';
+import { Zaino } from './ui/zaino.js?v=msaimh0d';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=msaimh0d';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=msaimh0d';
+import { generaMostra } from './world/mostra.js?v=msaimh0d';
+import { generaCollaudo } from './world/collaudo.js?v=msaimh0d';
+import { generaTestLuci } from './world/testLuci.js?v=msaimh0d';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=msaimh0d';
+import { generaTestMacchine } from './world/testMacchine.js?v=msaimh0d';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=msaimh0d';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=msaimh0d';
+import { Meteo } from './fx/meteo.js?v=msaimh0d';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=msaimh0d';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=msaimh0d';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=msaimh0d';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=msaimh0d';
+import { CicloGiorno } from './fx/daynight.js?v=msaimh0d';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare } from './fx/materials.js?v=msaimh0d';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=msaimh0d';
+import { ModalitaAR } from './ar/ar.js?v=msaimh0d';
+import { Nuvole } from './fx/nuvole.js?v=msaimh0d';
+import { SagomaVista } from './fx/sagomaVista.js?v=msaimh0d';
+import { Erba } from './fx/erba.js?v=msaimh0d';
+import { Foglie } from './fx/foglie.js?v=msaimh0d';
+import { SegnaPercorso } from './fx/percorso.js?v=msaimh0d';
+import { ComandiTouch } from './ui/comandi-touch.js?v=msaimh0d';
+import { RiflessoAcqua } from './fx/riflesso.js?v=msaimh0d';
+import { Pioggia } from './fx/pioggia.js?v=msaimh0d';
+import { Particelle } from './fx/particelle.js?v=msaimh0d';
+import { Audio } from './fx/audio.js?v=msaimh0d';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=msaimh0d';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=msaimh0d';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=msaimh0d';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=msaimh0d';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=msaimh0d';
+import { Registro } from './ecs/registro.js?v=msaimh0d';
+import { Orologio, Rng } from './ecs/orologio.js?v=msaimh0d';
+import { Sistemi } from './ecs/sistemi.js?v=msaimh0d';
+import { Agenda } from './ecs/agenda.js?v=msaimh0d';
+import { Gatto } from './player/player.js?v=msaimh0d';
+import { ManoStrumento } from './player/mano.js?v=msaimh0d';
+import { dropDi } from './gioco/drop.js?v=msaimh0d';
+import { Controller } from './player/controller.js?v=msaimh0d';
+import { FURNI, centroide } from './furniture/registry.js?v=msaimh0d';
+import { caricaModelli } from './furniture/loader.js?v=msaimh0d';
+import { Arredo } from './furniture/furniture.js?v=msaimh0d';
+import { HUD } from './ui/hud.js?v=msaimh0d';
+import { MenuDebug } from './ui/debug.js?v=msaimh0d';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=msaimh0d';
+import { ModalitaXR } from './ar/ar-xr.js?v=msaimh0d';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=msaimh0d';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -1830,10 +1830,10 @@ caricaTurn();
 // arriva. Se il server non risponde restano gli STUN, che bastano in tutti i
 // casi in cui la strada diretta esiste — cioe' la maggior parte delle reti di
 // casa. Le credenziali incollate a mano, se ci sono, hanno la precedenza.
-async function chiediTurnAlServer() {
-  if (!ANALITICA_URL || Lobby.turn.length) return;
+async function chiediTurnAlServer(biglietto) {
+  if (!ANALITICA_URL || !biglietto) return;
   try {
-    const r = await fetch(ANALITICA_URL.replace(/\/+$/, '') + '/turn');
+    const r = await fetch(ANALITICA_URL.replace(/\/+$/, '') + '/turn?b=' + encodeURIComponent(biglietto));
     if (!r.ok) return;
     const j = await r.json();
     if (!j || !Array.isArray(j.iceServers)) return;
@@ -1846,7 +1846,10 @@ async function chiediTurnAlServer() {
     else console.info('[lantern] nessun TURN:', j.da);
   } catch { /* server spento: si resta con gli STUN */ }
 }
-chiediTurnAlServer();
+// ⚠ NON SI CHIEDE PIÙ ALL'AVVIO. Il TURN costa banda a chi lo paga, quindi il
+// server lo concede solo a chi ha un BIGLIETTO — e il biglietto lo rilascia
+// entrando in una stanza. Chi gioca da solo non ne ha bisogno e non lo chiede:
+// una richiesta in meno per ogni partita, e la quota resta per chi serve.
 document.getElementById('turnSalva').addEventListener('click', () => {
   const urls = document.getElementById('turnUrl').value.trim();
   if (!urls) { Lobby.turn = []; localStorage.removeItem('lantern.turn'); hud.toast('TURN rimosso'); return; }
@@ -1888,6 +1891,7 @@ document.getElementById('rcCrea').addEventListener('click', async () => {
     if (segnalatore) segnalatore.chiudi();
     segnalatore = new Segnalatore(lobby);
     segnalatore.onStato = (t) => hud.toast(t);
+    segnalatore.onBiglietto = (b) => chiediTurnAlServer(b);
     segnalatore.onCode = (c) => { box.textContent = c; hud.toast('🏠 Stanza «' + c + '» — dì il codice agli amici'); };
     await segnalatore.creaStanza(url);
   } catch (e) { box.textContent = ''; hud.toast('Server non raggiungibile 😿'); console.warn(e); }
@@ -1900,6 +1904,7 @@ document.getElementById('rcEntra').addEventListener('click', async () => {
     if (segnalatore) segnalatore.chiudi();
     segnalatore = new Segnalatore(lobby);
     segnalatore.onStato = (t) => hud.toast(t);
+    segnalatore.onBiglietto = (b) => chiediTurnAlServer(b);
     await segnalatore.entra(url, code);
     hud.toast('🚪 Entro nella stanza «' + code + '»…');
   } catch (e) { hud.toast('Server non raggiungibile 😿'); console.warn(e); }
@@ -2596,6 +2601,8 @@ function aggiornaMembri() {
   else { voce('Host'); for (const id of gattiRemoti.keys()) if (id !== 'h') voce(nomeDi(id)); }
 }
 let posaTimer = 0;
+let _ultimaPosa = null;        // l'ultima posa DAVVERO spedita (vedi il blocco presenza)
+let _ultimoInvioPosa = 0;
 let modalitaOspite = false;   // true = stai giocando NEL diorama dell'host
 let officina = null;
 let datiOfficina = { blocchi: [] };
@@ -4540,14 +4547,42 @@ function passo(adesso, frameXR) {
     if (sim.tick() > 0) segnaSalvataggio();
   }
 
-  // presenza P2P: manda la mia posa, anima quella remota
+  // ---- PRESENZA P2P: SI PARLA SOLO QUANDO C'È DA DIRE QUALCOSA --------------
+  //
+  // ⚠ PRIMA SI MANDAVA LA POSA DIECI VOLTE AL SECONDO SEMPRE, anche a gatto
+  // fermo. Il committente ha descritto lo scenario vero di questo gioco: «i
+  // player potrebbero stare ore afk, a pescare o fermi con la scheda aperta».
+  // Dieci pacchetti al secondo per ore sono decine di migliaia di messaggi per
+  // dire «sono ancora qui, nello stesso identico posto» — e se la connessione
+  // passa dal TURN quella è banda che si paga davvero, a consumo, per niente.
+  //
+  // Ora vale la regola dei protocolli di rete seri: si trasmette il CAMBIAMENTO.
+  // Se la posa è identica alla precedente (entro mezzo centimetro, che a schermo
+  // è meno di un pixel) non parte niente, e resta un battito ogni due secondi
+  // perché l'altro capo sa distinguere «fermo» da «sparito» — il potatore dei
+  // gatti stantii scatta a sei secondi.
+  // A gatto fermo si passa da 600 messaggi al minuto a 30: il 95% in meno.
   if (lobby.connessa) {
     posaTimer += dt * 1000;
     if (posaTimer >= NET.posaMs) {
       posaTimer = 0;
-      const m = { t: 'posa', p: [controller.pos.x, controller.pos.y, controller.pos.z], vx: controller.vel.x, vz: controller.vel.z, aTerra: controller.aTerra, att: (_inMano && _inMano.genere === 'attrezzo') ? _inMano.id : null, uso: _usoContatore };
-      if (lobby.ruolo === 'host') { m.tempo = ciclo.t; m.id = 'h'; }
-      lobby.invia(m);
+      const att = (_inMano && _inMano.genere === 'attrezzo') ? _inMano.id : null;
+      const fermo = Math.abs(controller.vel.x) < 0.02 && Math.abs(controller.vel.z) < 0.02;
+      const mosso = !_ultimaPosa
+        || Math.abs(controller.pos.x - _ultimaPosa.x) > 0.005
+        || Math.abs(controller.pos.y - _ultimaPosa.y) > 0.005
+        || Math.abs(controller.pos.z - _ultimaPosa.z) > 0.005
+        || _ultimaPosa.fermo !== fermo || _ultimaPosa.att !== att
+        || _ultimaPosa.uso !== _usoContatore || _ultimaPosa.aTerra !== controller.aTerra;
+      const battito = performance.now() - _ultimoInvioPosa > 2000;
+      if (mosso || battito) {
+        _ultimaPosa = { x: controller.pos.x, y: controller.pos.y, z: controller.pos.z,
+          fermo, att, uso: _usoContatore, aTerra: controller.aTerra };
+        _ultimoInvioPosa = performance.now();
+        const m = { t: 'posa', p: [controller.pos.x, controller.pos.y, controller.pos.z], vx: controller.vel.x, vz: controller.vel.z, aTerra: controller.aTerra, att, uso: _usoContatore };
+        if (lobby.ruolo === 'host') { m.tempo = ciclo.t; m.id = 'h'; }
+        lobby.invia(m);
+      }
     }
   }
   // TUTTI i gatti remoti (multi-lobby): anima, tuffo, pota gli stantii

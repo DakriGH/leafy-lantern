@@ -27,9 +27,17 @@
 // giocatore), e un ping ogni trenta secondi — il server considera «vivo» chi si
 // è fatto sentire negli ultimi novanta, quindi due ping persi sono tollerati.
 
-import { ANALITICA_URL } from '../config.js?v=msaa48qp';
+import { ANALITICA_URL } from '../config.js?v=msaimh0d';
 
 const OGNI_MS = 30_000;
+// ⚠ A SCHEDA NASCOSTA SI RALLENTA DI DIECI VOLTE. Il committente ha descritto il
+// caso vero: «i player potrebbero stare ore col gioco aperto nelle tab». Un ping
+// ogni trenta secondi per otto ore sono mille richieste a testa per dire una cosa
+// che non cambia — e le richieste sono la risorsa che Deno conta. Chi ha la
+// scheda in secondo piano NON sta giocando: resta contato (il server dimentica
+// dopo novanta secondi di silenzio... quindi il ping lento lo terrebbe fuori, ed
+// è giusto così: «connessi ora» deve dire chi sta guardando lo schermo).
+const OGNI_NASCOSTO_MS = 5 * 60_000;
 
 let _id = null;
 let _timer = null;
@@ -70,7 +78,14 @@ export function avviaAnalitica(leggiFps) {
   _id = nuovoId();
   if (typeof leggiFps === 'function') _fps = leggiFps;
   ping();
-  _timer = setInterval(ping, OGNI_MS);
+  // il ritmo segue la visibilità: si riarma a ogni cambio invece di tenere due
+  // timer, così non si sovrappongono mai
+  const riarma = () => {
+    clearInterval(_timer);
+    _timer = setInterval(ping, document.visibilityState === 'visible' ? OGNI_MS : OGNI_NASCOSTO_MS);
+  };
+  riarma();
+  document.addEventListener('visibilitychange', () => { riarma(); if (document.visibilityState === 'visible') ping(); });
   // l'ultimo saluto quando la scheda si chiude o va in background: la pagina
   // può non essere più eseguita dopo, quindi vale solo con keepalive
   addEventListener('pagehide', () => ping(true));
