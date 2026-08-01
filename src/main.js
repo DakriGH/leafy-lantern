@@ -1,72 +1,72 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms9n1mnt';
-import { Rig } from './engine/renderer.js?v=ms9n1mnt';
-import { Input } from './engine/input.js?v=ms9n1mnt';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms9n1mnt';
-import { Cadenza } from './engine/cadenza.js?v=ms9n1mnt';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms9n1mnt';
-import { componiDiagnostica } from './engine/diagnostica.js?v=ms9n1mnt';
-import { SCENE } from './engine/banco.js?v=ms9n1mnt';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms9n1mnt';
-import { Mondo } from './world/world.js?v=ms9n1mnt';
-import { SimAcqua } from './world/acqua.js?v=ms9n1mnt';
-import { Lobby } from './net/lobby.js?v=ms9n1mnt';
-import { Segnalatore } from './net/segnalatore.js?v=ms9n1mnt';
-import { Bolla } from './ui/bolla.js?v=ms9n1mnt';
-import { Scelta } from './ui/scelta.js?v=ms9n1mnt';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms9n1mnt';
-import { Zaino } from './ui/zaino.js?v=ms9n1mnt';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=ms9n1mnt';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms9n1mnt';
-import { generaMostra } from './world/mostra.js?v=ms9n1mnt';
-import { generaCollaudo } from './world/collaudo.js?v=ms9n1mnt';
-import { generaTestLuci } from './world/testLuci.js?v=ms9n1mnt';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=ms9n1mnt';
-import { generaTestMacchine } from './world/testMacchine.js?v=ms9n1mnt';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=ms9n1mnt';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms9n1mnt';
-import { Meteo } from './fx/meteo.js?v=ms9n1mnt';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms9n1mnt';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms9n1mnt';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=ms9n1mnt';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms9n1mnt';
-import { CicloGiorno } from './fx/daynight.js?v=ms9n1mnt';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente } from './fx/materials.js?v=ms9n1mnt';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms9n1mnt';
-import { ModalitaAR } from './ar/ar.js?v=ms9n1mnt';
-import { Nuvole } from './fx/nuvole.js?v=ms9n1mnt';
-import { SagomaVista } from './fx/sagomaVista.js?v=ms9n1mnt';
-import { Erba } from './fx/erba.js?v=ms9n1mnt';
-import { Foglie } from './fx/foglie.js?v=ms9n1mnt';
-import { SegnaPercorso } from './fx/percorso.js?v=ms9n1mnt';
-import { ComandiTouch } from './ui/comandi-touch.js?v=ms9n1mnt';
-import { RiflessoAcqua } from './fx/riflesso.js?v=ms9n1mnt';
-import { Pioggia } from './fx/pioggia.js?v=ms9n1mnt';
-import { Particelle } from './fx/particelle.js?v=ms9n1mnt';
-import { Audio } from './fx/audio.js?v=ms9n1mnt';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms9n1mnt';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms9n1mnt';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms9n1mnt';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms9n1mnt';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms9n1mnt';
-import { Registro } from './ecs/registro.js?v=ms9n1mnt';
-import { Orologio, Rng } from './ecs/orologio.js?v=ms9n1mnt';
-import { Sistemi } from './ecs/sistemi.js?v=ms9n1mnt';
-import { Agenda } from './ecs/agenda.js?v=ms9n1mnt';
-import { Gatto } from './player/player.js?v=ms9n1mnt';
-import { ManoStrumento } from './player/mano.js?v=ms9n1mnt';
-import { dropDi } from './gioco/drop.js?v=ms9n1mnt';
-import { Controller } from './player/controller.js?v=ms9n1mnt';
-import { FURNI, centroide } from './furniture/registry.js?v=ms9n1mnt';
-import { caricaModelli } from './furniture/loader.js?v=ms9n1mnt';
-import { Arredo } from './furniture/furniture.js?v=ms9n1mnt';
-import { HUD } from './ui/hud.js?v=ms9n1mnt';
-import { MenuDebug } from './ui/debug.js?v=ms9n1mnt';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms9n1mnt';
-import { ModalitaXR } from './ar/ar-xr.js?v=ms9n1mnt';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms9n1mnt';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO } from './config.js?v=ms9odadh';
+import { Rig } from './engine/renderer.js?v=ms9odadh';
+import { Input } from './engine/input.js?v=ms9odadh';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=ms9odadh';
+import { Cadenza } from './engine/cadenza.js?v=ms9odadh';
+import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=ms9odadh';
+import { componiDiagnostica } from './engine/diagnostica.js?v=ms9odadh';
+import { SCENE } from './engine/banco.js?v=ms9odadh';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=ms9odadh';
+import { Mondo } from './world/world.js?v=ms9odadh';
+import { SimAcqua } from './world/acqua.js?v=ms9odadh';
+import { Lobby } from './net/lobby.js?v=ms9odadh';
+import { Segnalatore } from './net/segnalatore.js?v=ms9odadh';
+import { Bolla } from './ui/bolla.js?v=ms9odadh';
+import { Scelta } from './ui/scelta.js?v=ms9odadh';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=ms9odadh';
+import { Zaino } from './ui/zaino.js?v=ms9odadh';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=ms9odadh';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=ms9odadh';
+import { generaMostra } from './world/mostra.js?v=ms9odadh';
+import { generaCollaudo } from './world/collaudo.js?v=ms9odadh';
+import { generaTestLuci } from './world/testLuci.js?v=ms9odadh';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=ms9odadh';
+import { generaTestMacchine } from './world/testMacchine.js?v=ms9odadh';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=ms9odadh';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=ms9odadh';
+import { Meteo } from './fx/meteo.js?v=ms9odadh';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=ms9odadh';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=ms9odadh';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=ms9odadh';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=ms9odadh';
+import { CicloGiorno } from './fx/daynight.js?v=ms9odadh';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente } from './fx/materials.js?v=ms9odadh';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=ms9odadh';
+import { ModalitaAR } from './ar/ar.js?v=ms9odadh';
+import { Nuvole } from './fx/nuvole.js?v=ms9odadh';
+import { SagomaVista } from './fx/sagomaVista.js?v=ms9odadh';
+import { Erba } from './fx/erba.js?v=ms9odadh';
+import { Foglie } from './fx/foglie.js?v=ms9odadh';
+import { SegnaPercorso } from './fx/percorso.js?v=ms9odadh';
+import { ComandiTouch } from './ui/comandi-touch.js?v=ms9odadh';
+import { RiflessoAcqua } from './fx/riflesso.js?v=ms9odadh';
+import { Pioggia } from './fx/pioggia.js?v=ms9odadh';
+import { Particelle } from './fx/particelle.js?v=ms9odadh';
+import { Audio } from './fx/audio.js?v=ms9odadh';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=ms9odadh';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=ms9odadh';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=ms9odadh';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=ms9odadh';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=ms9odadh';
+import { Registro } from './ecs/registro.js?v=ms9odadh';
+import { Orologio, Rng } from './ecs/orologio.js?v=ms9odadh';
+import { Sistemi } from './ecs/sistemi.js?v=ms9odadh';
+import { Agenda } from './ecs/agenda.js?v=ms9odadh';
+import { Gatto } from './player/player.js?v=ms9odadh';
+import { ManoStrumento } from './player/mano.js?v=ms9odadh';
+import { dropDi } from './gioco/drop.js?v=ms9odadh';
+import { Controller } from './player/controller.js?v=ms9odadh';
+import { FURNI, centroide } from './furniture/registry.js?v=ms9odadh';
+import { caricaModelli } from './furniture/loader.js?v=ms9odadh';
+import { Arredo } from './furniture/furniture.js?v=ms9odadh';
+import { HUD } from './ui/hud.js?v=ms9odadh';
+import { MenuDebug } from './ui/debug.js?v=ms9odadh';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=ms9odadh';
+import { ModalitaXR } from './ar/ar-xr.js?v=ms9odadh';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=ms9odadh';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -3327,10 +3327,19 @@ const SCATOLE_BUDGET = 32;
 //     non si nota il momento in cui succede — che è l'unica definizione utile
 //     di «smooth».
 const SCATOLE_PORTATA = 130;
-const SCATOLE_DETTAGLIO = 34;      // entro questa distanza, la sagoma per intero
-// La fascia in cui i due livelli di dettaglio si scambiano il posto. Larga:
-// il passaggio deve durare parecchi passi, se no si vede lo stesso.
-const SCATOLE_LOD_BANDA = 22;
+// ⚠ ERA 34, E A 34 IL LOD NON SERVIVA A NIENTE. Misurato camminando: l'ombra di
+// un albero si spegneva a VENTUNO blocchi, perché il budget (32 sagome) si
+// riempie molto prima — ogni mobile ne porta cinque o sei, quindi trentadue
+// slot bastano per CINQUE oggetti. Il livello grosso, che ne costa due, entrava
+// a 34: cioè dopo che il budget aveva già tagliato tutto. Portarlo dentro cambia
+// il conto — due sagome a testa vogliono dire sedici oggetti invece di cinque, e
+// l'ombra arriva dove prima spariva. Il dettaglio pieno resta dove si vede
+// davvero la forma, cioè addosso.
+const SCATOLE_DETTAGLIO = 12;      // entro questa distanza, la sagoma per intero
+// La fascia in cui i due livelli di dettaglio si scambiano il posto: dodici
+// blocchi di cammino, e la sagoma vera resta piena per tutta la fascia (vedi
+// _dosaScatole), quindi a cambiare è solo il di più dello scatolone.
+const SCATOLE_LOD_BANDA = 12;
 // LA FASCIA IN CUI L'OMBRA NASCE. Chi sta oltre `portata` non proietta; chi sta
 // negli ultimi metri prima del confine proietta a forza ridotta, così l'ombra
 // SI FA invece di apparire. È la stessa idea della nebbia: un confine netto si
@@ -3340,6 +3349,9 @@ const _scatole = [];        // l'uscita, riusata: nessuna allocazione per frame
 const _scelte = [];         // la SCELTA (stabile): sagoma copiata + chi la porta
 let _scatoleX = 1e9, _scatoleZ = 1e9, _scatoleN = -1;
 const _scatoleVicine = [];
+// la distanza a cui il budget taglia, inseguita piano (vedi _dosaScatole)
+let _taglioScatole = SCATOLE_PORTATA;
+const SCATOLE_CODA = 24;   // metri di dissolvenza prima del taglio del budget
 // budget effettivo: lo abbassa la qualità automatica sui dispositivi in affanno
 let _scatoleBudget = SCATOLE_BUDGET;
 function impostaBudgetScatole(n) {
@@ -3430,13 +3442,31 @@ function scatoleVicine() {
 /** Il PESO di ogni sagoma scelta, ricalcolato per questo fotogramma. */
 function _dosaScatole(b) {
   _scatole.length = 0;
-  // L'ALTRA METÀ DEL POPPING: il budget tagliava di netto. Riempite le trentadue
-  // scatole, la trentatreesima non esisteva — e camminando basta che un oggetto
-  // VICINO entri in lista perché uno lontano venga espulso di colpo, con la sua
-  // ombra che sparisce in un fotogramma. Ora le ultime scatole del budget
-  // entrano già in dissolvenza: quella che sta per essere espulsa è quasi
-  // invisibile, quindi espellerla non si vede.
-  const sfumaDa = Math.floor(_scatoleBudget * 0.7);
+  // ---- IL BUDGET SI SFUMA SULLA DISTANZA, NON SUL RANGO --------------------
+  //
+  // ⚠ QUESTO ERA IL POP-IN DELLE OMBRE, e la dissolvenza che avevo messo non lo
+  // toccava perché era agganciata alla cosa sbagliata. Il peso scendeva col
+  // RANGO nella lista, e il rango è una classifica: cammini di un passo, un
+  // albero vicino entra, e TUTTI quelli dietro slittano di sei posti in un colpo
+  // (sei perché ogni mobile porta sei scatole). Sei posti di rango sono un salto
+  // di tono secco su ogni ombra della scena, contemporaneamente — che è
+  // esattamente quello che si vede camminando.
+  // La distanza invece è continua: si prende la distanza dell'ULTIMA sagoma che
+  // il budget riesce a tenere e si sfuma nei metri prima di lì. Il taglio si
+  // muove piano (media esponenziale) perché anche quello, ricalcolato di colpo,
+  // sarebbe un gradino: così quando il budget si stringe le ombre in fondo si
+  // spengono scivolando, non a scatti.
+  // ⚠ E IL TAGLIO SI MISURA SULLE SAGOME CHE ENTRANO DAVVERO. La prima versione
+  // lo calcolava in una passata a parte contando le voci di `_scelte`, ma lì
+  // dentro ogni mobile compare DUE volte (sagoma fine e scatolone della
+  // staffetta) e una delle due ha quasi sempre peso zero: il budget sembrava
+  // pieno al doppio della velocità e le ombre morivano a ventun blocchi.
+  // Misurato camminando: identico prima e dopo aver spostato il LOD, ed è così
+  // che ho capito che il limite non era dove pensavo. Ora il taglio è la
+  // distanza dell'ultima sagoma ACCETTATA nel giro precedente — un fotogramma di
+  // ritardo su un valore che comunque insegue piano.
+  const taglio = _taglioScatole;
+  let dUltima = SCATOLE_PORTATA;
   for (let i = 0; i < _scelte.length; i++) {
     if (_scatole.length >= _scatoleBudget) break;
     const v = _scelte[i];
@@ -3480,15 +3510,22 @@ function _dosaScatole(b) {
       p *= q * q * (3 - 2 * q);
       if (p <= 0.01) continue;
     }
-    // il rango si conta sulle ombre ACCESE, non sulle scelte: le copie spente
-    // della staffetta non devono far sbiadire chi viene dopo
-    const rango = _scatole.length;
-    if (rango >= sfumaDa) p *= 1 - (rango - sfumaDa) / Math.max(1, _scatoleBudget - sfumaDa);
-    if (p <= 0.01) continue;
+    // la coda del budget si spegne sulla DISTANZA: continua nello spazio, quindi
+    // continua anche camminando
+    if (d > taglio - SCATOLE_CODA) {
+      p *= Math.max(0, Math.min(1, (taglio - d) / SCATOLE_CODA));
+      if (p <= 0.01) continue;
+    }
     // il peso viaggia con la scatola: `impostaOmbre` lo mette in uDinMez.w
     v.box.peso = p;
     _scatole.push(v.box);
+    if (_scatole.length >= _scatoleBudget) dUltima = d;   // il budget ha morso QUI
   }
+  // il taglio insegue: quando il budget non morde il bersaglio è la portata
+  // piena, quando morde è la distanza dell'ultima che ci è stata. Sempre a
+  // scivolo, mai a scatti — anche il taglio, ricalcolato di colpo, sarebbe un
+  // gradino su tutte le ombre insieme.
+  _taglioScatole += (dUltima - _taglioScatole) * 0.06;
   return _scatole;
 }
 
@@ -4091,18 +4128,14 @@ const RIFL_DIST2 = 70 * 70;
  *  vicino, inutile pagare l'intera scena una seconda volta. */
 function nascostiPerRiflesso() {
   _acquaNascoste.length = 0;
-  // ⚠ LA VEGETAZIONE NON SI SPECCHIA, e non è una rinuncia: è la voce più cara
-  // del riflesso. Il bersaglio del mirror è al 35% del lato (il 12% dei pixel),
-  // quindi una lamella d'erba lì dentro è largamente SOTTO il pixel — invisibile.
-  // Ma il costo non è nei pixel: è nei VERTICI. Il prato è una griglia istanziata
-  // da ventimila ciuffi, e il suo vertex shader fa il vento, il ciclo delle
-  // lampade, le scatole d'ombra e una lettura della heightmap PER FILO. Mandarla
-  // due volte per frame vuol dire pagare due volte tutto quello, per specchiare
-  // qualcosa che non si vede. Sul telefono del committente il riflesso acceso
-  // dimezza gli fps (12 contro 30, misura appaiata) e il costo è di CPU/vertici,
-  // non di riempimento — è esattamente questa la forma di quel costo.
-  if (erba && erba.mesh) _acquaNascoste.push(erba.mesh);
-  if (foglie && foglie.mesh) _acquaNascoste.push(foglie.mesh);
+  // ⚠ NON TOGLIERE LA VEGETAZIONE DAL RIFLESSO. L'ho provato per risparmiare i
+  // vertici del prato (misurati −14.8% sulla passata) e il committente l'ha
+  // visto subito: «il riflesso è rotto, ogni tanto riflette cose strane». Aveva
+  // ragione e il mio ragionamento era sbagliato — avevo detto «una lamella nel
+  // bersaglio del mirror sta sotto il pixel», ma questo vale per l'erba LONTANA:
+  // la riva davanti alla camera si specchia grande, e lì il prato mancante si
+  // legge come una sponda pelata che nel mondo vero è erbosa. Un riflesso che non
+  // corrisponde al mondo è un difetto, non un'ottimizzazione.
   for (const [kc, e] of mesher.chunks) {
     _acquaNascoste.push(e.acqua);
     const [cx, cz] = kc.split(',').map(Number);

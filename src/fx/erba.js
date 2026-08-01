@@ -30,9 +30,9 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=ms9n1mnt';
-import { CHUNK } from '../world/world.js?v=ms9n1mnt';
-import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=ms9n1mnt';
+import { paletteBlocco } from '../world/stagioni.js?v=ms9odadh';
+import { CHUNK } from '../world/world.js?v=ms9odadh';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=ms9odadh';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -79,7 +79,7 @@ function hash(x, z, s) {
 }
 
 const GLSL_VERTEX = /* glsl */`
-  attribute vec4 iPos;      // base della lamella (xyz) e ISTANTE DI NASCITA (w)
+  attribute vec4 iPos;      // base della lamella (xyz) e LIVELLO di diradamento (w: 0/1/2)
   attribute vec4 iDati;     // (rotazione, altezza, larghezza, fase personale)
   attribute vec3 iCol;      // colore preso dalla palette della cella sotto
   uniform float uTempo;
@@ -95,6 +95,8 @@ const GLSL_VERTEX = /* glsl */`
   uniform vec2 uSfuma;      // (dove comincia a spegnersi, dove è spenta)
   uniform vec3 uCentro;     // centro del campo seminato: il GIOCATORE
   uniform vec2 uBordo;      // (dove comincia il bordo del campo, dove finisce)
+  // le due fasce di congedo per LIVELLO di diradamento: (liv2 da, liv2 a, liv1 da, liv1 a)
+  uniform vec4 uLiv;
   // l'ombra del sole, LE STESSE uniform del mondo (fx/materials.js)
   uniform sampler2D uCielo;
   uniform vec4 uCieloInfo;
@@ -193,9 +195,31 @@ ${GLSL_LUCI_VERTICE}
     //    mentre cammini. Adesso quel confine e' gia' a zero prima di arrivarci.
     float viaCam = clamp((distance(iPos.xz, uCamera.xz) - uSfuma.x)
                      / max(uSfuma.y - uSfuma.x, 0.001), 0.0, 1.0);
-    float viaBordo = clamp((distance(iPos.xz, uCentro.xz) - uBordo.x)
+    float dalPg = distance(iPos.xz, uCentro.xz);
+    float viaBordo = clamp((dalPg - uBordo.x)
                      / max(uBordo.y - uBordo.x, 0.001), 0.0, 1.0);
-    vLontano = max(viaCam, viaBordo);
+    // ---- IL DIRADAMENTO, CHE ERA IL POP-IN VERO ------------------------------
+    //
+    // Il prato si dirada a CLASSI DI CHUNK: passo 1 fino a un chunk di distanza,
+    // 2 fino a tre, 4 oltre. Attraversando un confine un chunk cambia classe e
+    // viene riseminato con un quarto (o un sedicesimo) delle lamelle: sedici per
+    // sedici blocchi che perdono tre quarti dell'erba IN UN FOTOGRAMMA. E succede
+    // a una ventina di blocchi dal giocatore, cioè dove il prato è ancora a
+    // colore pieno: nessuna delle dissolvenze che avevo messo lo copriva, perché
+    // tutte e due misurano la LONTANANZA e lì siamo vicini. Era questo che si
+    // vedeva camminando, e avevo guardato dappertutto tranne che qui.
+    //
+    // Adesso ogni lamella sa a quale livello di diradamento appartiene (iPos.w,
+    // lo slot dell'istante di nascita, libero da quando la nascita non si anima
+    // più) e si congeda DA SOLA prima che tocchi al chunk. Le soglie non sono a
+    // occhio: un chunk può cambiare classe solo quando dista almeno un chunk
+    // pieno, quindi una lamella che sparirà al passaggio 1→2 sta comunque a
+    // sedici blocchi o più — spegnerla entro sedici la rende invisibile PRIMA che
+    // il diradamento la tolga. Stesso conto per 2→4 a quarantotto.
+    float v2 = clamp((dalPg - uLiv.x) / max(uLiv.y - uLiv.x, 0.001), 0.0, 1.0);
+    float v1 = clamp((dalPg - uLiv.z) / max(uLiv.w - uLiv.z, 0.001), 0.0, 1.0);
+    float viaLiv = step(0.5, iPos.w) * mix(v1, v2, step(1.5, iPos.w));
+    vLontano = max(max(viaCam, viaBordo), viaLiv);
     // ---- IL CONGEDO, STOCASTICO ---------------------------------------------
     // La lamella si accorcia (per fondersi nel manto) E, oltre la sua soglia
     // personale, sparisce del tutto. La soglia viene da iDati.w, che è la fase
@@ -408,6 +432,7 @@ export class Erba {
         uSfuma: { value: new THREE.Vector2(30, 52) },
         uCentro: { value: new THREE.Vector3() },
         uBordo: { value: new THREE.Vector2(40, 64) },
+        uLiv: { value: new THREE.Vector4(10, 16, 38, 48) },
         // per RIFERIMENTO: restano agganciate al ciclo del giorno da sole
         ...uniformiOmbraSole(),
         ...uniformiScatole(),
@@ -548,6 +573,11 @@ export class Erba {
       const p = paletteBlocco(cima.tipo, cima.y);
       col.setHex(p.cima);
       const y = cima.y + 1;
+      // 0 = c'e' a qualunque passo, 1 = sparisce a passo 4, 2 = solo a passo 1.
+      // I ciuffi POSATI a mano sono sempre 0: chi li mette vuole vederli sempre.
+      const mx4 = ((x % 4) + 4) % 4, mz4 = ((z % 4) + 4) % 4;
+      const mx2 = ((x % 2) + 2) % 2, mz2 = ((z % 2) + 2) % 2;
+      const liv = posato ? 0 : ((mx4 === 0 && mz4 === 0) ? 0 : ((mx2 === 0 && mz2 === 0) ? 1 : 2));
       for (let i = 0; i < quante; i++) {
         const h1 = hash(x, z, i * 17 + 5), h2 = hash(x, z, i * 17 + 11), h3 = hash(x, z, i * 17 + 23);
         const j = n * 4, d = n * 4;
@@ -558,7 +588,12 @@ export class Erba {
         sPos[j] = x + 0.5 + (h1 - 0.5) * (0.42 + tipo.apri);
         sPos[j + 1] = y;
         sPos[j + 2] = z + 0.5 + (h2 - 0.5) * (0.42 + tipo.apri);
-        sPos[j + 3] = this._t;                            // istante di nascita
+        // IL LIVELLO DI DIRADAMENTO, e non l'istante di nascita: la nascita non
+        // si anima piu' (il committente l'aveva bocciata) e quello slot serviva
+        // a questo. E' posizionale come il diradamento stesso — una cella che
+        // sopravvive a passo 4 sopravvive anche a 2 e a 1 — quindi la cache dei
+        // chunk resta valida senza toccarla.
+        sPos[j + 3] = liv;
         sDati[d] = h3 * Math.PI;
         sDati[d + 1] = tipo.alto * (0.8 + 0.45 * h1);
         sDati[d + 2] = tipo.largo * (0.85 + 0.3 * h2);
