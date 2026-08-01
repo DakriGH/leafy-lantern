@@ -270,6 +270,67 @@
   .opz-tgl.attivo { opacity: 1; }
 
   /* ---- Gioca insieme (P2P): procedura a passi numerati ---- */
+  /* ---- IL PANNELLO «INSIEME» ------------------------------------------
+     Stessa scatola degli altri pannelli (.pannello ce l'ha gia'), qui dentro
+     solo quello che gli serve. Le righe sono FITTE di proposito: questo
+     pannello si guarda mentre si gioca, non e' una schermata a se'. */
+  #mp {
+    top: calc(max(10px, env(safe-area-inset-top)) + 100px); right: 12px;
+    width: min(340px, calc(100vw - 24px));
+    max-height: calc(100vh - 130px - env(safe-area-inset-bottom));
+    overflow-y: auto; overscroll-behavior: contain;
+    padding: 12px 14px; display: none; z-index: 41; font-size: 13px;
+  }
+  .mp-testa { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .mp-testa b { font-size: 15px; }
+  .mp-stato { margin-left: auto; opacity: .7; font-size: 12px; }
+  .mp-x { background: none; border: 0; color: var(--testo); opacity: .6; cursor: pointer; font-size: 15px; padding: 2px 4px; }
+  .mp-x:hover { opacity: 1; }
+  .mp-sez { border-top: 1px solid rgba(255,255,255,.10); padding: 10px 0 4px; }
+  .mp-sez:first-of-type { border-top: 0; }
+  .mp-tit { font-weight: 700; opacity: .62; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 7px; }
+  .mp-nota { opacity: .6; font-size: 11.5px; line-height: 1.45; }
+  .mp-input {
+    width: 100%; box-sizing: border-box; padding: 8px 10px; margin: 3px 0;
+    border-radius: 10px; border: 1px solid rgba(255,255,255,.16);
+    background: rgba(10,16,32,.6); color: var(--testo); font: inherit;
+  }
+  .mp-input:focus { outline: 0; border-color: rgba(120,230,255,.55); }
+  .mp-mini { width: auto; flex: 1 1 90px; padding: 6px 8px; font-size: 12px; }
+  .mp-riga { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+  .mp-b {
+    padding: 7px 11px; border-radius: 10px; font-size: 12.5px; white-space: nowrap;
+    background: linear-gradient(180deg, rgba(74,92,132,.55), rgba(28,38,62,.62));
+    color: var(--testo); border: 1px solid rgba(255,255,255,.16); font-weight: 700; cursor: pointer;
+  }
+  .mp-b:hover { border-color: rgba(120,230,255,.55); }
+  .mp-si { border-color: rgba(124,255,176,.5); }
+  .mp-no { border-color: rgba(255,140,150,.45); }
+  .mp-big { width: 100%; padding: 10px; border-radius: 12px; margin-top: 6px;
+    background: linear-gradient(90deg, rgba(91,209,255,.22), rgba(124,255,176,.22));
+    color: var(--testo); border: 1px solid rgba(124,255,176,.45); font-weight: 700; cursor: pointer; }
+  .mp-colori { display: flex; gap: 6px; margin: 6px 0 4px; }
+  .mp-col { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+  .mp-col.scelto { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
+  .mp-check { display: flex; align-items: center; gap: 7px; margin: 5px 0; cursor: pointer; }
+  .mp-codice { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(124,255,176,.10); }
+  .mp-cod { font-size: 19px; letter-spacing: .14em; color: #7cffb0; }
+  .mp-bussa { margin-top: 8px; padding: 8px 10px; border-radius: 10px;
+    background: rgba(255,209,102,.12); border: 1px solid rgba(255,209,102,.35); }
+  .mp-membro, .mp-stanza { display: flex; flex-direction: column; gap: 3px;
+    margin-top: 6px; padding: 7px 9px; border-radius: 10px; background: rgba(255,255,255,.05); }
+  .mp-membro { flex-direction: row; align-items: center; gap: 7px; }
+  .mp-stanza-su { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .mp-punto { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+  .mp-tag { font-size: 10.5px; opacity: .75; padding: 1px 5px; border-radius: 6px; background: rgba(255,255,255,.10); }
+  .mp-chat { max-height: 150px; overflow-y: auto; overscroll-behavior: contain;
+    padding: 6px; border-radius: 10px; background: rgba(10,16,32,.45); }
+  .mp-msg { margin: 2px 0; line-height: 1.4; word-break: break-word; }
+  .mp-msg.mio { opacity: .85; }
+  .mp-msg b { color: #9fe4ff; }
+  .mp-admin { opacity: .92; }
+  @media (max-width: 640px) { #mp { max-height: calc(100vh - 70px); top: 58px; } }
+
   #stanza {
     top: calc(max(10px, env(safe-area-inset-top)) + 100px); right: 12px;
     width: min(330px, calc(100vw - 24px));
@@ -1226,6 +1287,7 @@
       <div id="hudIcone">
         <button id="btnOpzioni" class="pannello ico" title="Impostazioni">⚙️</button>
         <button id="btnStanza" class="pannello ico" title="Gioca insieme (P2P)">👥</button>
+        <button id="btnInsieme" class="pannello ico" title="Insieme: stanze, permessi, chat">🌐</button>
       </div>
     </div>
   </div>
@@ -1506,6 +1568,6 @@
   <div id="loading"><div><span class="lanterna">🏮</span><span id="loadingTxt">Un momento…</span></div></div>
 
   <input id="fileImporta" type="file" accept="application/json" style="display:none">
-  <script type="module" src="./src/main.js?v=msakthua"></script>
+  <script type="module" src="./src/main.js?v=msalm33s"></script>
 </body>
 </html>
