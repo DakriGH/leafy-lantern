@@ -290,6 +290,24 @@
   .mp-sez:first-of-type { border-top: 0; }
   .mp-tit { font-weight: 700; opacity: .62; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 7px; }
   .mp-nota { opacity: .6; font-size: 11.5px; line-height: 1.45; }
+
+  /* IL CRUSCOTTO. Le barre servono a rispondere a una domanda sola — «quanto
+     manca prima che finisca?» — e a quella un numero risponde peggio di una
+     striscia che si riempie. Il colore cambia solo quando c'è davvero da
+     preoccuparsi: se fosse sempre acceso non lo guarderebbe più nessuno. */
+  .mp-quadro { border-top: 1px solid rgba(255,255,255,.10); padding: 11px 0 7px; }
+  .mp-quadro:first-child { border-top: 0; padding-top: 2px; }
+  .mp-grosso { font-size: 30px; font-weight: 700; line-height: 1.05; letter-spacing: -.02em; }
+  .mp-dato { display: flex; gap: 10px; align-items: baseline; margin: 3px 0; font-size: 12px; }
+  .mp-dato-k { opacity: .55; flex: 0 0 auto; }
+  .mp-dato-v { margin-left: auto; text-align: right; opacity: .95; }
+  .mp-barra { margin: 8px 0 10px; }
+  .mp-barra-cima { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; margin-bottom: 4px; }
+  .mp-barra-guscio { height: 7px; border-radius: 6px; background: rgba(255,255,255,.10); overflow: hidden; }
+  .mp-barra-dentro { height: 100%; border-radius: 6px; background: linear-gradient(90deg, #56d8b0, #78e6ff); transition: width .4s ease; }
+  .mp-barra-dentro.attenta { background: linear-gradient(90deg, #e8c65a, #f0a24a); }
+  .mp-barra-dentro.male { background: linear-gradient(90deg, #f07a6a, #ff5470); }
+  .mp-avvertenza { margin-top: 7px; opacity: .45; font-style: italic; }
   .mp-input {
     width: 100%; box-sizing: border-box; padding: 8px 10px; margin: 3px 0;
     border-radius: 10px; border: 1px solid rgba(255,255,255,.16);
@@ -1586,6 +1604,6 @@
   <div id="loading"><div><span class="lanterna">🏮</span><span id="loadingTxt">Un momento…</span></div></div>
 
   <input id="fileImporta" type="file" accept="application/json" style="display:none">
-  <script type="module" src="./src/main.js?v=msawkv5r"></script>
+  <script type="module" src="./src/main.js?v=msaxgi9o"></script>
 </body>
 </html>

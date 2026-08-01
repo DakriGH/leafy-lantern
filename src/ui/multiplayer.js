@@ -22,8 +22,8 @@
 // interroga il server ogni cinque secondi è, su cento giocatori, un migliaio di
 // richieste al minuto per disegnare qualcosa che nessuno sta guardando.
 
-import { RUOLI, DESCRIZIONE } from '../net/permessi.js?v=msawkv5r';
-import { leggiProfilo, salvaProfilo, COLORI } from '../net/profilo.js?v=msawkv5r';
+import { RUOLI, DESCRIZIONE } from '../net/permessi.js?v=msaxgi9o';
+import { leggiProfilo, salvaProfilo, COLORI } from '../net/profilo.js?v=msaxgi9o';
 
 const OGNI_STANZE_MS = 6000;
 
@@ -245,8 +245,23 @@ export class PannelloInsieme {
     const riga = el('div', 'mp-riga');
     riga.append(this.adminPw, this.adminEntra);
     this.adminBox = el('div', 'mp-lista');
-    s.append(riga, this.adminBox);
+    this.adminRiga = riga;
+    // ⚠ QUANDO SEI DENTRO, LA PORTA NON SI MOSTRA PIU'. Lasciare il campo della
+    // password sopra un cruscotto gia' pieno di dati fa dubitare di essere
+    // entrati davvero: si vede la serratura e si pensa di essere ancora fuori.
+    this.adminEsci = bottone('Esci dalla moderazione', 'mp-b mp-no', () => {
+      this.gettoneAdmin = null;
+      this.adminBox.replaceChildren();
+      this._adminMostraPorta(true);
+    });
+    this.adminEsci.style.display = 'none';
+    s.append(riga, this.adminEsci, this.adminBox);
     return s;
+  }
+
+  _adminMostraPorta(si) {
+    if (this.adminRiga) this.adminRiga.style.display = si ? 'flex' : 'none';
+    if (this.adminEsci) this.adminEsci.style.display = si ? 'none' : 'block';
   }
 
   // ---- AZIONI --------------------------------------------------------------
@@ -437,6 +452,110 @@ export class PannelloInsieme {
     }
   }
 
+  // ---- IL CRUSCOTTO --------------------------------------------------------
+  //
+  // ⚠ TRE ORIZZONTI DIVERSI, E NON VANNO MESCOLATI. «Chi c'e' adesso» si misura
+  // in questo istante ed e' esatto. «Quanto abbiamo consumato» e' un totale che
+  // riparte quando Deno spegne una copia inattiva, quindi e' un PARZIALE e va
+  // detto. «Quanto consumeremo nel mese» e' una proiezione al ritmo attuale,
+  // cioe' un'ipotesi. Presentarli con la stessa faccia sarebbe il modo piu'
+  // rapido per far prendere una decisione sbagliata a chi guarda.
+
+  /** Numeri con l'unita' giusta: 900 B, 12 kB, 3,4 MB, 1,2 GB. */
+  _peso(n) {
+    n = Number(n) || 0;
+    if (n < 1000) return Math.round(n) + ' B';
+    if (n < 1e6) return (n / 1e3).toFixed(1).replace('.', ',') + ' kB';
+    if (n < 1e9) return (n / 1e6).toFixed(1).replace('.', ',') + ' MB';
+    return (n / 1e9).toFixed(2).replace('.', ',') + ' GB';
+  }
+  _numero(n) { return Math.round(Number(n) || 0).toLocaleString('it-IT'); }
+
+  /** Una barra che si riempie. Sopra il 75% ingiallisce, sopra il 90% diventa rossa. */
+  _barra(etichetta, quanto, tetto, testo) {
+    const f = tetto > 0 ? Math.min(1, quanto / tetto) : 0;
+    const d = el('div', 'mp-barra');
+    const cima = el('div', 'mp-barra-cima');
+    cima.append(el('span', null, etichetta), el('span', 'mp-nota', testo));
+    const guscio = el('div', 'mp-barra-guscio');
+    const dentro = el('div', 'mp-barra-dentro' + (f > 0.9 ? ' male' : f > 0.75 ? ' attenta' : ''));
+    dentro.style.width = (f * 100).toFixed(1) + '%';
+    guscio.append(dentro);
+    d.append(cima, guscio);
+    return d;
+  }
+
+  _riga(chiave, valore) {
+    const r = el('div', 'mp-dato');
+    r.append(el('span', 'mp-dato-k', chiave), el('span', 'mp-dato-v', String(valore)));
+    return r;
+  }
+
+  /** ADESSO: quello che si misura in questo istante, ed e' esatto. */
+  _quadroAdesso(s) {
+    const d = el('div', 'mp-quadro');
+    d.append(this._titolo('👥 Adesso'));
+    const grande = el('div', 'mp-grosso');
+    grande.textContent = String(s.connessiOra || 0);
+    const sotto = el('div', 'mp-nota');
+    sotto.textContent = `in gioco · ${s.diCuiTelefono || 0} da telefono · ${s.stanzeAperte || 0} stanze · picco ${s.picco || 0}`;
+    d.append(grande, sotto);
+    const reg = Object.entries(s.perRegione || {});
+    if (reg.length) d.append(this._riga('🌍 da dove', reg.map(([k, n]) => `${k}: ${n}`).join(' · ')));
+    const ver = Object.entries(s.perBuild || {});
+    if (ver.length) d.append(this._riga('📦 versioni', ver.map(([k, n]) => `${k}: ${n}`).join(' · ')));
+    return d;
+  }
+
+  /** BANDA: il TURN e' l'unica cosa col tetto stretto, quindi viene per prima. */
+  _quadroBanda(c) {
+    const t = c.tetti || {};
+    const d = el('div', 'mp-quadro');
+    d.append(this._titolo('📡 Banda del relay (TURN)'));
+    const tettoByte = (t.turnGB || 0.5) * 1e9;
+    d.append(this._barra('passato dal relay', c.turnByte || 0, tettoByte,
+      `${this._peso(c.turnByte || 0)} su ${String(t.turnGB || 0.5).replace('.', ',')} GB al mese`));
+    d.append(this._riga('connessioni dal relay', `${c.turnSess || 0} (a consumo)`));
+    d.append(this._riga('connessioni dirette', `${c.direttoSess || 0} · ${this._peso(c.direttoByte || 0)} (gratis)`));
+    // la stima c'e' solo quando il server ha abbastanza storia per farla
+    d.append(this._riga('a questo ritmo', c.stima
+      ? `~${c.stima.turnGB.toFixed(2).replace('.', ',')} GB al mese`
+      : 'ancora presto per dirlo'));
+    const nota = el('div', 'mp-nota mp-avvertenza');
+    nota.textContent = 'La partita non passa dal server: questi byte li riferiscono i giocatori,'
+      + ' leggendoli da WebRTC. Sono attendibili, non certificati.';
+    d.append(nota);
+    return d;
+  }
+
+  /** SERVER: richieste e banda in uscita di Deno, con il loro tetto. */
+  _quadroServer(c, sal) {
+    const t = c.tetti || {};
+    const d = el('div', 'mp-quadro');
+    d.append(this._titolo('⚙️ Server'));
+    d.append(this._barra('richieste', c.http || 0, t.denoRichieste || 1e6,
+      `${this._numero(c.http)} su ${this._numero(t.denoRichieste || 1e6)} al mese`));
+    if (c.stima) d.append(this._riga('a questo ritmo', `~${this._numero(c.stima.richieste)} richieste · ${c.stima.uscitaGB.toFixed(2).replace('.', ',')} GB al mese`));
+    d.append(this._barra('banda in uscita', c.httpByte || 0, (t.denoGB || 100) * 1e9,
+      `${this._peso(c.httpByte || 0)} su ${t.denoGB || 100} GB al mese`));
+    d.append(this._riga('segnalazione', `${this._numero(c.wsMsg)} messaggi · ${this._peso(c.wsByte)} · ${this._numero(c.ws)} collegamenti`));
+    const ore = c.ore || 0;
+    d.append(this._riga('copie accese', `${c.copie || 1} · sveglie da ${ore < 1 ? Math.round(ore * 60) + ' min' : String(ore).replace('.', ',') + ' h'}`));
+    const rotte = Object.entries(c.perRotta || {}).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (rotte.length) d.append(this._riga('rotte piu\u2019 usate', rotte.map(([k, n]) => `${k} ${this._numero(n)}`).join(' · ')));
+
+    d.append(this._titolo('🩺 Salute'));
+    d.append(this._riga('relay TURN', sal.turn || '?'));
+    d.append(this._riga('amministrazione', sal.admin || '?'));
+    d.append(this._riga('firma dei lasciapassare', sal.segretoFirme || '?'));
+    d.append(this._riga('archivio', sal.archivio || '?'));
+    const nota = el('div', 'mp-nota mp-avvertenza');
+    nota.textContent = 'I conteggi ripartono quando Deno spegne una copia inattiva:'
+      + ' sono «da quando il server è sveglio», non il totale del mese.';
+    d.append(nota);
+    return d;
+  }
+
   // ---- MODERAZIONE ---------------------------------------------------------
   async _adminEntra() {
     const base = (this.api.urlServer || '').replace(/\/+$/, '');
@@ -453,6 +572,7 @@ export class PannelloInsieme {
         return;
       }
       this.gettoneAdmin = d.gettone;
+      this._adminMostraPorta(false);
       this._adminAggiorna();
     } catch {
       this.adminBox.replaceChildren(el('div', 'mp-nota', 'Server non raggiungibile.'));
@@ -464,24 +584,21 @@ export class PannelloInsieme {
     const base = (this.api.urlServer || '').replace(/\/+$/, '');
     try {
       const r = await fetch(`${base}/admin/tutto?g=${encodeURIComponent(this.gettoneAdmin)}`);
-      if (!r.ok) { this.gettoneAdmin = null; this.adminBox.replaceChildren(el('div', 'mp-nota', 'sessione scaduta')); return; }
+      if (!r.ok) {
+        this.gettoneAdmin = null;
+        this._adminMostraPorta(true);
+        this.adminBox.replaceChildren(el('div', 'mp-nota', 'sessione scaduta'));
+        return;
+      }
       const d = await r.json();
       const box = this.adminBox;
       box.replaceChildren();
 
       const s = d.stato || {};
-      const sommario = el('div', 'mp-nota');
-      sommario.textContent = `${s.connessiOra || 0} in gioco · ${s.diCuiTelefono || 0} da telefono · picco ${s.picco || 0}`;
-      box.append(sommario);
-
-      // DA DOVE, senza aver mai guardato un indirizzo: e' la regione della copia
-      // di server che li serve, e Deno instrada al piu' vicino
-      const reg = Object.entries(s.perRegione || {});
-      if (reg.length) {
-        const rr = el('div', 'mp-nota');
-        rr.textContent = '🌍 ' + reg.map(([k, n]) => `${k}: ${n}`).join(' · ');
-        box.append(rr);
-      }
+      box.append(this._quadroAdesso(s));
+      box.append(this._quadroBanda(d.consumi || {}));
+      box.append(this._quadroServer(d.consumi || {}, d.salute || {}));
+      box.append(this._titolo('🚪 Stanze aperte'));
 
       for (const st of d.stanze || []) {
         const r2 = el('div', 'mp-stanza');

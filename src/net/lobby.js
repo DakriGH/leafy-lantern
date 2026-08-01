@@ -187,6 +187,48 @@ export class Lobby {
     }
   }
 
+  /**
+   * QUANTO STA COSTANDO QUESTA PARTITA, e a chi.
+   *
+   * ⚠ IL SERVER NON PUÒ SAPERLO. La partita è diretta fra due browser: il server
+   * fa le presentazioni e poi si fa da parte, quindi non vede passare un byte. Ma
+   * quando i due non riescono a parlarsi direttamente — router severi, reti
+   * aziendali, certi operatori mobili — il traffico prende la via del TURN, e
+   * QUELLO si paga a consumo. È l'unica cosa in tutto il gioco che ha un tetto
+   * mensile stretto, ed è invisibile: se non lo si misura, si scopre di averlo
+   * finito quando smette di funzionare.
+   *
+   * WebRTC lo sa e lo dice: fra tutte le coppie di candidati ne sceglie una, e di
+   * quella si può leggere il tipo (`relay` = sta passando dal TURN) e i byte.
+   */
+  async statistiche() {
+    const esito = [];
+    for (const [id, voce] of this.canali) {
+      if (!voce.aperto || !voce.pc) continue;
+      try {
+        const rapporto = await voce.pc.getStats();
+        let coppia = null; const candidati = new Map();
+        rapporto.forEach((v) => {
+          if (v.type === 'local-candidate' || v.type === 'remote-candidate') candidati.set(v.id, v);
+          // «selected» è come lo dice Chrome, `nominated` come lo dicono altri
+          if (v.type === 'candidate-pair' && (v.selected || (v.nominated && v.state === 'succeeded'))) coppia = v;
+        });
+        if (!coppia) continue;
+        const mio = candidati.get(coppia.localCandidateId);
+        const suo = candidati.get(coppia.remoteCandidateId);
+        const relay = (mio && mio.candidateType === 'relay') || (suo && suo.candidateType === 'relay');
+        esito.push({
+          id, relay: !!relay,
+          via: relay ? 'TURN (a consumo)' : ((mio && mio.candidateType) === 'host' ? 'rete locale' : 'diretta'),
+          su: coppia.bytesSent || 0,
+          giu: coppia.bytesReceived || 0,
+          pingMs: coppia.currentRoundTripTime ? Math.round(coppia.currentRoundTripTime * 1000) : null,
+        });
+      } catch { /* un canale che si sta chiudendo non ha statistiche */ }
+    }
+    return esito;
+  }
+
   /** Butta fuori UN membro (host) o chiudi tutto (senza argomento). */
   chiudi(id = null) {
     if (id !== null) { this._caduto(id); return; }
