@@ -3,6 +3,10 @@
 // copiare. Il gioco resta P2P: qui passa solo l'handshake.
 // L'URL del server lo imposta l'utente (Impostazioni della stanza).
 
+// Quanto si aspetta la risposta WebRTC di UN ospite prima di passare al
+// prossimo della coda. Generoso per una rete lenta, finito per non incastrarsi.
+const ATTESA_RISPOSTA_MS = 12000;
+
 export class Segnalatore {
   constructor(lobby) {
     this.lobby = lobby;
@@ -16,16 +20,29 @@ export class Segnalatore {
     this.onAttesa = null;    // OSPITE: ho bussato, aspetto
     this.onRespinto = null;  // (codice, dati) la porta si e' chiusa, e si dice perche'
     this.onSgombero = null;  // (motivo) la stanza e' stata chiusa: si esce davvero
+    this.onCaduta = null;    // il filo col server si e' rotto da solo
+    this.onTrovata = null;   // la stanza esiste QUI: questo e' il collegamento buono
     this._occupato = false;
+    this._servito = null;    // il gid a cui abbiamo mandato l'offerta e di cui aspettiamo la risposta
+    this._scadenza = null;   // il paracadute che sblocca la coda se non risponde
   }
 
   _apri(url) {
+    this._voluta = false;
     return new Promise((ok, no) => {
       try {
         const ws = this.ws = new WebSocket(url);
         ws.onerror = () => no(new Error('server non raggiungibile'));
         ws.onopen = () => ok(ws);
-        ws.onclose = () => { if (this.onStato) this.onStato('⭘ segnalazione chiusa'); };
+        // ⚠ UNA CADUTA NON E' UNA CHIUSURA, e confonderle lascia il gioco a
+        // raccontare una stanza che non c'e' piu'. Se il filo con il server si
+        // rompe da solo, la stanza smette di essere raggiungibile: nessuno puo'
+        // piu' entrarci, il codice sul pannello non serve a niente e chi lo
+        // legge lo detta agli amici per un quarto d'ora prima di sospettare.
+        ws.onclose = () => {
+          if (this.onStato) this.onStato('⭘ segnalazione chiusa');
+          if (!this._voluta && this.onCaduta) this.onCaduta();
+        };
       } catch (e) { no(e); }
     });
   }
@@ -46,22 +63,55 @@ export class Segnalatore {
         if (this.onIngresso) this.onIngresso(m.gid, m.chi || {}, !!m.spia);
         this._coda.push(m.gid); this._servi();
       }
-      else if (m.t === 'answer') { try { await this.lobby.completa(m.sdp); } catch (err) { console.warn(err); } this._occupato = false; this._servi(); }
-      else if (m.t === 'left') { /* l'ospite se n'è andato: la lobby lo rileva da sé */ }
+      else if (m.t === 'answer') { try { await this.lobby.completa(m.sdp); } catch (err) { console.warn(err); } this._liberati(); }
+      else if (m.t === 'left') {
+        // l'ospite se n'è andato. Il canale P2P lo rileva da sé, ma la CODA no:
+        // se se n'è andato proprio quello che stavamo servendo, la risposta che
+        // aspettiamo non arriverà mai (vedi _servi).
+        this._coda = this._coda.filter((g) => g !== m.gid);
+        if (this._servito === m.gid) this._liberati();
+      }
     };
     // nome, pubblica/privata, password, versione, posti, bussare: li decide chi
     // apre, e viaggiano una volta sola all'apertura
     ws.send(JSON.stringify({ t: 'host', ...opz }));
   }
 
+  /** Il turno è finito (bene o male): si passa al prossimo della coda. */
+  _liberati() {
+    clearTimeout(this._scadenza); this._scadenza = null;
+    this._servito = null;
+    this._occupato = false;
+    this._servi();
+  }
+
+  /**
+   * Serve UN ospite alla volta: si manda l'offerta e si aspetta la sua risposta.
+   *
+   * ⚠ E SE LA RISPOSTA NON ARRIVA MAI? Prima: si restava occupati per sempre, e
+   * con l'occupato acceso NESSUN altro ospite veniva più servito — la stanza
+   * restava aperta, il codice funzionante, e chiunque provasse a entrare
+   * aspettava all'infinito senza un errore. Basta un ospite che chiude la scheda
+   * nell'istante sbagliato, o una rete che cade a metà handshake.
+   *
+   * Un handshake WebRTC che non si chiude in dodici secondi non si chiude più:
+   * scaduto quello si passa al prossimo. Chi era rimasto indietro può ribussare.
+   */
   async _servi() {
     if (this._occupato || this._coda.length === 0 || !this.ws) return;
     this._occupato = true;
     const gid = this._coda.shift();
+    this._servito = gid;
+    clearTimeout(this._scadenza);
+    this._scadenza = setTimeout(() => {
+      if (this._servito !== gid) return;
+      console.warn('[lantern] ospite', gid, 'non ha mai risposto: passo al prossimo');
+      this._liberati();
+    }, ATTESA_RISPOSTA_MS);
     try {
       const sdp = await this.lobby.creaOfferta();
       this.ws.send(JSON.stringify({ t: 'offer', gid, sdp }));
-    } catch (e) { console.warn('[lantern] offerta fallita', e); this._occupato = false; }
+    } catch (e) { console.warn('[lantern] offerta fallita', e); this._liberati(); }
   }
 
   /** OSPITE: entra con un codice; risponde all'offerta in automatico. */
@@ -70,13 +120,14 @@ export class Segnalatore {
     ws.onmessage = async (e) => {
       let m; try { m = JSON.parse(e.data); } catch { return; }
       if (m.t === 'err') { if (this.onRespinto) this.onRespinto(m.codice || '', m); if (this.onStato) this.onStato('🔴 ' + (m.msg || 'errore')); }
-      else if (m.t === 'joined') { if (m.biglietto && this.onBiglietto) this.onBiglietto(m.biglietto); if (m.ruolo && this.onRuolo) this.onRuolo(m.ruolo); if (this.onStato) this.onStato('🟡 nella stanza, mi collego…'); }
+      else if (m.t === 'joined') { if (this.onTrovata) this.onTrovata(); if (m.biglietto && this.onBiglietto) this.onBiglietto(m.biglietto); if (m.ruolo && this.onRuolo) this.onRuolo(m.ruolo); if (this.onStato) this.onStato('🟡 nella stanza, mi collego…'); }
       else if (m.t === 'offer') {
         try { const risp = await this.lobby.rispondi(m.sdp); ws.send(JSON.stringify({ t: 'answer', sdp: risp })); }
         catch (err) { console.warn(err); }
       } else if (m.t === 'ruolo') {
         if (this.onRuolo) this.onRuolo(m.ruolo);
       } else if (m.t === 'attesa') {
+        if (this.onTrovata) this.onTrovata();
         if (this.onAttesa) this.onAttesa(m.msg);
         if (this.onStato) this.onStato('🚪 ' + (m.msg || 'ho bussato'));
       } else if (m.t === 'hostgone') {
@@ -96,5 +147,10 @@ export class Segnalatore {
     ws.send(JSON.stringify({ t: 'join', code: (code || '').trim().toUpperCase(), ...opz }));
   }
 
-  chiudi() { try { if (this.ws) this.ws.close(); } catch { /* ok */ } this.ws = null; this._coda = []; this._occupato = false; }
+  chiudi() {
+    this._voluta = true;
+    clearTimeout(this._scadenza); this._scadenza = null; this._servito = null;
+    try { if (this.ws) this.ws.close(); } catch { /* ok */ }
+    this.ws = null; this._coda = []; this._occupato = false;
+  }
 }

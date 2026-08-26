@@ -122,6 +122,13 @@ export class StriscaTavolozza {
   // ---- i gesti su un posto -----------------------------------------------------
 
   _gesti(s, i) {
+    // ⚠ COL MOUSE IL TASTO DESTRO NON FACEVA NIENTE, e con lui non facevano
+    // niente né «svuota il posto» né 📌 né sposta: tutto stava dietro un
+    // TIENI-PREMUTO, che è il gesto del telefono. Al computer nessuno tiene
+    // premuto il tasto sinistro su un'icona per mezzo secondo — ci si aspetta il
+    // destro — quindi metà delle funzioni della tavolozza erano invisibili a chi
+    // gioca col mouse. Il committente l'ha detto così: «non puoi avere slot vuoti».
+    s.addEventListener('contextmenu', (e) => { e.preventDefault(); this._foglietto(i); });
     s.addEventListener('pointerdown', (e) => {
       if (e.button !== 0 && e.pointerType === 'mouse') return;
       e.preventDefault();
@@ -205,7 +212,13 @@ export class StriscaTavolozza {
     // trascinando si possa fare anche con un tocco solo. Chi ha poca precisione
     // — o gioca su un telefono ballonzolando in autobus — sistema la tavolozza
     // lo stesso.
-    f.innerHTML = `<div class="tv-f-nome">${voce.emoji || ''} ${voce.nome}</div>`
+    // ⚠ IL NOME NON SI SCRIVE COME MARKUP, e qui non è pignoleria: i blocchi
+    // inventati con l'Officina VIAGGIANO IN RETE (registraDaRete: entrando da un
+    // amico si ricevono i suoi). Il nome di quel blocco lo ha scritto un'altra
+    // persona, quindi metterlo dentro innerHTML è la stessa falla che c'era nella
+    // chat — un blocco chiamato `<img src=x onerror=…>` eseguiva codice nella
+    // pagina di chi apre questo foglietto. Il nome si scrive col DOM, punto.
+    f.innerHTML = '<div class="tv-f-nome"></div>'
       + '<div class="tv-f-sposta">'
       + '<button class="tv-f-az" data-az="sx" title="Sposta a sinistra">◀</button>'
       + '<span>sposta</span>'
@@ -213,6 +226,7 @@ export class StriscaTavolozza {
       + '</div>'
       + `<button class="tv-f-az" data-az="fissa">${fissato ? '📌 Non fissare più' : '📌 Fissa qui'}</button>`
       + '<button class="tv-f-az" data-az="svuota">🚫 Svuota il posto</button>';
+    f.querySelector('.tv-f-nome').textContent = `${voce.emoji || ''} ${voce.nome}`.trim();
     document.body.appendChild(f);
     // sopra il posto, senza uscire dallo schermo
     const r = this._posti[i].getBoundingClientRect();

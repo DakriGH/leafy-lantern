@@ -1,7 +1,7 @@
 // Salvataggio del diorama: localStorage + export/import JSON (SPEC §5).
 
-import { CHIAVE_SALVATAGGIO } from './config.js?v=msaxgi9o';
-import { stagioneCorrente, impostaStagione } from './world/stagioni.js?v=msaxgi9o';
+import { CHIAVE_SALVATAGGIO } from './config.js?v=mtafl3ai';
+import { stagioneCorrente, impostaStagione } from './world/stagioni.js?v=mtafl3ai';
 
 export function serializza(mondo, arredo, ciclo, inventario = null, extra = {}) {
   const blocchi = [];
@@ -41,9 +41,24 @@ export function applica(dati, mondo, arredo, ciclo, inventario = null) {
   if (inventario) inventario.applica(dati.inventario);
 }
 
+/**
+ * Scrive il diorama nell'autosave. Rende `true` se ce l'ha fatta.
+ *
+ * ⚠ QUI SI PERDEVANO LE PARTITE, IN SILENZIO. Il salvataggio poteva fallire —
+ * localStorage ha un tetto (di solito 5 MB) e un diorama grande ne occupa due,
+ * senza contare snapshot e partite salvate — e l'errore finiva in un
+ * `console.warn`. Sul telefono, che è dove si gioca, la console non la guarda
+ * nessuno: si costruiva per un'ora, si chiudeva la scheda, e non c'era più
+ * niente. Nessun avviso, nessun indizio, nessun modo di sospettarlo prima.
+ *
+ * È esattamente il caso che la regola della casa vieta («mai inghiottire
+ * eccezioni»): adesso il fallimento si RESTITUISCE, e chi chiama lo dice a
+ * schermo. Il diorama in RAM è ancora intatto — se lo si sa, lo si può ancora
+ * salvare come file con «Esporta».
+ */
 export function salvaLocale(dati) {
-  try { localStorage.setItem(CHIAVE_SALVATAGGIO, JSON.stringify(dati)); }
-  catch (e) { console.warn('[lantern] salvataggio non riuscito', e); }
+  try { localStorage.setItem(CHIAVE_SALVATAGGIO, JSON.stringify(dati)); return true; }
+  catch (e) { console.warn('[lantern] salvataggio non riuscito', e); return false; }
 }
 
 export function caricaLocale() {
@@ -117,9 +132,14 @@ export function cancellaSlot(id) {
 
 export function esportaFile(dati) {
   const blob = new Blob([JSON.stringify(dati, null, 1)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = 'diorama-lantern.json';
   a.click();
-  URL.revokeObjectURL(a.href);
+  // ⚠ NON SI REVOCA SUBITO. `click()` avvia il download in modo ASINCRONO: se
+  // l'indirizzo del blob sparisce nella stessa riga, su alcuni browser il file
+  // esce vuoto o non esce affatto — ed è l'unica via di scampo che ha chi si
+  // trova la memoria piena. Un secondo è più che sufficiente.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

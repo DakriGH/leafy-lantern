@@ -1,77 +1,77 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL } from './config.js?v=msaxgi9o';
-import { Rig } from './engine/renderer.js?v=msaxgi9o';
-import { Input } from './engine/input.js?v=msaxgi9o';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=msaxgi9o';
-import { Cadenza } from './engine/cadenza.js?v=msaxgi9o';
-import { GpuProfiler, Campioni } from './engine/gpuTimer.js?v=msaxgi9o';
-import { componiDiagnostica } from './engine/diagnostica.js?v=msaxgi9o';
-import { SCENE } from './engine/banco.js?v=msaxgi9o';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=msaxgi9o';
-import { Mondo } from './world/world.js?v=msaxgi9o';
-import { SimAcqua } from './world/acqua.js?v=msaxgi9o';
-import { Lobby } from './net/lobby.js?v=msaxgi9o';
-import { Segnalatore } from './net/segnalatore.js?v=msaxgi9o';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=msaxgi9o';
-import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=msaxgi9o';
-import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=msaxgi9o';
-import { PannelloInsieme } from './ui/multiplayer.js?v=msaxgi9o';
-import { Targhetta } from './ui/targhetta.js?v=msaxgi9o';
-import { Bolla } from './ui/bolla.js?v=msaxgi9o';
-import { Scelta } from './ui/scelta.js?v=msaxgi9o';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=msaxgi9o';
-import { Zaino } from './ui/zaino.js?v=msaxgi9o';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=msaxgi9o';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=msaxgi9o';
-import { generaMostra } from './world/mostra.js?v=msaxgi9o';
-import { generaCollaudo } from './world/collaudo.js?v=msaxgi9o';
-import { generaTestLuci } from './world/testLuci.js?v=msaxgi9o';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=msaxgi9o';
-import { generaTestMacchine } from './world/testMacchine.js?v=msaxgi9o';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=msaxgi9o';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=msaxgi9o';
-import { Meteo } from './fx/meteo.js?v=msaxgi9o';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=msaxgi9o';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=msaxgi9o';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=msaxgi9o';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=msaxgi9o';
-import { CicloGiorno } from './fx/daynight.js?v=msaxgi9o';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare } from './fx/materials.js?v=msaxgi9o';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=msaxgi9o';
-import { ModalitaAR } from './ar/ar.js?v=msaxgi9o';
-import { Nuvole } from './fx/nuvole.js?v=msaxgi9o';
-import { SagomaVista } from './fx/sagomaVista.js?v=msaxgi9o';
-import { Erba } from './fx/erba.js?v=msaxgi9o';
-import { Foglie } from './fx/foglie.js?v=msaxgi9o';
-import { SegnaPercorso } from './fx/percorso.js?v=msaxgi9o';
-import { ComandiTouch } from './ui/comandi-touch.js?v=msaxgi9o';
-import { RiflessoAcqua } from './fx/riflesso.js?v=msaxgi9o';
-import { Pioggia } from './fx/pioggia.js?v=msaxgi9o';
-import { Particelle } from './fx/particelle.js?v=msaxgi9o';
-import { Audio } from './fx/audio.js?v=msaxgi9o';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=msaxgi9o';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=msaxgi9o';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=msaxgi9o';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello } from './gioco/macchine.js?v=msaxgi9o';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=msaxgi9o';
-import { Registro } from './ecs/registro.js?v=msaxgi9o';
-import { Orologio, Rng } from './ecs/orologio.js?v=msaxgi9o';
-import { Sistemi } from './ecs/sistemi.js?v=msaxgi9o';
-import { Agenda } from './ecs/agenda.js?v=msaxgi9o';
-import { Gatto } from './player/player.js?v=msaxgi9o';
-import { ManoStrumento } from './player/mano.js?v=msaxgi9o';
-import { dropDi } from './gioco/drop.js?v=msaxgi9o';
-import { Controller } from './player/controller.js?v=msaxgi9o';
-import { FURNI, centroide } from './furniture/registry.js?v=msaxgi9o';
-import { caricaModelli } from './furniture/loader.js?v=msaxgi9o';
-import { Arredo } from './furniture/furniture.js?v=msaxgi9o';
-import { HUD } from './ui/hud.js?v=msaxgi9o';
-import { MenuDebug } from './ui/debug.js?v=msaxgi9o';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=msaxgi9o';
-import { ModalitaXR } from './ar/ar-xr.js?v=msaxgi9o';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=msaxgi9o';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO } from './config.js?v=mtafl3ai';
+import { Rig } from './engine/renderer.js?v=mtafl3ai';
+import { Input } from './engine/input.js?v=mtafl3ai';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtafl3ai';
+import { Cadenza } from './engine/cadenza.js?v=mtafl3ai';
+import { GpuProfiler } from './engine/gpuTimer.js?v=mtafl3ai';
+import { creaBatteria } from './engine/batteria.js?v=mtafl3ai';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtafl3ai';
+import { Mondo } from './world/world.js?v=mtafl3ai';
+import { SimAcqua } from './world/acqua.js?v=mtafl3ai';
+import { Lobby } from './net/lobby.js?v=mtafl3ai';
+import { Segnalatore } from './net/segnalatore.js?v=mtafl3ai';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtafl3ai';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtafl3ai';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtafl3ai';
+import { PannelloInsieme } from './ui/multiplayer.js?v=mtafl3ai';
+import { Targhetta } from './ui/targhetta.js?v=mtafl3ai';
+import { Bolla } from './ui/bolla.js?v=mtafl3ai';
+import { Scelta } from './ui/scelta.js?v=mtafl3ai';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtafl3ai';
+import { Zaino } from './ui/zaino.js?v=mtafl3ai';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mtafl3ai';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtafl3ai';
+import { generaMostra } from './world/mostra.js?v=mtafl3ai';
+import { generaCollaudo } from './world/collaudo.js?v=mtafl3ai';
+import { generaTestLuci } from './world/testLuci.js?v=mtafl3ai';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtafl3ai';
+import { generaTestMacchine } from './world/testMacchine.js?v=mtafl3ai';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mtafl3ai';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtafl3ai';
+import { Meteo } from './fx/meteo.js?v=mtafl3ai';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtafl3ai';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtafl3ai';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=mtafl3ai';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtafl3ai';
+import { CicloGiorno } from './fx/daynight.js?v=mtafl3ai';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole } from './fx/materials.js?v=mtafl3ai';
+import { CampoSole } from './fx/campoSole.js?v=mtafl3ai';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtafl3ai';
+import { ModalitaAR } from './ar/ar.js?v=mtafl3ai';
+import { Nuvole } from './fx/nuvole.js?v=mtafl3ai';
+import { SagomaVista } from './fx/sagomaVista.js?v=mtafl3ai';
+import { Erba } from './fx/erba.js?v=mtafl3ai';
+import { Foglie } from './fx/foglie.js?v=mtafl3ai';
+import { SegnaPercorso } from './fx/percorso.js?v=mtafl3ai';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mtafl3ai';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mtafl3ai';
+import { Pioggia } from './fx/pioggia.js?v=mtafl3ai';
+import { Particelle } from './fx/particelle.js?v=mtafl3ai';
+import { Audio } from './fx/audio.js?v=mtafl3ai';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtafl3ai';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtafl3ai';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtafl3ai';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtafl3ai';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtafl3ai';
+import { Registro } from './ecs/registro.js?v=mtafl3ai';
+import { Orologio, Rng } from './ecs/orologio.js?v=mtafl3ai';
+import { Sistemi } from './ecs/sistemi.js?v=mtafl3ai';
+import { Agenda } from './ecs/agenda.js?v=mtafl3ai';
+import { Gatto } from './player/player.js?v=mtafl3ai';
+import { ManoStrumento } from './player/mano.js?v=mtafl3ai';
+import { dropDi } from './gioco/drop.js?v=mtafl3ai';
+import { Controller } from './player/controller.js?v=mtafl3ai';
+import { FURNI, centroide } from './furniture/registry.js?v=mtafl3ai';
+import { caricaModelli } from './furniture/loader.js?v=mtafl3ai';
+import { Arredo } from './furniture/furniture.js?v=mtafl3ai';
+import { HUD } from './ui/hud.js?v=mtafl3ai';
+import { MenuDebug } from './ui/debug.js?v=mtafl3ai';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtafl3ai';
+import { ModalitaXR } from './ar/ar-xr.js?v=mtafl3ai';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mtafl3ai';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -111,6 +111,20 @@ async function conCaricamento(testo, lavoro) {
 
 const CHIAVE_SNAPSHOT = 'lantern.snapshot.v1';
 const CHIAVE_SNAPSHOT_PREC = 'lantern.snapshot.prec.v1';
+// ⚠ IL DIORAMA MESSO DA PARTE PER LA VISITA NON E' LO SNAPSHOT DELL'UTENTE.
+// Andare a casa di un amico metteva il proprio mondo nello stesso cassetto dove
+// l'utente tiene lo snapshot che si e' salvato a mano — quello con cui torna
+// indietro dopo aver rigenerato l'isola. Due visite e quello snapshot non c'era
+// piu': la prima lo spingeva nel «precedente», la seconda lo buttava via. Roba
+// perduta in silenzio, che e' il modo peggiore di perderla.
+//
+// E sta in sessionStorage, non in localStorage, perche' e' roba di QUESTA
+// scheda: chi apre due schede per provare il multiplayer con se stesso — cioe'
+// chiunque provi il multiplayer da solo — aveva le due partite che si
+// scrivevano addosso a vicenda, e tornando a casa si ritrovava il mondo
+// dell'altro. Un salvataggio condiviso fra schede va bene per IL mondo; per il
+// «dove stavo prima di uscire» no.
+const CHIAVE_VISITA = 'lantern.visita.v1';
 
 // ---- impianto ---------------------------------------------------------------
 
@@ -215,24 +229,18 @@ function aggiornaPerf(fps) {
     riga('schiuma', 'schiuma');
 }
 
-// ---- DIAGNOSTICA COMPLETA: UN tasto, pensato per MOBILE senza tastiera --------
-// Il committente gioca su hardware debole (Chromebook Braswell / telefono) e in
-// AR, e i cali fps lo rendono ingiocabile. Non posso misurare il SUO hardware da
-// remoto: questo tasto lancia una batteria di benchmark SUL DISPOSITIVO VERO e
-// gli scarica un file con TUTTO. Regole ferree:
-//  · NON rigenera il mondo (il diorama da ~100k blocchi resta): misura sul mondo
-//    ATTUALE toccando SOLO le leve di rendering e l'ora, e RIPRISTINA tutto.
-//  · Non tocca né `opzioni` né il mesher → nessun remesh, contaBlocchi invariato.
-//  · Se il timer GPU non c'è (Safari iOS), degrada a sole misure CPU/fps.
-// La parte PURA (assemblaggio + riassunto) è in engine/diagnostica.js, testata.
-const round2 = (x) => (typeof x === 'number' && isFinite(x) ? Math.round(x * 100) / 100 : null);
+// ---- LA DIAGNOSTICA SE N'È ANDATA IN UN FILE SUO ---------------------------
+//
+// Qui c'erano settecento righe di batteria di misure — un settimo di main — per
+// uno strumento che si usa tre volte al mese. Adesso stanno in
+// engine/batteria.js, e quello che era pescare a mano libera da trenta variabili
+// di questo file è diventato un contratto scritto (vedi l'intestazione là).
+// Qui restano le due cose che servono ANCHE al gioco, non solo alle misure.
 
-// QUALE CODICE HA PRODOTTO QUESTO FILE. prepara-www timbra ogni import con
-// `?v=<build>` per scavalcare la cache di GitHub Pages (max-age=600), quindi il
-// timbro è già scritto nell'URL di questo stesso modulo: si legge gratis.
-// Serve perché è successo davvero: una diagnostica misurata su una pagina
-// aperta PRIMA della pubblicazione sembrava dire che il fix non funzionava, e
-// per capirlo ho dovuto dedurlo dai campi mancanti nel file. Ora c'è scritto.
+// QUALE CODICE STA GIRANDO. prepara-www timbra ogni import con `?v=<build>` per
+// scavalcare la cache di GitHub Pages (max-age=600), quindi il timbro è già
+// scritto nell'URL di questo stesso modulo: si legge gratis. Serve alla
+// diagnostica, ma anche alla RETE — la stanza porta con sé su che versione gira.
 const VERSIONE_CODICE = import.meta.url.split('?v=')[1] || 'sviluppo';
 
 // ---- LA BUILD VECCHIA: il problema che ha bruciato due giri di misure --------
@@ -266,686 +274,6 @@ async function _controllaBuild() {
     sessionStorage.setItem('lantern.ricarica', _buildPubblicata);
     location.reload();
   } catch { /* offline: si gioca quello che c'è */ }
-}
-let _diagCpu = null;       // (msCpu)=>void: raccoglitore per-frame, attivo solo in batteria
-let _diagPassi = null;     // (msIntervallo)=>void: durata VERA di ogni frame
-let _diagFrames = 0;       // contatore di frame VERI (rispetta la cadenza), letto a delta
-let _diagInCorso = false;  // un giro alla volta
-// QUANTI INVITI A DISEGNARE CI ARRIVANO. Si conta ogni giro di rAF, PRIMA della
-// cadenza e prima di qualunque lavoro: è il numero di occasioni che il browser
-// ci concede in un secondo. Confrontato con gli fps veri dice da che parte
-// guardare, e lo dice senza disturbare la misura — è un ++ in cima al loop.
-//   · inviti ≈ fps      → disegniamo tutto quello che ci danno: il tetto è
-//                         FUORI (schermo, compositor, risparmio energetico)
-//   · inviti ≫ fps      → gli inviti li stiamo buttando noi, perché il frame
-//                         non sta dentro il tempo: il tetto è NOSTRO
-// (Avevo provato la strada opposta — un loop a vuoto che non disegna — e mente:
-// senza niente da comporre il browser rallenta il rAF, e su questo PC leggeva 71
-// fps mentre il gioco ne faceva 144. Uno strumento che cambia quel che misura.)
-let _diagRaf = 0;
-const DIAG_FINESTRA = 1400; // ms di misura per scenario
-const DIAG_SETTLE = 320;    // ms di assestamento prima di misurare (drena i timer vecchi)
-// FOTOGRAMMI MINIMI per scenario: una mediana su un campione solo non è una
-// mediana. Sul Chromebook (3 fps) la finestra a tempo ne raccoglieva UNO.
-const DIAG_FRAME_MIN = 10;
-// A COPPIE ALTERNATE: acceso/spento/acceso/spento invece di una misura sola per
-// parte. Le due diagnostiche del 2026-07-26 si contraddicevano da sole (ombre
-// SPENTE più lente di ombre accese, scala 0.66 a 25 fps con un picco CPU da
-// 49 ms): finestre da un secondo e mezzo su un telefono che si scalda non
-// distinguono differenze del 10%. Alternando, la deriva colpisce ugualmente
-// entrambe le parti e il confronto DENTRO la coppia resta valido.
-const DIAG_GIRI = 2;        // quante volte si alterna A/B
-const DIAG_FETTA = 700;     // ms per fetta alternata
-const DIAG_ASSAGGIO = 500;  // ms buttati in apertura: il primo scenario legge sempre basso
-
-/** Aspetta `ms` di OROLOGIO (non solo rAF, che la preview congela se non è in
- *  primo piano: così non si blocca mai). Ritorna quanti frame VERI sono passati e
- *  il tempo reale trascorso, per ricavarne gli fps effettivi. */
-/**
- * Aspetta `ms`, ma NON MENO DI `frameMin` FOTOGRAMMI (fino a un tetto).
- *
- * L'attesa a tempo fisso è quella che ha rovinato la misura sul Chromebook del
- * committente (Intel HD 400, diagnostica del 30 luglio): a tre fotogrammi al
- * secondo, 1400 ms di finestra hanno raccolto UN campione — e quel campione,
- * essendo il primo della batteria, si portava dentro la compilazione degli
- * shader. Quel valore gonfiato è diventato il fondo della scala, e da lì OGNI
- * altra scena risultava «più leggera del terreno asciutto»: la classifica intera
- * era il fantasma di un warm-up.
- *
- * Il tetto c'è perché su un dispositivo davvero rotto (mezzo fotogramma al
- * secondo) aspettare i dieci fotogrammi vorrebbe dire non finire mai: meglio
- * pochi campioni DICHIARATI che una diagnostica che si pianta.
- */
-function _diagAttendi(ms, frameMin = 0, tetto = 3500) {
-  return new Promise((ok) => {
-    const f0 = _diagFrames, t0 = performance.now();
-    const fine = () => ok({ frame: _diagFrames - f0, ms: performance.now() - t0 });
-    const controlla = () => {
-      const dt = performance.now() - t0;
-      if (dt >= tetto || (dt >= ms && _diagFrames - f0 >= frameMin)) return fine();
-      setTimeout(controlla, 60);
-    };
-    setTimeout(controlla, ms);
-  });
-}
-
-/**
- * QUANTO COSTA UN DISEGNO, in millisecondi veri, SENZA passare dagli fps.
- *
- * PERCHÉ SERVE. Sul telefono del committente non ci sono le timer query, quindi
- * l'unico numero disponibile erano gli fps — che su uno schermo agganciato al
- * vsync escono a gradini (45, 30, 22,5…). Risultato: nell'ultimo giro tutte e
- * sette le scene del banco hanno misurato 36-38 fps, cioè lo strumento non
- * distingueva più niente proprio mentre gli si chiedeva di distinguere.
- *
- * Qui si disegna N volte di fila DENTRO lo stesso frame e si mette un
- * `gl.finish()` in fondo: la scheda deve aver finito davvero prima che il tempo
- * si fermi. Non è il vsync a decidere, è il lavoro. È la misura classica quando
- * i timer non ci sono, e vale per CPU e GPU insieme — che è quello che conta.
- *
- * NB misura il DISEGNO, non il frame di gioco: la logica (fisica, sim, ECS) sta
- * fuori. Per quella c'è cpuMediana.
- */
-function _diagRenderMs(giri = 5, n = 6) {
-  try {
-    const gl = rig.renderer.getContext();
-    rig.render(); gl.finish();               // scalda e sincronizza il punto di partenza
-    const v = [];
-    for (let g = 0; g < giri; g++) {
-      const t0 = performance.now();
-      for (let i = 0; i < n; i++) rig.render();
-      gl.finish();
-      v.push((performance.now() - t0) / n);
-    }
-    v.sort((a, b) => a - b);
-    // SI MISURA ANCHE QUANTO BALLA, e serve più del valore. Su una GPU a TILE
-    // (i Mali dei telefoni) il driver può accorpare o buttare via i disegni
-    // ripetuti dentro lo stesso frame: allora questo numero non misura il nostro
-    // lavoro, misura l'umore del driver. Con un solo giro non c'era modo di
-    // accorgersene, e il report pubblicava lo stesso una classifica — costruita
-    // sul rumore. Con lo scarto fra il giro più veloce e il più lento chi legge
-    // può decidere se fidarsi.
-    return { ms: round2(v[v.length >> 1]), scarto: round2(v[v.length - 1] - v[0]) };
-  } catch { return null; }
-}
-
-/** Misura UNO scenario GIÀ applicato: assesta, azzera, raccoglie CPU+GPU per
- *  `finestra` ms, legge. Gli fps sono frame veri / tempo reale, e il tempo di
- *  frame MEDIANO è la cifra robusta (una singola pausa da 50 ms sposta la media
- *  e non sposta la mediana: è così che «ombre spente» risultava più lenta di
- *  «ombre accese»). */
-async function _diagMisura(finestra = DIAG_FINESTRA) {
-  // assestamento: i timer GPU della config PRECEDENTE si drenano (raccogli() li
-  // svuota nel loop) e la CPU si stabilizza — così non sporcano questo scenario
-  // l'assestamento vuole almeno DUE fotogrammi: su un dispositivo lentissimo
-  // 320 ms non ne contengono nemmeno uno, e la configurazione precedente
-  // finirebbe dentro la misura di questa
-  await _diagAttendi(DIAG_SETTLE, 2);
-  perf.azzera();
-  _sezAzzera();
-  const cpu = new Campioni(600);
-  const passi = new Campioni(600);
-  const disegno = new Campioni(600);
-  _diagCpu = (ms) => cpu.push(ms);
-  _diagPassi = (ms) => { if (ms > 0 && ms < 2000) passi.push(ms); };
-  const raf0 = _diagRaf;
-  const w = await _diagAttendi(finestra, DIAG_FRAME_MIN);
-  const rafFps = w.ms > 0 ? Math.round((_diagRaf - raf0) / (w.ms / 1000)) : 0;
-  _diagCpu = null;
-  _diagPassi = null;
-  // ---- LA MISURA SINCRONIZZATA STA IN UNA FINESTRA SUA -----------------------
-  //
-  // ⚠ E QUESTO E' UN ERRORE MIO DELL'ULTIMO GIRO: il gl.finish() dopo ogni
-  // disegno era acceso per TUTTA la misura, quindi entrava dentro `cpuMediana` e
-  // dentro la voce `disegno` di cpuSezioni. Uno strumento che serializza la
-  // pipeline mentre misura la CPU non sta misurando la CPU: sta misurando anche
-  // l'attesa della GPU, e nel report quei millisecondi sembravano JavaScript.
-  // Adesso la sincronia vive in una finestra CORTA e separata: gli fps, la CPU e
-  // le sezioni vengono dalla finestra normale, il costo del disegno da questa.
-  if (!perf.disponibile) {
-    rig.misuraSync = true;
-    const racc = setInterval(() => { if (rig.disegnoMs > 0) disegno.push(rig.disegnoMs); }, 8);
-    await _diagAttendi(260, 8);
-    clearInterval(racc);
-    rig.misuraSync = false;
-  }
-  await _diagAttendi(80);   // coda: i timer sono asincroni, gli ultimi arrivano ora
-  const s = perf.disponibile ? perf.statistiche() : null;
-  const pass = (n) => (s && s.passate[n])
-    ? { media: round2(s.passate[n].media), p95: round2(s.passate[n].p95), n: s.passate[n].n }
-    : { media: 0, p95: 0, n: 0 };
-  const mediana = passi.n ? passi.mediana() : 0;
-  const _rend = _diagRenderMs();
-  return {
-    renderMs: _rend ? _rend.ms : null,        // il costo di un disegno, fuori dal vsync
-    renderScarto: _rend ? _rend.scarto : null, // quanto balla fra una ripetizione e l'altra
-    // il disegno VERO del frame di gioco, con gl.finish(): c'è solo dove i timer
-    // GPU mancano, ed è lì l'unico numero di cui fidarsi
-    disegnoMs: disegno.n ? round2(disegno.mediana()) : null,
-    disegnoP95: disegno.n ? round2(disegno.p95()) : null,
-    disegnoCampioni: disegno.n,
-    // DOVE VANNO I MILLISECONDI DI CPU, voce per voce (media per frame)
-    cpuSezioni: _sezLeggi(),
-    fps: w.ms > 0 ? Math.round(w.frame / (w.ms / 1000)) : 0,
-    // GLI INVITI DEL BROWSER nello stesso identico intervallo: se sono uguali
-    // agli fps il tetto è fuori di noi, se sono molti di più lo stiamo mettendo
-    // noi buttando i frame che non riusciamo a chiudere in tempo
-    rafFps,
-    fpsMediano: mediana > 0 ? Math.round(1000 / mediana) : 0,
-    frameMs: round2(mediana), frameMsP95: round2(passi.n ? passi.p95() : 0),
-    frame: w.frame,
-    cpuMedia: round2(cpu.media()), cpuMediana: round2(cpu.mediana()), cpuP95: round2(cpu.p95()), cpuCampioni: cpu.n,
-    gpu: {
-      disponibile: !!s,
-      totaleMedia: s ? round2(s.totaleMedia) : null,
-      totaleP95: s ? round2(s.totaleP95) : null,
-      passate: { principale: pass('principale'), riflesso: pass('riflesso'), schiuma: pass('schiuma') },
-    },
-  };
-}
-
-/**
- * IL BANCO STANDARD: costruisce ogni scena di engine/banco.js, la misura con le
- * impostazioni attuali, e alla fine RIMETTE IL MONDO DEL COMMITTENTE com'era.
- *
- * Perché il mondo si tocca (finora era vietato): misurare «quello che c'è
- * davanti» rende due giri inconfrontabili — a tredici minuti di distanza l'acqua
- * ha misurato 3,4 ms e 18,0 ms senza che il codice cambiasse, perché era cambiata
- * l'inquadratura. Il diorama si salva IN MEMORIA (non in localStorage: potrebbe
- * non entrarci) e si rimette nel finally, qualunque cosa succeda.
- */
-async function _diagBanco(prog, passoBase, N) {
-  const banco = {};
-  const salvato = serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() });
-  const camPrec = { b: rig.bersaglio.clone(), d: rig.distanza, p: rig.pitch, y: rig.yaw };
-  const pioggiaPrec = pioggia.attiva;
-  const uni = uniformiCondivise();
-  try {
-    for (let i = 0; i < SCENE.length; i++) {
-      const s = SCENE[i];
-      prog.passo(passoBase + i, N, `banco: ${s.nome}`);
-      // mondo pulito, poi la scena
-      mondo.chunks.clear(); mondo.contaBlocchi = 0; mondo.furni?.clear?.();
-      arredo.svuota();
-      s.costruisci(mondo, arredo);
-      mesher.ricostruisciTutto(mondo);
-      ricostruisciLuciBlocchi();
-      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
-      foglie.risemina();
-      ricostruisciBlocchiSpeciali();
-      // condizioni: ora, pioggia, e gli anelli d'impatto messi A MANO (la sim
-      // dell'acqua non li produrrebbe in una vasca ferma, e sono il caso che ha
-      // smascherato il costo vero)
-      ciclo.auto = false; ciclo.t = s.condizioni.ora; ciclo.aggiorna(0);
-      arredo.aggiornaNotte(ciclo.eNotte);
-      pioggia.imposta(s.condizioni.pioggia > 0);
-      impostaPioggia(s.condizioni.pioggia || 0);
-      const nImp = s.condizioni.impatti || 0;
-      // array PIATTO (vedi arrV4 in materials.js): quattro float per impatto
-      for (let k = 0; k < nImp && k * 4 < uni.uImpatti.value.length; k++) {
-        const a = (k / Math.max(1, nImp)) * Math.PI * 2;
-        const o = k * 4;
-        uni.uImpatti.value[o] = Math.cos(a) * 9;
-        uni.uImpatti.value[o + 1] = s.camera.bersaglio[1] + 0.44;
-        uni.uImpatti.value[o + 2] = Math.sin(a) * 9;
-        uni.uImpatti.value[o + 3] = 1.4 + (k % 3) * 0.5;
-      }
-      uni.uImpattiNum.value = nImp;
-      // camera fissa: è metà del senso del banco
-      rig.bersaglio.set(s.camera.bersaglio[0], s.camera.bersaglio[1], s.camera.bersaglio[2]);
-      rig.distanza = s.camera.distanza; rig.pitch = s.camera.pitch; rig.yaw = s.camera.yaw;
-      rig.aggiorna();
-      aggiornaLuci(rig.bersaglio);
-      // la scena si porta dietro i SUOI numeri (draw call, triangoli, luci
-      // accese): senza, un +6 ms resta un mistero — così si sa se è per i pixel,
-      // per gli oggetti o per le lampade
-      banco[s.id] = { ...(await _diagMisura(DIAG_FETTA)), scena: _diagScena(), condizioni: s.condizioni, perche: s.perche };
-    }
-  } finally {
-    uni.uImpattiNum.value = 0;
-    pioggia.imposta(pioggiaPrec);
-    impostaPioggia(pioggiaPrec ? 1 : 0);
-    arredo.svuota();
-    applica(salvato, mondo, arredo, ciclo, inventario);
-    mesher.ricostruisciTutto(mondo);
-    ricostruisciLuciBlocchi();
-    ricostruisciBlocchiSpeciali();
-    rig.bersaglio.copy(camPrec.b); rig.distanza = camPrec.d; rig.pitch = camPrec.p; rig.yaw = camPrec.y;
-    rig.aggiorna();
-  }
-  return banco;
-}
-
-/**
- * CONFRONTO ALTERNATO: invece di misurare A e poi B una volta sola, si gira
- * A, B, A, B… in fette corte e si tiene la MEDIANA dei tempi di frame di ogni
- * parte. Se il telefono rallenta a metà (si scalda, arriva una notifica) il
- * rallentamento cade su TUTTE le parti e il confronto regge; con una misura per
- * parte, no — ed è esattamente così che nelle due diagnostiche del 2026-07-26
- * «ombre spente» risultava più lenta di «ombre accese».
- * @param voci [[nome, applica], …] — anche più di due (la scala ne ha quattro)
- */
-async function _diagAlternati(voci, prog) {
-  const parti = {};
-  for (const [nome] of voci) parti[nome] = [];
-  for (let giro = 0; giro < DIAG_GIRI; giro++) {
-    for (const [nome, applica, etichetta] of voci) {
-      if (prog) prog(`${etichetta || nome} — giro ${giro + 1}/${DIAG_GIRI}`);
-      applica();
-      parti[nome].push(await _diagMisura(DIAG_FETTA));
-    }
-  }
-  const out = {};
-  for (const [nome] of voci) {
-    const lista = parti[nome];
-    const ms = lista.map((m) => m.frameMs).filter((x) => x > 0).sort((a, b) => a - b);
-    const mediana = ms.length ? ms[ms.length >> 1] : 0;
-    out[nome] = {
-      ...lista[lista.length - 1],
-      frame: lista.reduce((s, m) => s + m.frame, 0),
-      frameMs: round2(mediana),
-      fpsMediano: mediana > 0 ? Math.round(1000 / mediana) : 0,
-      fette: lista.length,
-    };
-  }
-  return out;
-}
-
-/** Applica UNA config di rendering muovendo SOLO le leve (scala, riflesso, tilt,
- *  ombre): le stesse di applicaQualita, a mano, senza toccare `opzioni` né il
- *  mesher (niente remesh). Ogni campo assente resta com'è. */
-function _diagApplica({ scala, rifl, occ, parti }) {
-  if (scala !== undefined) rig.setScalaRender(scala);
-  if (rifl !== undefined) riflesso.attivo = !!rifl;
-  if (occ !== undefined) impostaOcclusione(!!occ);
-  impostaParti(parti === undefined ? PARTI.tutte : parti);   // la batteria misura sempre a shader pieno, salvo lo scenario apposta
-}
-
-// --- raccolta delle sezioni statiche (nessuna misura, nessun effetto) ---
-function _diagInfoGL() {
-  const gl = rig.renderer.getContext();
-  const par = (p) => { try { return gl.getParameter(p); } catch { return null; } };
-  let vendor = null, renderer = rig.gpu;
-  try {
-    const ext = gl.getExtension('WEBGL_debug_renderer_info');
-    if (ext) { vendor = gl.getParameter(ext.UNMASKED_VENDOR_WEBGL); renderer = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL); }
-  } catch { /* niente info driver */ }
-  let est = [];
-  try { est = gl.getSupportedExtensions() || []; } catch { /* pazienza */ }
-  const chiave = ['EXT_disjoint_timer_query_webgl2', 'EXT_color_buffer_float', 'OES_texture_float_linear',
-    'WEBGL_debug_renderer_info', 'EXT_texture_filter_anisotropic', 'KHR_parallel_shader_compile',
-    'WEBGL_compressed_texture_astc', 'WEBGL_compressed_texture_etc', 'WEBGL_lose_context'];
-  return {
-    webgl2: (typeof WebGL2RenderingContext !== 'undefined') && (gl instanceof WebGL2RenderingContext),
-    vendor, renderer, gpu: rig.gpu, software: rig.software,
-    timerQuery: !!perf.disponibile || est.includes('EXT_disjoint_timer_query_webgl2'),
-    maxTextureSize: par(gl.MAX_TEXTURE_SIZE),
-    max3dTextureSize: par(gl.MAX_3D_TEXTURE_SIZE),
-    maxTextureImageUnits: par(gl.MAX_TEXTURE_IMAGE_UNITS),
-    maxRenderbufferSize: par(gl.MAX_RENDERBUFFER_SIZE),
-    maxViewportDims: (() => { try { const v = gl.getParameter(gl.MAX_VIEWPORT_DIMS); return v ? [v[0], v[1]] : null; } catch { return null; } })(),
-    estensioniChiave: chiave.filter((e) => est.includes(e)),
-    estensioniTotali: est.length,
-  };
-}
-
-function _diagDispositivo() {
-  const n = navigator;
-  return {
-    userAgent: n.userAgent, piattaforma: n.platform || null, lingua: n.language || null,
-    schermoW: screen.width, schermoH: screen.height,
-    finestraW: innerWidth, finestraH: innerHeight,
-    devicePixelRatio, deviceMemory: n.deviceMemory ?? null, hardwareConcurrency: n.hardwareConcurrency ?? null,
-    touch: (n.maxTouchPoints || 0) > 0,
-  };
-}
-
-/**
- * ⚠ `vere` SONO LE IMPOSTAZIONI DEL GIOCATORE, e senza questo argomento il
- * report MENTIVA. La misura spegne d'ufficio limite fps, qualità automatica e
- * meteo automatico (se no si muovono sotto le mani), e questa funzione gira
- * MENTRE sono spenti: il file usciva con `autoQ: false` e `qualitaAuto: false`
- * comunque, anche per chi la qualità automatica non l'aveva mai toccata.
- * Ci sono cascato io per primo, e ho detto al committente che ce l'aveva spenta
- * quando forse era il mio strumento a scriverlo. Ora il report dice quello che
- * ha scelto LUI; in che condizioni si è misurato sta già nelle note.
- */
-function _diagImpostazioni(vere) {
-  const opz = JSON.parse(JSON.stringify(opzioni));
-  if (vere) {
-    opz.autoQ = vere.autoQ; opz.fpsMax = vere.fpsMax; opz.meteoAuto = vere.meteoAuto;
-  }
-  return {
-    opzioni: opz,
-    qualitaAuto: vere ? !!vere.autoQ : !qManuale, qLivello, riflessiUtente,
-    rigMobile: rig.mobile, dprMax: rig.dprMax,
-    pixelRatioRenderer: round2(rig.renderer.getPixelRatio()),
-    scalaInterna: round2(rig.scalaInterna), ingrandimento: rig.nitido ? 'nitido' : 'morbido',
-    maxOmbre: maxOmbre(), passiOmbraCielo: passiCielo(),
-    scalaRenderUtente: opzioni.scala,
-    ar: modalitaAR.attiva, xr: modalitaXR.attiva,
-  };
-}
-
-function _diagScena() {
-  const info = rig.renderer.info;
-  const st = mesher.statistiche;
-  const luci = statLuci();
-  // TRIANGOLI/DRAW CALL VERI: `info.render` si azzera a ogni render() e il
-  // tilt-shift fa più passate (l'ultima è UN quad a schermo intero) — leggerlo
-  // fra due frame conta quel quad, non la scena. Disattivo l'auto-reset, faccio
-  // un render vero e sommo, poi ripristino. È un render in più, senza effetti.
-  let triangoli = info.render.triangles, drawCall = info.render.calls;
-  const autoPrima = info.autoReset;
-  try {
-    info.autoReset = false;
-    info.reset();
-    rig.render();
-    triangoli = info.render.triangles;
-    drawCall = info.render.calls;
-  } catch { /* tengo i valori grezzi */ }
-  finally { info.autoReset = autoPrima; info.reset(); }
-  return {
-    contaBlocchi: mondo.contaBlocchi,
-    chunk: mesher.chunks ? mesher.chunks.size : null,
-    chunkAttivi: st.chunkAttivi,
-    triangoli, drawCall,
-    geometrie: info.memory.geometries, texture: info.memory.textures,
-    programmiShader: info.programs ? info.programs.length : null,
-    meshInScena: rig.scena.children.length,
-    grigliaLuceCelle: st.occCelle, memoriaVoxelKB: round2(memoriaVoxel() / 1024),
-    luci: { totali: luci.totali, attive: luci.attive, pesanti: luci.pesanti, inviate: luci.inviate, conOmbra: luci.conOmbra },
-  };
-}
-
-// --- progresso a schermo (barra + percentuale), non sembra mai bloccato ---
-function _diagCreaProgresso() {
-  let el = document.getElementById('diag-prog');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'diag-prog';
-    el.style.cssText = 'position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(6,10,22,.72);font:600 15px/1.5 system-ui,Segoe UI,Roboto,sans-serif;color:#eaf3ff';
-    el.innerHTML = '<div style="max-width:min(92vw,420px);width:100%;padding:22px;border-radius:16px;background:rgba(14,20,38,.96);border:1px solid rgba(120,200,255,.35);box-shadow:0 10px 40px rgba(0,0,0,.5);text-align:center">'
-      + '<div style="font-size:17px;margin-bottom:4px">📊 Diagnostica in corso…</div>'
-      + '<div data-el="sub" style="font-size:13px;opacity:.85;min-height:2.6em;display:flex;align-items:center;justify-content:center">avvio…</div>'
-      + '<div style="height:12px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden;margin:12px 0 6px"><div data-el="bar" style="height:100%;width:0%;background:linear-gradient(90deg,#5bd1ff,#7CFFB0);transition:width .25s ease"></div></div>'
-      + '<div data-el="pct" style="font-size:12px;opacity:.7">0%</div></div>';
-    document.body.appendChild(el);
-  }
-  el.style.display = 'flex';
-  const sub = el.querySelector('[data-el="sub"]');
-  const bar = el.querySelector('[data-el="bar"]');
-  const pct = el.querySelector('[data-el="pct"]');
-  return {
-    passo(x, y, cosa) {
-      const p = Math.max(0, Math.min(100, Math.round(x / y * 100)));
-      sub.textContent = `Passo ${x}/${y} — ${cosa}`;
-      bar.style.width = p + '%'; pct.textContent = p + '%';
-    },
-    fatto() {
-      sub.innerHTML = '✅ Fatto, file scaricato.<br><span style="opacity:.7;font-size:12px">Se non parte, usa «Copia» nel riquadro.</span>';
-      bar.style.width = '100%'; pct.textContent = '100%';
-      setTimeout(() => { el.style.display = 'none'; }, 900);
-    },
-    errore(e) {
-      sub.textContent = '😿 Errore: ' + String((e && e.message) || e).slice(0, 120);
-      bar.style.background = '#ff6b6b';
-      setTimeout(() => { el.style.display = 'none'; }, 4000);
-    },
-  };
-}
-
-// --- consegna del file: download classico + condivisione + modale con copia ---
-// Non ci si fida di UN solo canale: iOS Safari spesso IGNORA l'attributo download
-// e apre il JSON; il modale con textarea + «Copia» è la rete di sicurezza che
-// funziona ovunque (il committente può sempre incollarmi tutto).
-function _diagConsegna(nomeFile, testo) {
-  let scaricato = false;
-  try {
-    const blob = new Blob([testo], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = nomeFile;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
-    scaricato = true;
-  } catch (e) { console.warn('[diagnostica] download classico fallito', e); }
-  _diagModale(nomeFile, testo, scaricato);
-}
-
-function _diagModale(nomeFile, testo, scaricato) {
-  const back = document.createElement('div');
-  back.style.cssText = 'position:fixed;inset:0;z-index:220;display:flex;align-items:center;justify-content:center;background:rgba(6,10,22,.8);padding:14px;box-sizing:border-box;font:600 14px/1.5 system-ui,Segoe UI,Roboto,sans-serif;color:#eaf3ff';
-  const card = document.createElement('div');
-  card.style.cssText = 'max-width:min(96vw,560px);width:100%;max-height:88vh;display:flex;flex-direction:column;padding:16px;border-radius:16px;background:rgba(14,20,38,.98);border:1px solid rgba(120,200,255,.4);box-shadow:0 10px 40px rgba(0,0,0,.55)';
-  const kb = (testo.length / 1024).toFixed(1);
-  const testa = document.createElement('div');
-  testa.style.cssText = 'font-size:12px;opacity:.85;margin-bottom:8px';
-  testa.innerHTML = (scaricato ? 'File scaricato: ' : '⚠ Il download automatico non è partito. ')
-    + `<b>${nomeFile}</b> · ${kb} KB.<br>Se non lo trovi, copia tutto qui sotto e incollamelo.`;
-  const titolo = document.createElement('div');
-  titolo.style.cssText = 'font-size:16px;margin-bottom:6px';
-  titolo.textContent = '📊 Diagnostica pronta';
-  const ta = document.createElement('textarea');
-  ta.readOnly = true; ta.value = testo;
-  ta.style.cssText = 'flex:1;min-height:120px;width:100%;box-sizing:border-box;resize:vertical;font:500 11px/1.4 ui-monospace,Menlo,Consolas,monospace;background:rgba(0,0,0,.35);color:#cfe6ff;border:1px solid rgba(120,200,255,.25);border-radius:10px;padding:8px;white-space:pre;overflow:auto';
-  const riga = document.createElement('div');
-  riga.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px';
-  const mkBtn = (txt) => {
-    const b = document.createElement('button');
-    b.textContent = txt;
-    b.style.cssText = 'flex:1;min-width:120px;min-height:46px;padding:10px 14px;border-radius:12px;border:1px solid rgba(120,200,255,.4);background:rgba(90,170,255,.18);color:#eaf3ff;font:700 14px system-ui;cursor:pointer';
-    return b;
-  };
-  const bCopia = mkBtn('📋 Copia negli appunti');
-  bCopia.addEventListener('click', async () => {
-    let ok = false;
-    try { if (navigator.clipboard) { await navigator.clipboard.writeText(testo); ok = true; } } catch { /* fallback sotto */ }
-    if (!ok) { try { ta.focus(); ta.select(); ok = document.execCommand('copy'); } catch { ok = false; } }
-    bCopia.textContent = ok ? '✅ Copiato!' : '⚠ Seleziona sopra e copia a mano';
-  });
-  riga.appendChild(bCopia);
-  // condivisione del FILE (iOS/Android): il canale più affidabile se il download è ignorato
-  try {
-    const file = new File([testo], nomeFile, { type: 'application/json' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      const bShare = mkBtn('📤 Condividi file');
-      bShare.addEventListener('click', async () => { try { await navigator.share({ files: [file], title: nomeFile }); } catch { /* annullato */ } });
-      riga.appendChild(bShare);
-    }
-  } catch { /* niente Web Share coi file qui */ }
-  const bChiudi = mkBtn('✕ Chiudi');
-  bChiudi.style.flex = '0 0 auto'; bChiudi.style.minWidth = '84px';
-  bChiudi.addEventListener('click', () => back.remove());
-  riga.appendChild(bChiudi);
-  card.appendChild(titolo); card.appendChild(testa); card.appendChild(ta); card.appendChild(riga);
-  back.appendChild(card); document.body.appendChild(back);
-  setTimeout(() => { try { ta.focus(); ta.select(); } catch { /* pazienza */ } }, 60);
-}
-
-/**
- * LA ROUTINE: batteria di benchmark sul mondo ATTUALE, con progresso a schermo,
- * poi scarica il file. Salva lo stato prima e lo RIPRISTINA nel finally (ora,
- * tempo, e lo stato di rendering derivato dalle opzioni via applicaQualita).
- */
-async function eseguiDiagnostica() {
-  if (_diagInCorso) return;
-  // prima di misurare: si sta eseguendo davvero l'ultima build pubblicata?
-  // Se no, questa funzione non torna — la pagina si ricarica e si ricomincia.
-  await _controllaBuild();
-  _diagInCorso = true;
-  const prog = _diagCreaProgresso();
-  const t0 = Date.now();
-  const heapPrima = (performance.memory && performance.memory.usedJSHeapSize) || null;
-
-  // stato da ripristinare. NON tocco opzioni/mesher, quindi contaBlocchi resta.
-  const snap = { cicloT: ciclo.t, cicloAuto: ciclo.auto, perfAttivo: perf.attivo, contaBlocchi: mondo.contaBlocchi, fpsMax: opzioni.fpsMax, autoQ: opzioni.autoQ, meteoAuto: opzioni.meteoAuto };
-  // LE IMPOSTAZIONI DEL GIOCATORE NON DEVONO ENTRARE NELLA MISURA. Tre di esse
-  // la falsavano in silenzio, e una ha già buttato via un giro intero:
-  //  · LIMITE FPS — con un tetto attivo OGNI scenario legge lo stesso numero
-  //    (successo davvero: una batteria intera a 30 fps su tutte le voci);
-  //  · QUALITÀ AUTOMATICA — cambierebbe scala ed effetti MENTRE si misura, cioè
-  //    lo strumento si muoverebbe sotto le mani;
-  //  · METEO AUTOMATICO — un rovescio che parte a metà giro sposta una scena e
-  //    non l'altra.
-  // Si spengono qui e si rimettono nel finally. Quello che il committente ha
-  // scelto resta scritto in `impostazioni`: il report dice sia com'era, sia in
-  // che condizioni è stato misurato.
-  opzioni.fpsMax = 0; cadenza.fpsMax = 0;
-  opzioni.autoQ = false; qManuale = true;
-  meteo.attivaAuto(false);
-  const uni = uniformiCondivise();
-  // leve di rendering CORRENTI, per tenerle ferme mentre se ne muove UNA alla volta
-  const base = {
-    scala: rig.scalaInterna,
-    rifl: !!riflesso.attivo,
-    occ: uni.uOcclusione.value > 0.5,
-  };
-  const note = [];
-  const sweep = {};
-  let banco = null;
-  let baseline = null;
-
-  try {
-    perf.imposta(true);
-    // in AR il render passa per il contesto di MindAR: lega lì le timer query
-    try {
-      const glOra = (modalitaAR.attiva && modalitaAR.mindar) ? modalitaAR.mindar.renderer.getContext() : rig.renderer.getContext();
-      perf.usaContesto(glOra);
-      if (perf.attivo === false && perf.disponibile) perf.imposta(true);
-    } catch { /* resta col contesto di partenza */ }
-    if (!perf.disponibile) note.push('gpu_timer: non disponibile (manca EXT_disjoint_timer_query_webgl2): misure solo CPU/fps.');
-    ciclo.auto = false;   // congela l'ora: notte/giorno non devono derivare durante la misura
-
-    // I confronti si fanno DENTRO un gruppo alternato; fra gruppi diversi i
-    // numeri non si paragonano (il telefono cambia stato durante la batteria).
-    const gruppi = [
-      ['riflesso', [
-        ['riflesso_on', () => _diagApplica({ ...base, rifl: true }), 'riflesso ACCESO'],
-        ['riflesso_off', () => _diagApplica({ ...base, rifl: false }), 'riflesso SPENTO'],
-      ]],
-      ['ombre', [
-        ['ombre_on', () => _diagApplica({ ...base, occ: true }), 'ombre voxel ACCESE'],
-        ['ombre_off', () => _diagApplica({ ...base, occ: false }), 'ombre voxel SPENTE'],
-      ]],
-      ['scala', [
-        ['scala_1.00', () => _diagApplica({ ...base, scala: 1 }), 'scala render 1.00'],
-        ['scala_0.85', () => _diagApplica({ ...base, scala: 0.85 }), 'scala render 0.85'],
-        ['scala_0.66', () => _diagApplica({ ...base, scala: 0.66 }), 'scala render 0.66'],
-        ['scala_0.50', () => _diagApplica({ ...base, scala: 0.5 }), 'scala render 0.50'],
-      ]],
-      // IL BISTURI: quanto costa OGNI TERMINE dello shader del mondo, per pixel.
-      // Di giorno il pass principale costa 19,9 ms con le lampade spente: senza
-      // scomporlo si finisce a riscrivere il pezzo sbagliato. `nudo` è il fondo
-      // della scala — colore della palette e basta — e dice quanto del costo è
-      // NOSTRO e quanto è del disegnare quei pixel, punto.
-      ['shader', [
-        ['shader_tutto', () => _diagApplica({ ...base, parti: PARTI.tutte }), 'shader completo'],
-        ['shader_senzaNuvole', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.nuvole }), 'senza ombre delle nuvole'],
-        ['shader_senzaPg', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.personaggi }), 'senza ombre dei personaggi'],
-        ['shader_senzaAcqua', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.acqua }), 'acqua PIATTA'],
-        ['shader_nudo', () => _diagApplica({ ...base, parti: 0 }), 'shader NUDO (solo palette)'],
-      ]],
-      // DENTRO l'acqua: quale pezzo del pelo costa. Serve perché l'acqua è
-      // rimasta il 60% del pass anche dopo il primo giro di tagli, e senza
-      // separarla si finisce a riscrivere il pezzo sbagliato (già successo).
-      ['acqua', [
-        ['acqua_tutta', () => _diagApplica({ ...base, parti: PARTI.tutte }), 'pelo completo'],
-        ['acqua_senzaRiflesso', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.riflesso }), 'senza riflesso sul pelo'],
-        ['acqua_senzaSilhouette', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.silhouette }), 'senza schiuma a silhouette'],
-        ['acqua_senzaRiva', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.riva }), 'senza schiuma di riva'],
-        ['acqua_senzaImpatti', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.impatti }), 'senza anelli d\'impatto'],
-        ['acqua_senzaCorrenti', () => _diagApplica({ ...base, parti: PARTI.tutte & ~PARTI.correnti }), 'senza correnti e cascate'],
-      ]],
-      ['ora', [
-        ['giorno', () => { ciclo.t = 0.5; ciclo.aggiorna(0); _diagApplica({ ...base, occ: true }); }, 'giorno pieno'],
-        ['notte_ombre', () => { ciclo.t = 0.0; ciclo.aggiorna(0); _diagApplica({ ...base, occ: true }); }, 'notte con ombre'],
-      ]],
-      ['preset', [
-        ['preset_alta', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 1, rifl: true, occ: true }); }, 'preset «alta»'],
-        ['preset_bassa', () => { ciclo.t = snap.cicloT; ciclo.aggiorna(0); _diagApplica({ scala: 0.66, rifl: false, occ: false }); }, 'preset «bassa»'],
-      ]],
-    ];
-    const N = gruppi.length + SCENE.length + 4;   // +info +assaggio +baseline iniziale/finale +assemblaggio
-
-    prog.passo(1, N, 'raccolgo info dispositivo/GL/scena');
-    const dispositivo = _diagDispositivo();
-    const gl = _diagInfoGL();
-    const scena = _diagScena();
-    if (modalitaAR.attiva || modalitaXR.attiva) note.push('AR/XR attiva durante la misura: riflesso e schiuma sono spenti per costruzione.');
-    note.push('Riflesso, schiuma e la voce «acqua» dello shader contano SOLO se un piano d\'acqua è INQUADRATO: se leggono 0 ms, guarda l\'acqua e rifai la misura.');
-    note.push('Preset misurati a livello di rendering (scala/riflesso/tilt/ombre); il diorama NON viene rifatto.');
-    note.push('Ogni gruppo è misurato ALTERNANDO le sue voci: confronta solo dentro lo stesso gruppo, mai fra gruppi diversi.');
-    note.push('Durante la misura limite FPS, qualità automatica e meteo automatico sono SPENTI d\'ufficio: sono impostazioni che falsano il risultato. Vengono rimessi com\'erano alla fine.');
-    if (snap.fpsMax > 0) note.push(`Avevi un limite di ${snap.fpsMax} fps: l'ho tolto per questa misura, altrimenti ogni scenario avrebbe letto lo stesso numero.`);
-
-    // ASSAGGIO BUTTATO: la primissima misura legge sempre bassa (compilazione
-    // degli shader, JIT, il modale appena aperto). Prima si finiva per pubblicare
-    // quel numero come «baseline» e sembrava che il gioco andasse peggio di com'è.
-    prog.passo(2, N, 'scaldo il motore (misura buttata)');
-    _diagApplica(base);
-    await _diagMisura(DIAG_ASSAGGIO);
-
-    prog.passo(3, N, 'baseline (impostazioni attuali)');
-    _diagApplica(base);
-    baseline = await _diagMisura();
-    sweep.baseline = baseline;
-
-    let i = 0;
-    for (const [nome, voci] of gruppi) {
-      const misure = await _diagAlternati(voci, (t) => prog.passo(4 + i, N, t));
-      Object.assign(sweep, misure);
-      i++;
-    }
-
-    // BASELINE DI CHIUSURA: stesse identiche impostazioni della prima. Se i due
-    // numeri divergono, il telefono è cambiato durante la batteria e TUTTI i
-    // confronti fra gruppi vanno buttati (quelli dentro i gruppi reggono).
-    prog.passo(4 + i, N, 'baseline di chiusura (controllo deriva)');
-    _diagApplica(base);
-    sweep.baseline_fine = await _diagMisura();
-
-    // IL BANCO: scene costruite qui, uguali su ogni dispositivo e ogni versione
-    banco = await _diagBanco(prog, 5 + i, N);
-
-    prog.passo(N, N, 'assemblo e scarico il file');
-    const heapDopo = (performance.memory && performance.memory.usedJSHeapSize) || null;
-    const memoria = {
-      heapPrimaMB: heapPrima != null ? round2(heapPrima / 1048576) : null,
-      heapDopoMB: heapDopo != null ? round2(heapDopo / 1048576) : null,
-      cresciutaMB: (heapPrima != null && heapDopo != null) ? round2((heapDopo - heapPrima) / 1048576) : null,
-      limiteMB: (performance.memory && performance.memory.jsHeapSizeLimit) ? round2(performance.memory.jsHeapSizeLimit / 1048576) : null,
-      nota: performance.memory ? null : 'performance.memory non disponibile su questo browser',
-    };
-
-    const report = componiDiagnostica(
-      { build: VERSIONE_CODICE, buildPubblicata: _buildPubblicata,
-        dispositivo, gl, impostazioni: _diagImpostazioni(snap), scena, baseline, sweep, banco, memoria, note },
-      { quando: t0 },
-    );
-    const testo = JSON.stringify(report, null, 2);
-    _diagConsegna(report.nomeFile, testo);
-    prog.fatto();
-    if (typeof hud !== 'undefined' && hud) hud.toast('📊 Diagnostica pronta — file scaricato', 3200);
-  } catch (e) {
-    console.error('[diagnostica] errore', e);
-    prog.errore(e);
-  } finally {
-    // RIPRISTINO: ora, tempo e lo stato di rendering derivato dalle opzioni
-    // (mai toccate) via applicaQualita — nessun remesh, diorama intatto.
-    _diagCpu = null;
-    _diagPassi = null;
-    impostaParti(_partiQ);                  // il bisturi non deve MAI restare dentro: si torna a ciò che concede la qualità
-    // le impostazioni del giocatore tornano ESATTAMENTE come le aveva lasciate
-    opzioni.fpsMax = snap.fpsMax; cadenza.fpsMax = snap.fpsMax;
-    opzioni.autoQ = snap.autoQ; qManuale = !snap.autoQ;
-    meteo.attivaAuto(snap.meteoAuto !== false);
-    ciclo.t = snap.cicloT; ciclo.auto = snap.cicloAuto; ciclo.aggiorna(0);
-    if (typeof applicaQualita === 'function') applicaQualita();
-    perf.imposta(snap.perfAttivo);
-    if (mondo.contaBlocchi !== snap.contaBlocchi) console.warn('[diagnostica] contaBlocchi cambiato!', snap.contaBlocchi, '→', mondo.contaBlocchi);
-    _diagInCorso = false;
-  }
 }
 
 // in AR i click mirano con la camera del telefono, e il raggio va riportato
@@ -1302,13 +630,22 @@ function ghostSuBersaglio() {
 function aggiornaGhost() {
   if (!costruisci) { nascondiGhost(); return; }
   // col tocco il bersaglio è relativo al gatto: si vede SEMPRE dove si agirà
-  if (opzioni.comandiTouch) { ghostSuBersaglio(); return; }
+  if (opzioni.comandiTouch) {
+    const v = voceInMano();
+    const rompe = modalitaRompi || !v || v.genere === 'attrezzo';
+    const tipo = rompe ? 'togli' : (v.genere === 'blocco' ? 'metti' : 'furniPiazza');
+    if (!possoQui(tipo)) { nascondiGhost(); return; }
+    ghostSuBersaglio();
+    return;
+  }
   if (modalitaRompi) { nascondiGhost(); return; }
   const voce = voceInMano();
   if (!voce || voce.genere === 'attrezzo') { nascondiGhost(); return; }
   const colpo = puntaGriglia(mira.x, mira.y);
   if (!colpo) { nascondiGhost(); return; }
 
+  // l'anteprima TACE: se non puoi, semplicemente non compare (vedi possoQui)
+  if (!possoQui(voce.genere === 'blocco' ? 'metti' : 'furniPiazza')) { nascondiGhost(); return; }
   if (voce.genere === 'blocco') {
     const [x, y, z] = [
       colpo.cella[0] + colpo.normale[0],
@@ -1429,6 +766,9 @@ function interagisci() {
     // nessuna azione al tocco ma delle manopole sì: il tocco APRE il pannello
     if (apriPannelloMacchina(furni)) return;
     if (furni.def.stati) {
+      // accendere una lampada è un evento di rete come mettere un blocco: se
+      // l'host lo rifiuta e qui è già stato applicato, i due mondi divergono
+      if (!possoLocalmente('furniStato')) return;
       arredo.alterna(furni);
       hud.toast(`${furni.def.nome}: ${furni.def.stati[furni.stato].nome}`);
       segnaSalvataggio();
@@ -1448,6 +788,7 @@ function clickEsplora(sx, sy) {
     if (toccaMacchina(gestoreMacchine, servizi, furni.istanza)) { suggerisciPannello(furni.istanza); segnaSalvataggio(); return; }
     if (apriPannelloMacchina(furni.istanza)) return;   // niente azione, ma ha manopole: apri il cruscotto
     if (furni.istanza.def.stati) {
+      if (!possoLocalmente('furniStato')) return;      // stessa ragione di interagisci()
       arredo.alterna(furni.istanza);
       hud.toast(`${furni.istanza.def.nome}: ${furni.istanza.def.stati[furni.istanza.stato].nome}`);
       segnaSalvataggio();
@@ -1499,8 +840,51 @@ function clickEsplora(sx, sy) {
   }
 }
 
+/**
+ * POSSO FARLO, QUI, ADESSO?
+ *
+ * ⚠ ERA IL BUCO PIU' BRUTTO DI TUTTO IL MULTIPLAYER, e non si vedeva perche' non
+ * dava errore: dava DUE MONDI. Un visitatore piazzava un blocco, il blocco
+ * compariva a casa sua, il messaggio partiva, l'host lo rifiutava perche' un
+ * visitatore non costruisce — e nessuno diceva niente a nessuno. Da quel momento
+ * il mondo dell'ospite e quello dell'host erano diversi: blocchi che esistono
+ * per uno solo, muri che si attraversano perche' li' dentro non c'e' niente, e
+ * ogni azione successiva che allarga la crepa.
+ *
+ * Il ruolo lo sapeva gia': `mioRuolo` arriva dal server appena si entra. Solo
+ * che non lo leggeva NESSUNO — stava li' scritto e basta. Adesso si legge prima
+ * di toccare il mondo, e chi non puo' se lo sente dire subito, con la ragione.
+ *
+ * A casa propria non chiede permesso a nessuno: il freno vale solo quando si e'
+ * ospiti. E resta un freno di CORTESIA — quello vero, che conta, e' sull'host
+ * (vedi il filtro in `lobby.onMessaggio`), perche' questo qui lo si scavalca
+ * dalla console del browser in dieci secondi.
+ */
+function possoQui(tipo) {
+  if (!lobby.connessa || lobby.ruolo !== 'ospite') return true;
+  return ruoloPuo(mioRuolo, { tipo });
+}
+
+/**
+ * Come `possoQui`, ma LO DICE. Si chiama solo da un GESTO dell'utente.
+ *
+ * ⚠ NON METTERLA NEL LOOP. È già successo: la stessa domanda stava dentro
+ * `aggiornaGhost`, che gira a ogni frame — un ospite senza permessi si prendeva
+ * sessanta avvisi e sessanta suoni d'errore al secondo, cioè il gioco
+ * inutilizzabile invece del divieto. Dove serve solo SAPERE (l'anteprima, un
+ * pulsante da spegnere) si usa `possoQui`, che tace.
+ */
+function possoLocalmente(tipo) {
+  if (possoQui(tipo)) return true;
+  const d = RUOLO_DESCR[mioRuolo];
+  hud.toast(d ? `${d.icona} Sei ${d.titolo}: ${d.dice}` : 'Non puoi farlo in questa stanza');
+  try { audio.sfx('errore'); } catch { /* senza audio pazienza */ }
+  return false;
+}
+
 function usaSecchio(colpo) {
   if (!colpo) return;
+  if (!possoLocalmente('metti')) return;
   const [x, y, z] = colpo.cella;
   const t = mondo.tipo(x, y, z);
   if (!inventario.secchioPieno) {
@@ -1534,6 +918,7 @@ function attrezzoAttuale() {
 
 /** Rompe un blocco a colpi (salute + attrezzo). Furni sopra e acqua a parte. */
 function rompiBlocco([x, y, z]) {
+  if (!possoLocalmente('togli')) return;
   if (mondo.furniIn(x, y + 1, z)) { hud.toast('C’è un furni appoggiato sopra'); return; }
   const tipo = mondo.tipo(x, y, z);
   if (!tipo) return;
@@ -1589,6 +974,7 @@ function costruisciSuCella(cella, rompi) {
   if (rompi) {
     const ist = arredo.istanze.find((i) => i.celle.some((c) => c[0] === x && c[1] === y && c[2] === z));
     if (ist) {
+      if (!possoLocalmente('furniRimuovi')) return;
       arredo.rimuovi(ist); inventario.aggiungi(ist.defId);
       audio.sfx('raccogli'); segnaSalvataggio(); return;
     }
@@ -1598,6 +984,7 @@ function costruisciSuCella(cella, rompi) {
   }
   const voce = voceInMano();
   if (!voce || voce.genere === 'attrezzo') { hud.toast('Scegli un blocco dalla bolla 🫧'); return; }
+  if (!possoLocalmente(voce.genere === 'blocco' ? 'metti' : 'furniPiazza')) return;
   if (voce.genere === 'blocco') {
     const tIn = mondo.tipo(x, y, z);
     if (tIn && !defDi(tIn).acqua) { hud.toast('Lì è già occupato'); audio.sfx('errore'); return; }
@@ -1628,6 +1015,7 @@ function clickCostruisci(sx, sy, destro) {
     const furni = puntaFurni(sx, sy);
     const blocco = puntaGriglia(sx, sy);
     if (furni && (!blocco || furni.dist < blocco.dist)) {
+      if (!possoLocalmente('furniRimuovi')) return;
       arredo.rimuovi(furni.istanza);
       inventario.aggiungi(furni.istanza.defId);      // raccolta
       audio.sfx('raccogli');
@@ -1777,47 +1165,32 @@ function impostaRompi(attivo) {
   aggiornaGhost();
 }
 
-// ---- pannello "Gioca insieme" (P2P guidato) -----------------------------------
-// Stesso handshake WebRTC del menu debug, ma tenuto per mano: due bottoni,
-// codici auto-copiati negli appunti, stato leggibile. Zero gergo.
-
-const elStanza = document.getElementById('stanza');
-const fasiStanza = { host: document.getElementById('stanzaHost'), ospite: document.getElementById('stanzaOspite') };
-
-function apriFaseStanza(quale) {
-  elStanza.classList.toggle('in-fase', quale !== null);
-  for (const [k, el] of Object.entries(fasiStanza)) el.classList.toggle('aperto', k === quale);
-}
-async function copiaTesto(testo, okEl) {
-  let ok = false;
-  try { await navigator.clipboard.writeText(testo); ok = true; } catch { /* fallback sotto */ }
-  if (okEl) okEl.textContent = ok ? '✓ copiato!' : '(seleziona il riquadro e copia a mano)';
-  return ok;
-}
-// incolla dagli appunti in una textarea (con fallback: la lascia da riempire a mano)
-async function incollaIn(idTextarea) {
-  try {
-    const t = await navigator.clipboard.readText();
-    if (t) { document.getElementById(idTextarea).value = t.trim(); hud.toast('📥 Incollato'); return; }
-  } catch { /* niente permesso: manuale */ }
-  const ta = document.getElementById(idTextarea);
-  ta.focus();
-  hud.toast('Tieni premuto nel riquadro e scegli «Incolla»');
-}
-document.getElementById('incollaSuo').addEventListener('click', () => incollaIn('codiceSuo'));
-document.getElementById('incollaStanza').addEventListener('click', () => incollaIn('codiceStanza'));
-
-// TURN gratuito (connessione affidabile su rete mobile): credenziali incollate
-// dall'utente, salvate e usate da lobby._nuovaPc via Lobby.turn
+// ---- IL COLLEGAMENTO FRA GIOCATORI: UNA STRADA SOLA --------------------------
+//
+// ⚠ QUI DENTRO VIVEVANO DUE MULTIPLAYER, e la parte peggiore è che uno dei due
+// era MORTO da mesi senza che si vedesse. C'era il pannello vecchio «Gioca
+// insieme» (#stanza in index.html) con dentro TRE modi di collegarsi — il codice
+// stanza, i codici WebRTC da copiare e incollare a mano, e le credenziali TURN —
+// più una sua chat e una sua lista di membri. Poi è arrivato il pannello nuovo
+// (ui/multiplayer.js, il tasto 🌐), e il vecchio non è stato tolto: è stato solo
+// smesso di aprire. Da lì in poi il gioco continuava a tenerlo in vita per
+// niente — scriveva lo stato della stanza in un'etichetta che nessuno vedeva,
+// ridisegnava a ogni cambiamento una lista di membri invisibile, teneva
+// agganciati una dozzina di pulsanti irraggiungibili — e chi leggeva il codice
+// trovava due impianti che facevano la stessa cosa in due modi diversi, senza
+// niente che dicesse quale dei due fosse quello vero.
+//
+// Adesso ne resta uno. I codici manuali sono spariti col pannello: il server di
+// segnalazione fa lo stesso lavoro senza far copiare niente a nessuno.
+//
+// IL TURN, invece, NON è sparito: le credenziali già salvate continuano a
+// valere e il server ne consegna di usa-e-getta a chi entra in una stanza
+// (chiediTurnAlServer). Quello che è sparito è il modulo per incollarle a mano,
+// che era l'unico pezzo di gergo rimasto in un gioco per bambini.
 function caricaTurn() {
   try {
     const t = JSON.parse(localStorage.getItem('lantern.turn') || 'null');
-    if (t && t.urls) {
-      Lobby.turn = [t];
-      document.getElementById('turnUrl').value = t.urls;
-      document.getElementById('turnUser').value = t.username || '';
-      document.getElementById('turnPass').value = t.credential || '';
-    }
+    if (t && t.urls) Lobby.turn = [t];
   } catch { /* niente TURN */ }
 }
 caricaTurn();
@@ -1889,85 +1262,35 @@ async function chiediTurnAlServer(biglietto) {
 // server lo concede solo a chi ha un BIGLIETTO — e il biglietto lo rilascia
 // entrando in una stanza. Chi gioca da solo non ne ha bisogno e non lo chiede:
 // una richiesta in meno per ogni partita, e la quota resta per chi serve.
-document.getElementById('turnSalva').addEventListener('click', () => {
-  const urls = document.getElementById('turnUrl').value.trim();
-  if (!urls) { Lobby.turn = []; localStorage.removeItem('lantern.turn'); hud.toast('TURN rimosso'); return; }
-  const t = { urls, username: document.getElementById('turnUser').value.trim(), credential: document.getElementById('turnPass').value.trim() };
-  Lobby.turn = [t];
-  try { localStorage.setItem('lantern.turn', JSON.stringify(t)); } catch { /* pieno */ }
-  hud.toast('🌐 TURN salvato: connessione più affidabile');
-});
-// ---- ROOM-CODE: connessione con codice stanza (niente copia/incolla) ---------
-// Usa il server di segnalazione (server/signaling.mjs).
+
+// ---- DOVE STA IL TRAMITE ----------------------------------------------------
 //
-// ⚠ L'INDIRIZZO NON SI CHIEDE PIÙ, e non era una svista: è LO STESSO SERVER
-// delle presenze. `signaling.mjs` nasce per il codice-stanza — le analitiche
-// gliele abbiamo aggiunte sopra — quindi appena ANALITICA_URL è configurato il
-// gioco sa già dove sta il tramite. Prima ogni giocatore doveva farsi dare
-// l'indirizzo e incollarlo a mano PRIMA di poter digitare un codice: due
-// passaggi tecnici davanti a una cosa che deve essere «dimmi il codice ed entro».
-// Il campo resta, e chi ci scrive qualcosa vince: serve per puntare a un server
-// diverso durante le prove.
+// ⚠ L'INDIRIZZO NON SI CHIEDE A NESSUNO: è LO STESSO SERVER delle presenze.
+// `signaling.mjs` nasce per il codice-stanza — le analitiche gliele abbiamo
+// aggiunte sopra — quindi appena ANALITICA_URL è configurato il gioco sa già
+// dove sta il tramite. Chi durante le prove vuole puntare a un server diverso
+// scrive UNA volta `localStorage['lantern.segnala']` e quello vince su tutto.
+//
+// Prima l'indirizzo si leggeva da un campo di testo che stava nel pannello
+// vecchio: cioè da un campo che nessuno poteva più vedere né riempire. Leggerlo
+// dal DOM voleva dire leggere sempre la stringa vuota e non accorgersene mai.
 let segnalatore = null;
-const rcUrlEl = document.getElementById('rcUrl');
-try { const u = localStorage.getItem('lantern.segnala'); if (u) rcUrlEl.value = u; } catch { /* ok */ }
-if (!rcUrlEl.value && ANALITICA_URL) rcUrlEl.placeholder = ANALITICA_URL + '  (già pronto)';
 function urlSegnala() {
-  const u = (rcUrlEl.value || '').trim() || ANALITICA_URL;
-  if (!u) { hud.toast('Prima imposta il server (⚙️ apri «Server di segnalazione»)'); document.getElementById('rcServer').open = true; return null; }
+  let scelto = '';
+  try { scelto = (localStorage.getItem('lantern.segnala') || '').trim(); } catch { /* ok */ }
+  const u = scelto || ANALITICA_URL;
+  if (!u) { hud.toast('Nessun server di segnalazione configurato 😿'); return null; }
   return u.replace(/^http/, 'ws'); // http→ws, https→wss
 }
-document.getElementById('rcUrlSalva').addEventListener('click', () => {
-  const u = (rcUrlEl.value || '').trim();
-  try { u ? localStorage.setItem('lantern.segnala', u) : localStorage.removeItem('lantern.segnala'); } catch { /* pieno */ }
-  hud.toast(u ? '💾 Server salvato' : 'Server rimosso');
-});
-document.getElementById('rcCrea').addEventListener('click', async () => {
-  const url = urlSegnala(); if (!url) return;
-  const box = document.getElementById('rcCodice');
-  box.textContent = '…';
-  try {
-    if (segnalatore) segnalatore.chiudi();
-    segnalatore = new Segnalatore(lobby);
-    segnalatore.onStato = (t) => hud.toast(t);
-    segnalatore.onBiglietto = (b) => chiediTurnAlServer(b);
-    segnalatore.onCode = (c) => { box.textContent = c; hud.toast('🏠 Stanza «' + c + '» — dì il codice agli amici'); };
-    // la stanza porta con se' chi e' e SU CHE VERSIONE gira: il controllo di
-    // versione lo fa il server all'ingresso, ma il dato nasce qui
-    const io_ = leggiProfilo();
-    await segnalatore.creaStanza(url, {
-      nome: (document.getElementById('rcNomeStanza')?.value || '').trim() || (io_.nome + ' \u2014 casa'),
-      pubblica: !!document.getElementById('rcPubblica')?.checked,
-      pw: (document.getElementById('rcPassword')?.value || '').trim(),
-      bussare: document.getElementById('rcBussare') ? document.getElementById('rcBussare').checked : true,
-      build: VERSIONE_CODICE,
-      max: 8,
-    });
-  } catch (e) { box.textContent = ''; hud.toast('Server non raggiungibile 😿'); console.warn(e); }
-});
-document.getElementById('rcEntra').addEventListener('click', async () => {
-  const url = urlSegnala(); if (!url) return;
-  const code = (document.getElementById('rcInput').value || '').trim().toUpperCase();
-  if (code.length < 3) { hud.toast('Scrivi il codice della stanza'); return; }
-  try {
-    if (segnalatore) segnalatore.chiudi();
-    segnalatore = new Segnalatore(lobby);
-    segnalatore.onStato = (t) => hud.toast(t);
-    segnalatore.onBiglietto = (b) => chiediTurnAlServer(b);
-    segnalatore.onRuolo = (r) => {
-      mioRuolo = r;
-      const d = RUOLO_DESCR[r];
-      if (d) hud.toast(`${d.icona} Sei ${d.titolo} — ${d.dice}`);
-      aggiornaMembri();
-    };
-    const me = leggiProfilo();
-    await segnalatore.entra(url, code, {
-      nome: me.nome, colore: me.colore, build: VERSIONE_CODICE,
-      pw: (document.getElementById('rcPasswordEntra')?.value || '').trim(),
-    });
-    hud.toast('🚪 Entro nella stanza «' + code + '»…');
-  } catch (e) { hud.toast('Server non raggiungibile 😿'); console.warn(e); }
-});
+// ⚠ QUI STAVANO DUE GEMELLI POVERI di `_apriStanzaDaPannello` e
+// `_entraDaPannello`: gli stessi due gesti, ma agganciati ai pulsanti del
+// pannello vecchio e con META' dei collegamenti. Aprivano la stanza leggendo
+// nome, password e «bussare» da campi che nel frattempo erano stati cancellati
+// dalla pagina — quindi: stanza sempre senza nome, sempre senza password,
+// sempre a porte aperte — e sovrascrivevano `segnalatore` senza agganciargli ne'
+// lo sgombero, ne' la caduta, ne' le bussate. Erano irraggiungibili, ma bastava
+// un giorno di distrazione per riportarli in vita e passare una settimana a
+// chiedersi perche' la password della stanza non venisse mai chiesta.
 
 // ---- IL PONTE FRA IL PANNELLO «INSIEME» E LA RETE ---------------------------
 //
@@ -2012,33 +1335,116 @@ function _apriStanzaDaPannello(opz) {
 
 let _sonoSpia = false;   // sto guardando una stanza da moderatore, in incognito
 
+// ⚠ «STANZA INESISTENTE» PUO' ESSERE UNA BUGIA, e per mesi e' stata la ragione
+// per cui il multiplayer sembrava rotto a caso. Il server non e' un processo
+// solo: ne girano diverse copie, e ognuna conosce le stanze aperte SU DI SE'.
+// Se l'host e' capitato sulla copia A e tu apri il collegamento sulla copia B,
+// la B ti risponde in buona fede che quella stanza non esiste — mentre l'amico
+// e' li' che aspetta guardando lo stesso codice.
+//
+// La soluzione giusta e' che le copie si parlino, e il server ci prova; ma
+// quando quel tubo non c'e' (dipende dalla piattaforma) l'unica cosa che si puo'
+// fare dal gioco e' RIPROVARE con un collegamento nuovo, che viene smistato di
+// nuovo e ha buone probabilita' di finire su un'altra copia. Con tre copie
+// bastano tre tentativi; qui se ne fanno sei, e si dice all'utente che si sta
+// insistendo invece di lasciarlo davanti a un errore secco.
+// ⚠ SI BUSSA A UNA PORTA ALLA VOLTA, e qui c'e' stato un errore vero da cui vale
+// la pena imparare. Per fare presto si aprivano TRE collegamenti insieme, con
+// l'idea che tre copie diverse rispondessero e vincesse la piu' veloce. Ma
+// «cercare» e «bussare» sul filo sono lo STESSO messaggio: se le copie si
+// parlano — e adesso si parlano — tutte e tre trovano la stanza e tutte e tre
+// entrano. Da fuori si vedeva cosi': lo stesso amico suonava il campanello tre
+// volte, l'host apriva tre volte, mandava il mondo intero tre volte, e due dei
+// tre collegamenti non rispondevano mai piu' perche' nel frattempo il gioco li
+// aveva chiusi — inchiodando la coda di chi ospita per tutti gli altri.
+//
+// Un tentativo per volta, ma SVELTI: il server risponde «non ce l'ho» in poco
+// piu' di un secondo (ATTESA_MS in signaling.mjs), quindi quattro tentativi
+// stanno in cinque secondi scarsi, e ogni tentativo e' un collegamento nuovo che
+// viene smistato di nuovo — cioe' un'altra copia. Nel frattempo si dice
+// all'utente che si sta insistendo, invece di lasciarlo davanti a un errore secco.
+const TENTATIVI_ENTRATA = 4;
+
 function _entraDaPannello(code, pw, spia) {
   const url = urlSegnala(); if (!url) return;
-  (async () => {
-    try {
-      if (segnalatore) segnalatore.chiudi();
-      segnalatore = new Segnalatore(lobby);
-      _agganciaSegnalatore();
-      const me = leggiProfilo();
-      _sonoSpia = !!spia;
-      await segnalatore.entra(url, code, { nome: me.nome, colore: me.colore, build: VERSIONE_CODICE, pw: pw || '', spia: spia || '' });
-      hud.toast(spia ? '🛡 Entro a guardare «' + code + '» senza farmi vedere' : '🚪 Entro nella stanza «' + code + '»…');
-    } catch (e) { hud.toast('Server non raggiungibile 😿'); console.warn(e); }
-  })();
+  _codiceCercato = String(code || '').toUpperCase();
+  _tentativoEntrata = 0;
+  _pwCercata = pw || '';
+  _spiaCercata = spia || '';
+  _sonoSpia = !!spia;
+  hud.toast(spia ? '🛡 Entro a guardare «' + _codiceCercato + '» senza farmi vedere'
+    : '🚪 Cerco la stanza «' + _codiceCercato + '»…');
+  _bussaAllaPorta(url);
+}
+
+let _codiceCercato = null, _tentativoEntrata = 0, _pwCercata = '', _spiaCercata = '';
+let _segInProva = null;     // il tentativo in volo, da chiudere se si rinuncia
+
+/** Chiude il tentativo in corso, se ce n'è uno. Anche `azzeraRete` passa di qui. */
+function _chiudiTentativo() {
+  if (_segInProva) { try { _segInProva.chiudi(); } catch { /* ok */ } _segInProva = null; }
+}
+
+function _bussaAllaPorta(url) {
+  _tentativoEntrata++;
+  if (_tentativoEntrata > 1) {
+    insieme.attesa(`Cerco la stanza «${_codiceCercato}»… (tentativo ${_tentativoEntrata} di ${TENTATIVI_ENTRATA})`);
+  }
+  const me = leggiProfilo();
+  const cercato = _codiceCercato;
+  const seg = new Segnalatore(lobby);
+  _segInProva = seg;
+
+  // ha trovato la porta: da qui in poi è LUI il segnalatore buono
+  seg.onTrovata = () => {
+    if (_codiceCercato !== cercato) return;   // nel frattempo si è rinunciato
+    _codiceCercato = null;
+    _segInProva = null;
+    seg.onTrovata = null;
+    _agganciaSegnalatore(seg);
+  };
+
+  // «non ce l'ho» può voler dire «non ce l'ho IO»: si riprova altrove
+  const riprova = () => {
+    if (_codiceCercato !== cercato) return;   // già risolto o annullato
+    _chiudiTentativo();
+    if (_tentativoEntrata < TENTATIVI_ENTRATA) { setTimeout(() => _bussaAllaPorta(url), 250); return; }
+    _codiceCercato = null;
+    insieme.respinto('inesistente', { msg: `Non trovo la stanza «${cercato}». Controlla il codice: se l’amico ce l’ha aperta, falla richiudere e riaprire.` });
+  };
+
+  seg.onRespinto = (codice, dati) => {
+    if (_codiceCercato !== cercato) return;   // ha già vinto: questo è rumore
+    if (codice === 'inesistente' || /inesistente/i.test((dati && dati.msg) || '')) { riprova(); return; }
+    // password sbagliata, stanza piena, versione diversa: rifiuto VERO, si smette
+    _codiceCercato = null;
+    _chiudiTentativo();
+    insieme.respinto(codice, dati);
+  };
+
+  seg.entra(url, cercato, {
+    nome: me.nome, colore: me.colore, build: VERSIONE_CODICE,
+    pw: _pwCercata, spia: _spiaCercata,
+  }).catch(() => {
+    if (_codiceCercato !== cercato) return;
+    _codiceCercato = null;
+    _chiudiTentativo();
+    insieme.respinto('', { msg: `Non riesco a raggiungere il server per entrare in «${cercato}».` });
+  });
 }
 
 /** Tutti i richiami del segnalatore in un posto solo: si creano piu' volte. */
-function _agganciaSegnalatore() {
+function _agganciaSegnalatore(seg = segnalatore) {
+  segnalatore = seg;
   segnalatore.onStato = (t) => hud.toast(t);
   segnalatore.onBiglietto = (b) => chiediTurnAlServer(b);
   segnalatore.onCode = (c) => {
     _codiceStanza = c;
     hud.toast('🏠 Stanza «' + c + '» — di\u2019 il codice agli amici');
-    const box = document.getElementById('rcCodice');
-    if (box) box.textContent = c;
     insieme.aggiorna();
   };
   segnalatore.onRuolo = (r) => {
+    clearTimeout(_attesaBussata); _attesaBussata = null;   // ti hanno aperto
     mioRuolo = r;
     const dd = RUOLO_DESCR[r];
     insieme.avviso(dd ? `Sei dentro come ${dd.icona} ${dd.titolo} — ${dd.dice}` : 'Sei dentro.', 'si');
@@ -2046,16 +1452,25 @@ function _agganciaSegnalatore() {
     if (d) hud.toast(`${d.icona} Sei ${d.titolo} — ${d.dice}`);
     insieme.aggiorna();
   };
-  segnalatore.onAttesa = (msg) => insieme.attesa(msg);
-  segnalatore.onSgombero = (motivo) => {
-    // si esce sul serio: canali P2P giu', segnalazione giu', stanza dimenticata
-    try { lobby.chiudi(); } catch { /* gia' chiusa */ }
-    if (segnalatore) segnalatore.chiudi();
-    _codiceStanza = null;
-    _chiDentro.clear(); ruoliOspiti.clear(); _gidDelCanale.clear(); _inArrivo.length = 0; _spie.clear(); _sonoSpia = false;
-    insieme.avviso(motivo, 'no');
-    insieme.aggiorna();
-    hud.toast('⭘ ' + motivo);
+  segnalatore.onAttesa = (msg) => {
+    insieme.attesa(msg);
+    clearTimeout(_attesaBussata);
+    _attesaBussata = setTimeout(() => {
+      if (lobby.connessa) return;                        // nel frattempo e' entrato
+      azzeraRete('Nessuno ha risposto alla porta. Riprova quando c’è qualcuno.', 'no');
+    }, ATTESA_BUSSATA_MS);
+  };
+  segnalatore.onSgombero = (motivo) => azzeraRete(motivo, 'no');
+  segnalatore.onCaduta = () => {
+    // il P2P gia' avviato regge da solo; quello che muore e' la porta d'ingresso
+    if (!_codiceStanza && !lobby.connessa) return;      // niente da salvare
+    if (lobby.connessa) {
+      _codiceStanza = null;                              // nessuno puo' piu' entrare
+      insieme.avviso('Il collegamento col server è caduto: chi c’è resta, ma non può entrare più nessuno. Chiudi e riapri la stanza per farla tornare visibile.', 'no');
+      insieme.aggiorna();
+    } else {
+      azzeraRete('Il server non risponde più: la stanza è chiusa.', 'no');
+    }
   };
   segnalatore.onRespinto = (codice, dati) => insieme.respinto(codice, dati);
   segnalatore.onIngresso = (gid, chi, spia) => {
@@ -2073,12 +1488,49 @@ function _agganciaSegnalatore() {
   };
 }
 
+/**
+ * TORNA A ZERO. Qualunque cosa sia successa.
+ *
+ * ⚠ IL GUAIO NON E' CADERE, E' RESTARE PER TERRA. Se l'altro chiude il portatile,
+ * se salta la rete, se il browser uccide la scheda per fare spazio — succede, e
+ * va bene. Quello che non va bene e' quello che restava dopo: un codice-stanza
+ * che non apre piu' niente, un pannello che dice «in attesa» di qualcuno che non
+ * arrivera' mai, mezzo stato di rete appeso a una connessione morta. Da li' non
+ * si usciva se non ricaricando la pagina, e ricaricare vuol dire perdere il
+ * diorama di chi stava ospitando.
+ *
+ * Quindi: UNA funzione, che rimette tutto come prima di aprire il menu, e che si
+ * puo' chiamare da qualunque disastro senza chiedersi da dove si viene.
+ */
+function azzeraRete(motivo, tipo) {
+  try { lobby.chiudi(); } catch { /* gia' giu' */ }
+  if (segnalatore) { try { segnalatore.chiudi(); } catch { /* idem */ } }
+  fermaContachilometri();
+  _codiceStanza = null;
+  _sonoSpia = false;
+  mioRuolo = 'completo';
+  _codiceCercato = null;
+  _chiudiTentativo();
+  _chiDentro.clear(); ruoliOspiti.clear(); _gidDelCanale.clear(); _bussanti.clear();
+  _inArrivo.length = 0; _spie.clear();
+  clearTimeout(_attesaBussata); _attesaBussata = null;
+  if (typeof insieme !== 'undefined') {
+    insieme.avviso(motivo || '', tipo || '');
+    insieme.aggiorna();
+  }
+  if (motivo) hud.toast('⭘ ' + motivo);
+}
+
+// se si bussa e non risponde nessuno, non si resta li' a fissare il pannello
+let _attesaBussata = null;
+const ATTESA_BUSSATA_MS = 45000;
+
 const insieme = new PannelloInsieme({
   get urlServer() { return ANALITICA_URL; },
   get versione() { return VERSIONE_CODICE; },
   apri: (opz) => _apriStanzaDaPannello(opz),
   entra: (code, pw, spia) => _entraDaPannello(code, pw, spia),
-  chiudi: () => { if (segnalatore) segnalatore.chiudi(); lobby.chiudi && lobby.chiudi(); _codiceStanza = null; _sonoSpia = false; _spie.clear(); insieme.aggiorna(); },
+  chiudi: () => azzeraRete('', ''),
   // ⚠ «SONO L'HOST» LO DICE IL CODICE, NON LA LOBBY. `lobby.ruolo` diventa
   // 'host' solo quando qualcuno si COLLEGA davvero: fra l'apertura della stanza
   // e il primo ospite resta null, e in quella finestra — che e' proprio quella in
@@ -2131,10 +1583,20 @@ const insieme = new PannelloInsieme({
     if (seg && segnalatore && segnalatore.ws) segnalatore.ws.send(JSON.stringify({ t: 'ruolo', gid: seg, ruolo }));
     insieme.aggiorna();
   },
-  esci: (gid) => { lobby.chiudiCanale ? lobby.chiudiCanale(gid) : null; ruoliOspiti.delete(gid); _chiDentro.delete(gid); insieme.aggiorna(); },
+  // ⚠ «FUORI» DEVE BUTTARE FUORI. Qui c'era `lobby.chiudiCanale(...)`, che non
+  // esiste: il ternario lo scopriva a tempo di esecuzione e sceglieva `null`,
+  // cioè NIENTE. Il risultato era il peggiore possibile — l'ospite restava
+  // collegato ma spariva dalle mappe dell'host, quindi il suo ruolo tornava
+  // «ignoto» = spettatore: chi ospita credeva di averlo cacciato, l'altro si
+  // ritrovava a non poter più fare niente senza che nessuno gli dicesse perché.
+  // Il canale P2P è diretto: chiuderlo È la cacciata.
+  esci: (gid) => {
+    lobby.chiudi(gid);
+    ruoliOspiti.delete(gid); _chiDentro.delete(gid); _gidDelCanale.delete(gid); _spie.delete(gid);
+    insieme.aggiorna();
+  },
   mandaChat: (testo) => {
     const me = leggiProfilo();
-    chatAggiungi(me.nome, testo, true);
     insieme.chatArrivata(me.nome, testo, true);
     lobby.invia({ t: 'chat', testo, nome: me.nome });
   },
@@ -2152,51 +1614,20 @@ function chiudiPannelli(tranne = null) {
   if (tranne !== 'insieme' && typeof insieme !== 'undefined') insieme.apri(false);
   if (tranne !== 'menu') document.getElementById('opzioni').classList.remove('aperto');
   // il vecchio pannello non si apre piu': resta solo come intelaiatura muta
-  if (tranne !== 'zaino') zaino.apri(false);
+  if (tranne !== 'zaino' && zaino) zaino.apri(false);   // può nascere dopo: vedi `let zaino = null`
   if (tranne !== 'officina' && officina) officina.apri(false);
   if (tranne !== 'aiuto') hud.mostraAiuto(false);
   if (tranne !== 'macchina' && pannelloMacchina.aperto) pannelloMacchina.chiudi();
 }
-document.getElementById('stanzaChiudi').addEventListener('click', () => { audio.sfx('chiudi'); elStanza.classList.remove('aperto'); });
-for (const b of document.querySelectorAll('.stanza-indietro')) b.addEventListener('click', () => apriFaseStanza(null));
-
-document.getElementById('stanzaCrea').addEventListener('click', async () => {
-  apriFaseStanza('host');
-  const ta = document.getElementById('codiceMio');
-  ta.value = '… creo il codice della stanza …';
-  try {
-    const codice = await lobby.creaOfferta();
-    ta.value = codice;
-    copiaTesto(codice, document.getElementById('okMio'));
-  } catch (e) { ta.value = ''; hud.toast('Errore WebRTC 😿'); console.warn(e); }
-});
-document.getElementById('copiaMio').addEventListener('click', () => {
-  const ta = document.getElementById('codiceMio'); ta.focus(); ta.select();
-  copiaTesto(ta.value, document.getElementById('okMio'));
-});
-document.getElementById('confermaHost').addEventListener('click', async () => {
-  const r = document.getElementById('codiceSuo').value.trim();
-  if (!r) { hud.toast('Incolla prima la risposta dell’amico'); return; }
-  try { await lobby.completa(r); }
-  catch (e) { hud.toast('Quel codice non è una risposta valida 😿'); console.warn(e); }
-});
-
-document.getElementById('stanzaEntra').addEventListener('click', () => apriFaseStanza('ospite'));
-document.getElementById('generaRisposta').addEventListener('click', async () => {
-  const o = document.getElementById('codiceStanza').value.trim();
-  if (!o) { hud.toast('Incolla prima il codice della stanza'); return; }
-  const ta = document.getElementById('codiceRisposta');
-  ta.value = '… genero la risposta …';
-  try {
-    const risposta = await lobby.rispondi(o);
-    ta.value = risposta;
-    copiaTesto(risposta, document.getElementById('okRisposta'));
-  } catch (e) { ta.value = ''; hud.toast('Quel codice non è una stanza valida 😿'); console.warn(e); }
-});
-document.getElementById('copiaRisposta').addEventListener('click', () => {
-  const ta = document.getElementById('codiceRisposta'); ta.focus(); ta.select();
-  copiaTesto(ta.value, document.getElementById('okRisposta'));
-});
+// (QUI STAVANO I DODICI PULSANTI DEL PANNELLO VECCHIO: crea/entra con i codici
+// WebRTC da copiare e incollare a mano, i due «Copia», i due «Incolla», il
+// «Collega!», gli «indietro» e la X di chiusura. Il pannello non si apre da
+// mesi — lo dice il commento di chiudiPannelli — quindi erano dodici ascoltatori
+// appesi a bottoni che nessuno poteva premere, piu' le funzioni che servivano
+// solo a loro: apriFaseStanza, copiaTesto, incollaIn. Il collegamento a mano non
+// serve piu' a niente: il server di segnalazione fa lo stesso lavoro senza far
+// copiare niente a nessuno, e se un giorno il server non ci fosse la strada
+// giusta sarebbe rifarlo dentro il pannello nuovo, non resuscitare questo.)
 
 hud.onModo = () => impostaModo(!costruisci);
 hud.onTempo = (t) => impostaTempoGioco(t);
@@ -2391,10 +1822,27 @@ function segnaSalvataggio() { salvataggioSporco = true; _ultimaModifica = perfor
  * tempo libero tra un frame e l'altro, non mentre disegna il movimento. Il
  * ripiego setTimeout copre chi non ha requestIdleCallback (Safari iOS).
  */
+// se la memoria è piena lo si dice UNA volta: un avviso ogni tre secondi
+// coprirebbe lo schermo proprio mentre si cerca di mettere in salvo il lavoro
+let _memoriaPienaDetta = false;
+
 function _salvaOra() {
   _salvInCoda = false;
   if (!salvataggioSporco || modalitaOspite) return;
-  salvaLocale(serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() }));
+  const ok = salvaLocale(serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() }));
+  if (!ok) {
+    // ⚠ IL DIORAMA È ANCORA TUTTO QUI, in memoria: quello che manca è il posto
+    // dove metterlo. Se lo si dice adesso, si fa in tempo a esportarlo su file o
+    // a cancellare una partita vecchia; se non lo si dice, si scopre alla
+    // prossima apertura che l'ultima ora non c'è mai stata.
+    ultimoSalvataggio = performance.now();     // non si riprova a raffica
+    if (_memoriaPienaDetta) return;
+    _memoriaPienaDetta = true;
+    bannerErrore('MEMORIA PIENA: il diorama non si sta più salvando. Esportalo su file (⚙️ → Diorama → 📤 Esporta) o elimina una partita salvata.');
+    hud.toast('💾 Memoria piena: il diorama NON si salva più — esportalo su file', 6000);
+    return;
+  }
+  _memoriaPienaDetta = false;
   salvataggioSporco = false;
   ultimoSalvataggio = performance.now();
 }
@@ -2412,6 +1860,11 @@ function pianificaSalvataggio() {
 const luciBlocchi = new Map();
 function gestisciLuceBlocco(e) {
   if (!e || !e.cella) return;
+  // ⚠ SOLO GLI EVENTI DEI BLOCCHI. Qui sotto si CANCELLA la luce registrata su
+  // quella cella prima di ricrearla, e la cancellazione non guardava il tipo di
+  // evento: un evento che parla di un MOBILE (cambio stato, manopola girata)
+  // spegneva la lucciola che stava nella stessa cella, per sempre e in silenzio.
+  if (e.tipo !== 'metti' && e.tipo !== 'togli') return;
   const k = e.cella.join(',');
   const prec = luciBlocchi.get(k);
   if (prec) { rimuoviLuce(prec); luciBlocchi.delete(k); }
@@ -2445,6 +1898,7 @@ const particelleBlocchi = new Map();          // "x,y,z" → def.particelle
 const nidiFatui = new Map();                  // "x,y,z" → def.fuochiFatui
 function gestisciParticelleBlocco(e) {
   if (!e || !e.cella) return;
+  if (e.tipo !== 'metti' && e.tipo !== 'togli') return;   // stessa ragione di gestisciLuceBlocco
   const k = e.cella.join(',');
   const primaNido = nidiFatui.has(k);
   particelleBlocchi.delete(k);
@@ -2558,6 +2012,25 @@ function eventoLocale(e) {
 }
 mondo.onEvento = eventoLocale;
 arredo.onEvento = eventoLocale;
+
+// ---- LE MANOPOLE DEI MACCHINARI ENTRANO NEL GIRO DEGLI EVENTI ---------------
+//
+// ⚠ ERANO L'UNICA MODIFICA AL MONDO CHE NON PASSAVA DA `mondo.onEvento`, e si
+// vedeva: due giocatori nella stessa stanza guardavano lo stesso Scintillatore
+// andare a due ritmi diversi, il Campanello acceso per uno e spento per l'altro.
+// Peggio del disaccordo era il finale: la config si SALVA col furni, quindi
+// quando l'host salvava vinceva la sua versione e le regolazioni dell'ospite
+// sparivano — senza che nessuno avesse fatto niente di sbagliato.
+//
+// Adesso una manopola girata è un evento come un blocco posato: stessa strada,
+// stesso salvataggio, stesso filtro dei permessi sull'host.
+let _daRete = false;      // stiamo APPLICANDO un evento altrui: non si rimanda indietro
+
+servizi.consentiConfig = () => _daRete || possoLocalmente('macchinaConfig');
+servizi.onConfigCambiata = (m, chiave, valore) => {
+  if (_daRete) { segnaSalvataggio(); return; }        // arrivata da fuori: già in giro
+  eventoLocale({ tipo: 'macchinaConfig', cella: m.cella, chiave, valore });
+};
 
 // all'avvio: se il server ha una build più nuova, si ricarica subito (una volta)
 _controllaBuild();
@@ -2791,6 +2264,7 @@ function quotaOk(id, tipo) {
   return ++q.azioni <= AZIONI_AL_SEC;
 }
 let mioRuolo = 'completo';         // il mio, quando sono ospite a casa d'altri
+let _risincronizzando = false;     // una richiesta di rimessa in pari alla volta
 const gattiRemoti = new Map();
 const COLORI_GATTI = [[0xf5a742, 0xc07a20], [0xe36bb4, 0xb44a8e], [0x9b6bf0, 0x7648c9], [0x5bd0d0, 0x3aa8a8], [0xd6e26b, 0xb1bd44]];
 let mioIdRete = null;             // assegnato dall'host nel benvenuto
@@ -2825,57 +2299,25 @@ function rimuoviGattoRemoto(id) {
 }
 function svuotaGattiRemoti() { for (const id of [...gattiRemoti.keys()]) rimuoviGattoRemoto(id); }
 
-// ---- chat + membri --------------------------------------------------------------
-function mioNome() { return lobby.ruolo === 'host' ? 'Host' : `Gatto ${(mioIdRete || 0) + 1}`; }
+// ---- CHI C'E' IN STANZA, E COSA SI DICONO -----------------------------------
+//
+// ⚠ QUI STAVANO UNA CHAT E UN ELENCO MEMBRI DI TROPPO. Ne esistevano due copie:
+// queste, che scrivevano dentro il pannello vecchio (#chatLog, #stanzaMembri),
+// e quelle di ui/multiplayer.js, che sono le uniche che si vedono. Ogni
+// messaggio veniva scritto due volte e ogni cambio di stanza ridisegnava una
+// lista che nessuno poteva guardare — lavoro sprecato, ma soprattutto due
+// verita' possibili sulla stessa cosa, che e' il modo piu' sicuro per finire a
+// leggere quella sbagliata.
+//
+// Della vecchia chat resta UNA cosa, ed era l'unica che valeva: l'avviso a
+// schermo quando arriva un messaggio col pannello CHIUSO. Senza, chi non tiene
+// il pannello aperto non sa che gli hanno scritto.
 function nomeDi(id) { return id === 'h' ? 'Host' : `Gatto ${(typeof id === 'number' ? id : 0) + 1}`; }
-function chatAggiungi(nome, testo, mio = false) {
-  const log = document.getElementById('chatLog');
-  const r = document.createElement('div');
-  r.className = 'chat-riga' + (mio ? ' mia' : '');
-  // ⚠ QUI C'ERA UNA FALLA VERA, e valeva la pena trovarla: `nome` arriva DALLA
-  // RETE (m.nome nel gestore della chat) e finiva dentro innerHTML senza essere
-  // ripulito. Bastava entrare in una stanza chiamandosi
-  // `<img src=x onerror=...>` per far eseguire codice nella pagina di chi
-  // ospita — cioe' nel browser di un'altra persona, con dentro il suo mondo, le
-  // sue impostazioni e il suo salvataggio.
-  // La cura NON e' filtrare meglio: e' non costruire HTML da testo altrui.
-  // `textContent` scrive testo e basta, e non c'e' sequenza al mondo che lo
-  // faccia diventare markup.
-  const chi = document.createElement('b');
-  chi.textContent = nome;
-  r.append(chi, ' ', testo);
-  log.appendChild(r);
-  while (log.children.length > 60) log.removeChild(log.firstChild);
-  log.scrollTop = log.scrollHeight;
-  if (!mio && !document.getElementById('stanza').classList.contains('aperto')) {
-    hud.toast(`💬 ${nome}: ${testo.slice(0, 60)}`);
-  }
-}
-function aggiornaMembri() {
-  const box = document.getElementById('stanzaMembri');
-  box.innerHTML = '';
-  const voce = (nome, id = null) => {
-    const r = document.createElement('div');
-    r.className = 'membro';
-    // stessa ragione della chat: il nome viene dalla rete, quindi si scrive come
-    // TESTO. Un elenco di membri e' esattamente il posto dove un nome ostile
-    // vuole finire, perche' lo vedono tutti quelli che sono in stanza.
-    const sp = document.createElement('span');
-    sp.textContent = '🐱 ' + nome;
-    r.appendChild(sp);
-    if (id !== null && lobby.ruolo === 'host') {
-      const k = document.createElement('button');
-      k.textContent = '✕';
-      k.title = 'Butta fuori';
-      k.addEventListener('click', () => lobby.chiudi(id));
-      r.appendChild(k);
-    }
-    box.appendChild(r);
-  };
-  if (!lobby.connessa) { box.innerHTML = '<div class="stanza-hint">Da soli, per ora.</div>'; return; }
-  voce(mioNome() + ' (tu)');
-  if (lobby.ruolo === 'host') for (const id of lobby.membri) voce(nomeDi(id), id);
-  else { voce('Host'); for (const id of gattiRemoti.keys()) if (id !== 'h') voce(nomeDi(id)); }
+
+/** Il messaggio va nel pannello; se il pannello e' chiuso, lo si dice comunque. */
+function chatArrivata(nome, testo) {
+  insieme.chatArrivata(nome, testo);
+  if (!insieme.aperto) hud.toast(`💬 ${nome}: ${testo.slice(0, 60)}`);
 }
 let posaTimer = 0;
 let _ultimaPosa = null;        // l'ultima posa DAVVERO spedita (vedi il blocco presenza)
@@ -2930,6 +2372,18 @@ function applicaEventoRemoto(e) {
       ist.manuale = true;
       arredo.setStato(ist, e.stato % ist.def.stati.length);
     }
+  } else if (e.tipo === 'macchinaConfig') {
+    // UNA MANOPOLA GIRATA DALL'ALTRA PARTE. Il valore NON si crede sulla parola:
+    // passa da `impostaConfig`, che è lo stesso guardiano dei valori locali —
+    // chiave inesistente, tipo sbagliato, numero fuori scala, tutto viene
+    // rimesso in riga o buttato. Dalla rete arriva un'intenzione, non un dato.
+    const ist = mondo.furniIn(x, y, z);
+    const m = ist && macchinaDi(gestoreMacchine, servizi, ist);
+    if (m && typeof e.chiave === 'string') {
+      _daRete = true;                       // niente eco: non lo si rimanda al mittente
+      try { impostaConfig(servizi, m, e.chiave, e.valore); }
+      finally { _daRete = false; }
+    }
   } else {
     return;
   }
@@ -2941,7 +2395,15 @@ function applicaEventoRemoto(e) {
 
 function arrivoBenvenuto(m) {
   try {
-    salvaSnapshot(false);                           // il TUO diorama, al sicuro
+    // ⚠ SOLO LA PRIMA VOLTA, e non è una micro-ottimizzazione: è il tuo mondo.
+    // Questo benvenuto arriva anche a metà visita — ogni volta che si chiede una
+    // rimessa in pari (`rivogliotutto`), che succede a ogni permesso negato. La
+    // seconda volta in RAM non c'è più il TUO diorama, c'è quello dell'host:
+    // rimetterlo da parte voleva dire SOVRASCRIVERE la copia del tuo con una
+    // copia del suo, e al ritorno a casa ti ritrovavi in casa d'altri senza aver
+    // fatto niente di strano. Se la visita è già cominciata, la copia buona è
+    // già nel cassetto e non si tocca.
+    if (!modalitaOspite) salvaPerVisita();          // il TUO diorama, al sicuro e a parte
     if (m.tuoId !== undefined) mioIdRete = m.tuoId; // il tuo nome in lobby/chat
     registraDaRete(m.officina);                     // i blocchi Officina dell'host, PRIMA del mondo
     applica(m.dati, mondo, arredo, ciclo);          // il mondo dell'host (inventario resta tuo)
@@ -2995,13 +2457,32 @@ lobby.onMessaggio = (m, daId) => {
     // l'host ha rifiutato qualcosa: si dice PERCHE', se no sembra un bug del gioco
     const d = RUOLO_DESCR[m.motivo];
     hud.toast(d ? `${d.icona} Sei ${d.titolo}: ${d.dice}` : 'Non hai il permesso per farlo');
+    // ⚠ E SI RIMETTE A POSTO IL MONDO. Col freno locale un rifiuto non dovrebbe
+    // arrivare quasi mai — ma «quasi mai» capita: se il ruolo cambia mentre il
+    // messaggio e' per strada, l'azione e' gia' applicata qui e non la'. Da quel
+    // momento i due mondi sono diversi, e nessuno dei due sa di esserlo. Chiedere
+    // di nuovo tutto e' sproporzionato? No: costa un secondo e succede una volta.
+    if (lobby.ruolo === 'ospite' && !_risincronizzando) {
+      _risincronizzando = true;
+      hud.toast('↻ rimetto in pari il diorama…');
+      lobby.invia({ t: 'rivogliotutto' });
+      setTimeout(() => { _risincronizzando = false; }, 5000);
+    }
+  } else if (m.t === 'rivogliotutto' && lobby.ruolo === 'host') {
+    // un ospite si e' accorto di essere fuori sincrono: gli si rimanda tutto
+    if (!quotaOk(daId, 'evento')) return;
+    lobby.inviaGrandeA(daId, 'benvenuto', {
+      dati: serializza(mondo, arredo, ciclo),
+      posa: [controller.pos.x, controller.pos.y, controller.pos.z],
+      officina: datiOfficina.blocchi,
+      tuoId: daId,
+    });
   } else if (m.t === 'tempo' && lobby.ruolo === 'host' && typeof m.v === 'number') {
     ciclo.t = Math.min(1, Math.max(0, m.v));          // richiesta dell'ospite: l'orologio resta MIO
   } else if (m.t === 'chat' && typeof m.testo === 'string') {
     if (lobby.ruolo === 'host' && !quotaOk(daId, 'chat')) return;   // niente spam
     const nome = m.nome || nomeDi(m.id !== undefined ? m.id : daId);
-    chatAggiungi(nome, m.testo.slice(0, 200));
-    insieme.chatArrivata(nome, m.testo.slice(0, 200));
+    chatArrivata(nome, m.testo.slice(0, 200));
     if (lobby.ruolo === 'host') lobby.invia({ ...m, nome }, daId);   // relay
   } else if (m.t === 'posa' && Array.isArray(m.p) && m.p.length === 3) {
     // chi è? host: il canale da cui arriva · ospite: l'id dentro al messaggio
@@ -3042,22 +2523,15 @@ lobby.onStato = (s, id) => {
       }
     }
   }
-  const n = lobby.ruolo === 'host' ? lobby.membri.filter((x) => !_spie.has(x)).length : null;
-  const pill = {
-    creazione: '🟡 preparo…', 'in-attesa': '🟡 in attesa dell’amico…',
-    aperta: lobby.ruolo === 'host' ? `🟢 ${n} ospit${n === 1 ? 'e' : 'i'} da te` : '🟢 a casa dell’amico',
-    chiusa: '⭘ da soli', errore: '🔴 errore',
-  };
-  document.getElementById('stanzaStato').textContent = pill[s] || '🔴 da soli';
-  aggiornaMembri();
-  // ⚠ E ANCHE IL PANNELLO NUOVO. Senza questa riga la lista dei membri restava
-  // com'era al momento in cui l'avevi aperta: l'ospite era collegato, il gioco
-  // lo sapeva, ma a schermo continuava a dire «da soli». Lo stato di una stanza
-  // cambia per conto suo — quando qualcuno arriva o se ne va — quindi chi lo
-  // mostra va svegliato da chi lo sa, non lasciato a indovinare.
+  // ⚠ CHI MOSTRA LO STATO VA SVEGLIATO DA CHI LO SA. Lo stato di una stanza
+  // cambia per conto suo — quando qualcuno arriva o se ne va — quindi il
+  // pannello non puo' indovinarlo: senza questa riga la lista dei membri restava
+  // com'era al momento in cui l'avevi aperta, e diceva «da soli» con un ospite
+  // dentro. (Qui accanto si scriveva anche l'etichetta del pannello vecchio e si
+  // ridisegnava la sua lista: due schermi da tenere in pari, uno dei quali
+  // invisibile.)
   if (typeof insieme !== 'undefined') insieme.aggiorna();
   if (s === 'aperta') {
-    apriFaseStanza(null);
     avviaContachilometri();
     // chiaro CHI ospita: si gioca sempre nel diorama di chi ha creato la stanza
     if (lobby.ruolo === 'host') {
@@ -3069,7 +2543,6 @@ lobby.onStato = (s, id) => {
         tuoId: id,                           // così l'ospite sa chi è (nome in chat)
       });
     } else {
-      document.getElementById('stanza').classList.remove('aperto');
       hud.toast('🟢 Collegato! Vai a casa dell’amico…');
     }
   }
@@ -3094,29 +2567,15 @@ lobby.onStato = (s, id) => {
     if (modalitaOspite) {
       modalitaOspite = false;
       rimuoviDaRete();                                // via i blocchi Officina dell'host
-      ripristinaSnapshot();                           // torni nel TUO diorama, intatto
+      tornaDallaVisita();                             // torni nel TUO diorama, intatto
       hud.toast('⭘ P2P chiuso — sei tornato nel TUO diorama');
     } else {
       hud.toast('P2P chiuso');
     }
   }
 };
-lobby.onMembri = () => aggiornaMembri();
-
-// chat: invio con bottone o Invio
-function chatManda() {
-  const input = document.getElementById('chatTesto');
-  const testo = input.value.trim();
-  if (!testo || !lobby.connessa) { input.value = ''; return; }
-  input.value = '';
-  chatAggiungi(mioNome(), testo, true);
-  lobby.invia({ t: 'chat', nome: mioNome(), testo });
-}
-document.getElementById('chatInvia').addEventListener('click', chatManda);
-document.getElementById('chatTesto').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); chatManda(); }
-  e.stopPropagation();          // WASD nella chat non muove il gatto
-});
+// la lista dei membri la disegna il pannello nuovo, che la chiede a `membri()`
+lobby.onMembri = () => { if (typeof insieme !== 'undefined') insieme.aggiorna(); };
 
 document.getElementById('btnEsporta').addEventListener('click', () => {
   esportaFile(serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() }));
@@ -3239,6 +2698,35 @@ function respawn() {
 
 // ---- azioni del menu di debug (snapshot a due livelli) -------------------------
 
+/** Il MIO diorama, messo da parte per il tempo di una visita. */
+function salvaPerVisita() {
+  try {
+    sessionStorage.setItem(CHIAVE_VISITA, JSON.stringify(
+      serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() })));
+    return true;
+  } catch {
+    // se non ci sta, meglio saperlo ADESSO che al ritorno
+    hud.toast('Non riesco a mettere da parte il tuo diorama 😿');
+    return false;
+  }
+}
+
+/** E rieccolo, appena finita la visita. */
+function tornaDallaVisita() {
+  const raw = sessionStorage.getItem(CHIAVE_VISITA);
+  if (!raw) { ripristinaSnapshot(); return; }      // ripiego: meglio di niente
+  try {
+    applica(JSON.parse(raw), mondo, arredo, ciclo, inventario);
+    applicaTavolozza(JSON.parse(raw));
+  } catch { hud.toast('Il tuo diorama non si rilegge 😿'); return; }
+  sessionStorage.removeItem(CHIAVE_VISITA);
+  mesher.ricostruisciTutto(mondo);
+  ricostruisciLuciBlocchi();
+  ricostruisciBlocchiSpeciali();
+  respawn();
+  segnaSalvataggio();
+}
+
 function salvaSnapshot(conToast = true) {
   const attuale = localStorage.getItem(CHIAVE_SNAPSHOT);
   if (attuale) localStorage.setItem(CHIAVE_SNAPSHOT_PREC, attuale);
@@ -3293,7 +2781,7 @@ const menuDebug = new MenuDebug({
   azioni: {
     respawn: () => { respawn(); hud.toast('🏠 A casa'); },
     perf: (on) => impostaPerf(on),
-    diagnostica: () => eseguiDiagnostica(),
+    diagnostica: () => batteria.esegui(),
     stagione: (chiave) => cambiaStagione(chiave),
     snapshot: () => salvaSnapshot(),
     ripristina: () => ripristinaSnapshot(),
@@ -3548,9 +3036,15 @@ const menuDebug = new MenuDebug({
         }, 1000);
       } catch (e) { hud.toast('Prova AR fallita 😿 ' + (e.message || e)); }
     },
+    // ⚠ UNA VERITÀ SOLA. Questo interruttore scriveva `inventario.infinito` per
+    // conto suo, quindi poteva contraddire la modalità scelta nel menu: risorse
+    // infinite con la durezza «Normale», o Creativa coi mattoni che finiscono.
+    // Due posti che decidono la stessa cosa fanno sempre così. Adesso muove la
+    // MODALITÀ, che è l'unica autorità, e l'altra metà la segue da sé.
     infinito: () => {
-      inventario.impostaInfinito(!inventario.infinito);
-      hud.toast(inventario.infinito ? '∞ Risorse infinite' : '🎒 Risorse contate');
+      opzioni.durezza = inventario.infinito ? 'normale' : 'creativa';
+      applicaOpzioni();
+      hud.toast(inventario.infinito ? '✨ Creativa: risorse infinite, blocchi a un tocco' : '⛏ Normale: risorse contate');
       return inventario.infinito;
     },
     netCrea: async () => {
@@ -3602,6 +3096,47 @@ function fineVigile() { for (const t of _vigile) clearTimeout(t); }
 
 async function avvia() {
   passoAvvio('Carico i modelli…');
+
+  // ---- IL SIGILLO DELL'AVVIO: contro i salvataggi che INCHIODANO -------------
+  //
+  // ⚠ IL PARACADUTE CHE C'ERA COPRIVA SOLO GLI AVVII CHE *LANCIANO*. Un
+  // salvataggio corrotto dà un'eccezione → catch → isola nuova, e va bene. Ma
+  // un salvataggio PATOLOGICO può anche non lanciare niente: macina — è
+  // successo davvero, un mondo salvato a metà di una rigenerazione ha tenuto
+  // l'avvio inchiodato per MINUTI, e siccome il blocco è sincrono nemmeno il
+  // cane da guardia coi suoi setTimeout riesce a dirlo a schermo. Per chi
+  // gioca è la morte del salvataggio: OGNI apertura si congela, per sempre,
+  // senza un messaggio.
+  //
+  // Il sigillo: si scrive un contatore PRIMA di toccare il salvataggio e lo si
+  // toglie ad avvio finito. Se all'apertura il contatore dice che DUE avvii di
+  // fila non sono mai arrivati in fondo, il salvataggio va da parte (in
+  // «lantern.diorama.rotto», recuperabile) e si riparte da un'isola nuova.
+  // DUE e non uno: chi chiude la scheda durante un caricamento lento ma sano
+  // non deve perdere niente — un incidente singolo non prova nulla, due di
+  // fila sì.
+  const SIGILLO = 'lantern.avvioInCorso';
+  let _avviiRotti = 0;
+  try { _avviiRotti = Number(localStorage.getItem(SIGILLO) || 0); } catch { /* ok */ }
+  // ⚠ IL CATCH QUI SOTTO NON È «pazienza»: LOGGA. La prima versione inghiottiva
+  // tutto, e ci è cascato dentro un ReferenceError (CHIAVE_SALVATAGGIO non era
+  // importata): il paracadute sembrava scritto e non si apriva MAI — cioè lo
+  // stesso identico difetto, «l'errore mangiato in silenzio», che questo
+  // paracadute esiste per curare. Il try serve per il solo caso legittimo
+  // (localStorage che rifiuta in navigazione privata), non per nascondere i miei.
+  let _salvataggioAccantonato = false;
+  if (_avviiRotti >= 2) {
+    try {
+      const raw = localStorage.getItem(CHIAVE_SALVATAGGIO);
+      if (raw) {
+        localStorage.setItem('lantern.diorama.rotto', raw);
+        localStorage.removeItem(CHIAVE_SALVATAGGIO);
+        _salvataggioAccantonato = true;
+      }
+    } catch (e) { console.error('[lantern] sigillo d’avvio: accantonamento fallito', e); }
+  }
+  try { localStorage.setItem(SIGILLO, String(_avviiRotti + 1)); } catch { /* ok */ }
+
   await caricaModelli(FURNI, (nome) => passoAvvio(`Sistemo ${nome.toLowerCase()}…`));
 
   // caricamento salvataggio A PROVA DI ERRORE: se il diorama salvato è corrotto
@@ -3654,7 +3189,7 @@ async function avvia() {
   applicaOpzioni(false);     // fog/distanza/effetti salvati dall'utente (⚙️)
 
   // debug in console
-  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, generaTestMacchine, inventario, tavolozza, strisca, zaino, bolla, scelta, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, gestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, pannelloMacchina, apriPannelloMacchina, ecs, orologioSim, passo, sistemiSim, sistemiResa, rngSim, servizi, agenda, creature, sistemaCreature, pensaCreatura, calciaPalla, sistemaPalle, sistemaResaPalle, creaEntitaPalla, distruggiPalla, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf, diagnostica: eseguiDiagnostica };
+  window.LANTERN = { mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, campoSole, erba, foglie, segnaPercorso, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, generaTestMacchine, inventario, tavolozza, strisca, zaino, bolla, scelta, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, gestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, pannelloMacchina, apriPannelloMacchina, ecs, orologioSim, passo, sistemiSim, sistemiResa, rngSim, servizi, agenda, creature, sistemaCreature, pensaCreatura, calciaPalla, sistemaPalle, sistemaResaPalle, creaEntitaPalla, distruggiPalla, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf, diagnostica: () => batteria.esegui() };
 
   // accelerazione hardware: avvisa se il WebView disegna in SOFTWARE (fps bassi)
   if (rig.software) {
@@ -3675,6 +3210,10 @@ async function avvia() {
 
   requestAnimationFrame(loop);
   fineVigile();                                   // partito: niente più diagnosi
+  try { localStorage.removeItem(SIGILLO); } catch { /* ok */ }   // avvio finito: sigillo via
+  if (_salvataggioAccantonato) {
+    setTimeout(() => hud.toast('⚠️ Due avvii di fila si erano bloccati: il vecchio diorama è stato messo da parte e sei su un’isola nuova', 7000), 800);
+  }
   setTimeout(() => elCaricamento.classList.add('via'), 250);
   // le texture dei FBX arrivano async: se il salvataggio non era in primavera,
   // il fogliame va ritinto quando le immagini sono pronte
@@ -3701,233 +3240,63 @@ const _ombrePg = [];
 // di dettaglio deve essere STABILE: si rifà la scelta solo quando il bersaglio
 // si è spostato davvero o quando i mobili cambiano, se no la lista si rimescola
 // a ogni frame e le ombre in fondo sfarfallano.
-const SCATOLE_BUDGET = 32;
-// L'AREA DELLE OMBRE, e questo giro è la terza volta che la allargo perché ogni
-// volta l'ho allargata poco. Le parole del committente: «i pop-in delle ombre
-// che sono troppo ravvicinate quando appaiono sono fastidiosi, dovrebbe essere
-// enorme l'area di render e quando ti avvicini appaiono smooth senza cose a
-// scatto». Ha ragione su tutt'e due i pezzi, e sono due leve diverse:
+// ---- LE SAGOME DEI MOBILI VANNO AL CAMPO DEL SOLE ---------------------------
 //
-//   · PORTATA = fin dove un mobile può proiettare. Non costa quasi niente
-//     allargarla, perché il prezzo vero è il BUDGET (quante sagome finiscono
-//     nello shader), non la distanza. 130 blocchi è oltre il fondo scala della
-//     camera: dentro un diorama non si vede più nascere niente.
-//   · SFUMA = quanto è larga la fascia in cui l'ombra prende corpo. A 18 blocchi
-//     l'ombra passava da niente a piena nel giro di pochi passi, e quello si
-//     legge come un'apparizione. A 55 ci vuole mezzo minuto di cammino, cioè
-//     non si nota il momento in cui succede — che è l'unica definizione utile
-//     di «smooth».
-const SCATOLE_PORTATA = 130;
-// ⚠ ERA 34, E A 34 IL LOD NON SERVIVA A NIENTE. Misurato camminando: l'ombra di
-// un albero si spegneva a VENTUNO blocchi, perché il budget (32 sagome) si
-// riempie molto prima — ogni mobile ne porta cinque o sei, quindi trentadue
-// slot bastano per CINQUE oggetti. Il livello grosso, che ne costa due, entrava
-// a 34: cioè dopo che il budget aveva già tagliato tutto. Portarlo dentro cambia
-// il conto — due sagome a testa vogliono dire sedici oggetti invece di cinque, e
-// l'ombra arriva dove prima spariva. Il dettaglio pieno resta dove si vede
-// davvero la forma, cioè addosso.
-const SCATOLE_DETTAGLIO = 12;      // entro questa distanza, la sagoma per intero
-// La fascia in cui i due livelli di dettaglio si scambiano il posto: dodici
-// blocchi di cammino, e la sagoma vera resta piena per tutta la fascia (vedi
-// _dosaScatole), quindi a cambiare è solo il di più dello scatolone.
-const SCATOLE_LOD_BANDA = 12;
-// LA FASCIA IN CUI L'OMBRA NASCE. Chi sta oltre `portata` non proietta; chi sta
-// negli ultimi metri prima del confine proietta a forza ridotta, così l'ombra
-// SI FA invece di apparire. È la stessa idea della nebbia: un confine netto si
-// vede sempre, uno sfumato non lo nota nessuno.
-const SCATOLE_SFUMA = 55;
-const _scatole = [];        // l'uscita, riusata: nessuna allocazione per frame
-const _scelte = [];         // la SCELTA (stabile): sagoma copiata + chi la porta
-let _scatoleX = 1e9, _scatoleZ = 1e9, _scatoleN = -1;
-const _scatoleVicine = [];
-// la distanza a cui il budget taglia, inseguita piano (vedi _dosaScatole)
-let _taglioScatole = SCATOLE_PORTATA;
-const SCATOLE_CODA = 24;   // metri di dissolvenza prima del taglio del budget
-// budget effettivo: lo abbassa la qualità automatica sui dispositivi in affanno
-let _scatoleBudget = SCATOLE_BUDGET;
-function impostaBudgetScatole(n) {
-  if (n === _scatoleBudget) return;
-  _scatoleBudget = Math.max(0, n | 0);
-  _scatoleN = -1;                     // il taglio è cambiato: la scelta va rifatta
+// ⚠ QUI VIVEVANO DUECENTOTRENTA RIGHE DI MACCHINARIO — budget dei trentadue,
+// portata, isteresi del taglio, staffetta fra due livelli di dettaglio, pesi di
+// dissolvenza contro il pop-in, e il famoso oscillatore del taglio che faceva
+// sfarfallare tutte le ombre insieme. Ognuna di quelle righe curava un sintomo
+// della stessa malattia: le scatole si pagavano PER PIXEL, quindi potevano
+// essere solo poche, quindi bisognava scegliere, dosare, sfumare la scelta.
+//
+// Il campo del sole (fx/campoSole.js) elimina la malattia: le scatole si
+// stampano UNA volta nel campo, tutte, e lo shader legge un texel. Niente
+// budget, niente pop-in, niente pesi. La lista si rifa' solo quando l'arredo
+// cambia davvero (versione), e la tiene d'occhio il campo con la sua chiave.
+//
+// Resta un elenchino ANALITICO: le OTTO scatole piu' vicine per la vegetazione,
+// che si scurisce per VERTICE (GLSL_SCATOLE_VERTICE) e il campo non lo legge.
+const _scatoleCampo = [];          // TUTTE le sagome, per il campo del sole
+let _scatoleCampoVer = -1;         // versione d'arredo con cui e' stata costruita
+function scatoleCampo() {
+  if (arredo.versione === _scatoleCampoVer) return _scatoleCampo;
+  _scatoleCampoVer = arredo.versione;
+  _scatoleCampo.length = 0;
+  for (const ist of arredo.istanze) {
+    if (!ist.scatoleOmbra) continue;
+    for (const s of ist.scatoleOmbra) _scatoleCampo.push(s);
+  }
+  return _scatoleCampo;
 }
 
-/**
- * SCEGLIERE È UNA COSA, DOSARE UN'ALTRA, e averle tenute insieme è ciò che
- * faceva «andare a scatti» le ombre.
- *
- * La SCELTA (quali sagome entrano nel budget, in che ordine) è un giro su tutti
- * i mobili più un ordinamento: si può fare ogni due blocchi di cammino, e anzi
- * DEVE essere stabile, se no la lista si rimescola e le ombre in fondo
- * sfarfallano.
- *
- * Il PESO (quanto scurisce ognuna) è invece una rampa continua sulla distanza, e
- * campionarla ogni mezzo blocco vuol dire mostrarla a gradini da mezzo blocco:
- * l'ombra non sfumava, faceva un salto di tono a ogni passo del gatto. Con
- * l'ombra debole non si notava; adesso che l'ombra si vede, si vedono anche i
- * gradini. Ora il peso si rifà a OGNI FOTOGRAMMA — sono trentadue moltiplicazioni
- * su una lista già pronta, cioè niente — e la scelta resta ferma.
- */
-function scatoleVicine() {
+// le otto piu' vicine al punto guardato, per l'erba e le foglie; si rifanno a
+// mezzo blocco di cammino o quando l'arredo cambia — un giro e un sort su
+// qualche decina di mobili, un paio di volte al secondo
+const _scatoleVertice = [];
+const _viciniOrdinati = [];
+let _svX = 1e9, _svZ = 1e9, _svVer = -1;
+function scatoleVertice() {
   const b = rig.bersaglio;
-  const n = arredo.versione;
-  // ⚠ ERANO DUE BLOCCHI, e due blocchi sono tanti: la dissolvenza per RANGO
-  // (sotto) cambia solo quando la lista si rifà, quindi con questa soglia il
-  // rango di una sagoma poteva saltare di tre o quattro posti in un colpo — e un
-  // salto di rango è un salto di tono dell'ombra. Il costo di rifarla è un giro
-  // su una sessantina di mobili più un ordinamento: a mezzo blocco di cammino
-  // sono un paio di volte al secondo, cioè niente. Regola imparata la volta
-  // scorsa e non applicata fino in fondo: non conta quanto è morbida la rampa se
-  // la si ricampiona di rado.
-  if (n === _scatoleN && Math.abs(b.x - _scatoleX) + Math.abs(b.z - _scatoleZ) < 0.5) {
-    return _dosaScatole(b);
-  }
-  _scatoleX = b.x; _scatoleZ = b.z; _scatoleN = n;
-  _scatoleVicine.length = 0;
+  if (arredo.versione === _svVer && Math.abs(b.x - _svX) + Math.abs(b.z - _svZ) < 0.5) return _scatoleVertice;
+  _svX = b.x; _svZ = b.z; _svVer = arredo.versione;
+  _viciniOrdinati.length = 0;
   for (const ist of arredo.istanze) {
     if (!ist.scatoleOmbra || !ist.scatoleOmbra.length) continue;
-    const cx = ist.cella[0] + 0.5, cz = ist.cella[2] + 0.5;
-    const dx = cx - b.x, dz = cz - b.z;
-    const d2 = dx * dx + dz * dz;
-    // il margine è la soglia di ricalcolo: chi è appena fuori portata adesso
-    // può entrarci camminando prima che la scelta si rifaccia
-    if (d2 > (SCATOLE_PORTATA + 2) * (SCATOLE_PORTATA + 2)) continue;
-    // DUE LIVELLI DI DETTAGLIO: da vicino la sagoma intera (la chioma che si
-    // stringe, il palo sottile), da lontano corpo e chioma. Un albero in fondo
-    // occupa dieci pixel: pagargli cinque scatole vorrebbe dire toglierle a uno
-    // che si vede. Nella fascia di mezzo ci sono ENTRAMBI, uno che sale e
-    // l'altro che scende: la sagoma si trasforma invece di scattare. Quanto sale
-    // e quanto scende lo decide `_dosaScatole`, fotogramma per fotogramma.
-    _scatoleVicine.push({ d2, cx, cz, det: true, s: ist.scatoleOmbra });
-    if (ist.scatolaOmbra && ist.scatolaOmbra.length) {
-      // mezzo blocco più «lontano» nell'ordinamento: a parità di distanza la
-      // sagoma di dettaglio ha la precedenza sul budget
-      _scatoleVicine.push({ d2: d2 + 0.5, cx, cz, det: false, s: ist.scatolaOmbra });
-    }
+    const dx = ist.cella[0] + 0.5 - b.x, dz = ist.cella[2] + 0.5 - b.z;
+    _viciniOrdinati.push({ d2: dx * dx + dz * dz, s: ist.scatoleOmbra });
   }
-  _scatoleVicine.sort((p, q) => p.d2 - q.d2);
-  // LE SCATOLE SI COPIANO UNA VOLTA SOLA, qui, e poi si riusano: `_dosaScatole`
-  // gira a ogni fotogramma e non deve allocare niente, se no il costo di questa
-  // morbidezza me lo ritrovo come singhiozzo del garbage collector.
-  // SI COPIA IL DOPPIO DEL BUDGET, e non è spreco: nella fascia di staffetta ogni
-  // mobile compare due volte (sagoma intera e sagoma grossa) ma una delle due ha
-  // sempre peso quasi zero. Se la scelta si fermasse al budget, quelle copie
-  // spente si mangerebbero i posti e le ombre vere finirebbero fuori. Il tetto
-  // vero è sulle ombre ACCESE, e lo mette `_dosaScatole`.
-  _scelte.length = 0;
-  const tetto = _scatoleBudget * 2;
-  for (const v of _scatoleVicine) {
+  _viciniOrdinati.sort((p, q) => p.d2 - q.d2);
+  _scatoleVertice.length = 0;
+  for (const v of _viciniOrdinati) {
     for (const s of v.s) {
-      if (_scelte.length >= tetto) break;
-      _scelte.push({
-        cx: v.cx, cz: v.cz, det: v.det,
-        box: { x0: s.x0, x1: s.x1, y0: s.y0, y1: s.y1, z0: s.z0, z1: s.z1,
-               s0: s.s0, s1: s.s1, d0: s.d0, d1: s.d1, peso: 1 },
-        contatto: !!s.contatto,
-      });
+      // l'ombra di contatto e' una gonnellina da quattordici centimetri: per
+      // i fili d'erba non dice niente, e il posto in otto e' prezioso
+      if (s.contatto) continue;
+      _scatoleVertice.push(s);
+      if (_scatoleVertice.length >= 8) return _scatoleVertice;
     }
-    if (_scelte.length >= tetto) break;
   }
-  return _dosaScatole(b);
-}
-
-/** Il PESO di ogni sagoma scelta, ricalcolato per questo fotogramma. */
-function _dosaScatole(b) {
-  _scatole.length = 0;
-  // ---- IL BUDGET SI SFUMA SULLA DISTANZA, NON SUL RANGO --------------------
-  //
-  // ⚠ QUESTO ERA IL POP-IN DELLE OMBRE, e la dissolvenza che avevo messo non lo
-  // toccava perché era agganciata alla cosa sbagliata. Il peso scendeva col
-  // RANGO nella lista, e il rango è una classifica: cammini di un passo, un
-  // albero vicino entra, e TUTTI quelli dietro slittano di sei posti in un colpo
-  // (sei perché ogni mobile porta sei scatole). Sei posti di rango sono un salto
-  // di tono secco su ogni ombra della scena, contemporaneamente — che è
-  // esattamente quello che si vede camminando.
-  // La distanza invece è continua: si prende la distanza dell'ULTIMA sagoma che
-  // il budget riesce a tenere e si sfuma nei metri prima di lì. Il taglio si
-  // muove piano (media esponenziale) perché anche quello, ricalcolato di colpo,
-  // sarebbe un gradino: così quando il budget si stringe le ombre in fondo si
-  // spengono scivolando, non a scatti.
-  // ⚠ E IL TAGLIO SI MISURA SULLE SAGOME CHE ENTRANO DAVVERO. La prima versione
-  // lo calcolava in una passata a parte contando le voci di `_scelte`, ma lì
-  // dentro ogni mobile compare DUE volte (sagoma fine e scatolone della
-  // staffetta) e una delle due ha quasi sempre peso zero: il budget sembrava
-  // pieno al doppio della velocità e le ombre morivano a ventun blocchi.
-  // Misurato camminando: identico prima e dopo aver spostato il LOD, ed è così
-  // che ho capito che il limite non era dove pensavo. Ora il taglio è la
-  // distanza dell'ultima sagoma ACCETTATA nel giro precedente — un fotogramma di
-  // ritardo su un valore che comunque insegue piano.
-  // ⚠⚠ E IL TAGLIO NON PUÒ DIPENDERE DA SÉ STESSO — è il difetto che ha fatto
-  // SFARFALLARE tutte le ombre insieme, ed era un anello chiuso: il taglio
-  // spegneva le sagome lontane → ne passavano meno → il budget non mordeva più →
-  // il taglio si allargava → ne ripassavano di più → il budget mordeva di nuovo.
-  // Un oscillatore, e a schermo un tremolio su OGNI ombra della scena.
-  // Si spezza contando a parte: `nUtili` sono le sagome che passano tutti i
-  // filtri TRANNE il taglio, e siccome la lista è ordinata per distanza quel
-  // conteggio non dipende da dove sta il taglio. Il taglio decide solo QUANTO
-  // scurisce l'ultima fascia, mai chi entra.
-  const taglio = _taglioScatole;
-  let dUltima = SCATOLE_PORTATA, nUtili = 0;
-  for (let i = 0; i < _scelte.length; i++) {
-    if (_scatole.length >= _scatoleBudget) break;
-    const v = _scelte[i];
-    const dx = v.cx - b.x, dz = v.cz - b.z;
-    const d = Math.sqrt(dx * dx + dz * dz);
-    // pieno fin quasi al confine, poi giù a zero nella fascia
-    let p = Math.min(1, (SCATOLE_PORTATA - d) / SCATOLE_SFUMA);
-    if (p <= 0.01) continue;
-    // ---- LA STAFFETTA FRA I DUE LIVELLI DI DETTAGLIO -------------------------
-    //
-    // ⚠ QUI C'ERA IL «SEMBRA UNA HITBOX MISCHIATA STORTA», e adesso so perché.
-    // Le due versioni sfumavano SIMMETRICHE — la fine a `t`, la grossa a `1−t` —
-    // ma lo shader non le mescola, le UNISCE: `forte = max(...)` su tutte le
-    // scatole che coprono il frammento. Risultato a metà fascia, con t = 0.5:
-    //   · dentro la sagoma vera → max(0.5, 0.5) = 0.5, cioè l'ombra giusta a
-    //     METÀ intensità;
-    //   · fuori dalla sagoma vera ma dentro lo scatolone → 0.5, cioè un ALONE
-    //     squadrato attorno all'oggetto, che con l'ombra vera non c'entra niente.
-    // Camminando, quell'alone appare e sparisce: «a volte».
-    //
-    // La staffetta giusta sfrutta il fatto che lo scatolone CONTIENE la sagoma
-    // fine (è la sua fusione): la sagoma vera resta sempre a piena forza, e a
-    // sfumare è solo il di più dello scatolone. Quando lo scatolone è pieno, la
-    // sagoma fine si può togliere dalla lista senza che si veda NIENTE — è già
-    // coperta da un sovrainsieme alla stessa intensità.
-    const t = Math.max(0, Math.min(1,
-      (SCATOLE_DETTAGLIO + SCATOLE_LOD_BANDA - d) / SCATOLE_LOD_BANDA));
-    if (v.det) { if (t <= 0.01) continue; }     // la fine: piena finché serve, poi via
-    else p *= 1 - t;                            // la grossa: entra da trasparente
-    if (p <= 0.01) continue;
-    // L'OMBRA DI CONTATTO CONTA SOLO CON L'ASTRO ALTO, e questo è metà della
-    // segnalazione «la base non ha niente a che fare con la sagoma». All'alba
-    // l'ombra vera è lunga dieci metri e si vede benissimo: aggiungerci sotto
-    // una macchia alla base è una toppa che non serve e che si nota. A
-    // mezzogiorno invece l'ombra vera sta tutta sotto l'oggetto, e senza quella
-    // macchia il lampione sembra appoggiato in aria. Quindi: nasce con l'astro
-    // che sale, e sotto i trenta gradi non esiste.
-    if (v.contatto) {
-      const alto = uniformiCondivise().uSoleDir.value.y;
-      const q = Math.max(0, Math.min(1, (alto - 0.50) / 0.30));
-      p *= q * q * (3 - 2 * q);
-      if (p <= 0.01) continue;
-    }
-    // qui la sagoma è «utile»: entrerebbe nel budget anche senza il taglio
-    if (++nUtili === _scatoleBudget) dUltima = d;
-    // la coda del budget si spegne sulla DISTANZA: continua nello spazio, quindi
-    // continua anche camminando
-    if (d > taglio - SCATOLE_CODA) {
-      p *= Math.max(0, Math.min(1, (taglio - d) / SCATOLE_CODA));
-      if (p <= 0.01) continue;
-    }
-    // il peso viaggia con la scatola: `impostaOmbre` lo mette in uDinMez.w
-    v.box.peso = p;
-    _scatole.push(v.box);
-  }
-  // il taglio insegue: quando il budget non morde il bersaglio è la portata
-  // piena, quando morde è la distanza dell'ultima che ci è stata. Sempre a
-  // scivolo, mai a scatti — anche il taglio, ricalcolato di colpo, sarebbe un
-  // gradino su tutte le ombre insieme.
-  _taglioScatole += (dUltima - _taglioScatole) * 0.06;
-  return _scatole;
+  return _scatoleVertice;
 }
 
 const _ctxResa = { ecs, alpha: 0, dtFrame: 0, notte: false };   // ctx della resa (palle+creature), riusato ogni frame
@@ -4056,23 +3425,24 @@ const LIVELLI_Q = rig.mobile ? [
   // `maxOmbre` = quante luci possono PROIETTARE nello stesso frame. Misurato col
   // banco: una luce con ombra costa ~0,73 ms, e crescono in fila indiana. Le
   // vicine tengono l'ombra, le lontane restano accese e basta.
-  // `sole` = celle di cammino per l'ombra del cielo (cel shading). È la prima
-  // cosa che si spegne scendendo: è bella ma è un lusso, e a 0 non costa NIENTE
-  // (lo shader esce alla prima riga).
-  { rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 10, scatole: 20, scala: 1, dist: 700 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 6, scatole: 12, scala: 0.9, dist: 500 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 3, sole: 0, scatole: 6, scala: 0.82, dist: 500 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 0, scatole: 0, scala: 0.66, dist: 360 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scatole: 0, scala: 0.55, dist: 280 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scatole: 0, scala: 0.45, dist: 220 },
+  // `sole` = l'ombra del cielo (cel shading), 0 = spenta. ⚠ COL CAMPO DEL SOLE
+  // NON È PIÙ UN LUSSO: costa una lettura di texture per pixel — meno delle
+  // ombre delle nuvole, che qui sono sempre state accese — più un ricalcolo
+  // CPU di qualche ms ogni due secondi (a fette da 3 ms, fattore 1 su mobile).
+  // Resta accesa fino al terzultimo gradino; gli ultimi due sono la corsia di
+  // emergenza dei chip che non reggono nemmeno i pixel, e lì si spegne TUTTO.
+  { rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 10, scala: 1, dist: 700 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 6, scala: 0.9, dist: 500 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 3, sole: 6, scala: 0.82, dist: 500 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 6, scala: 0.66, dist: 360 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scala: 0.55, dist: 280 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.45, dist: 220 },
 ] : [
-  // `dinamiche` sta SOLO qui, in cima: le ombre dei corpi in movimento si provano
-  // scatola per scatola a ogni frammento, ed è il termine più caro di tutti.
-  // `sole` è la PORTATA dell'ombra del cielo in blocchi, e 13 è il tetto vero
-  // (SOLE_RAGGIO_MAX in fx/materials.js): oltre, il cammino finisce i passi
-  // prima della distanza e l'orlo dell'ombra torna a denti di sega.
-  { rifl: true, ombre: true, schiuma: true, acquaRicca: true, maxOmbre: 8, sole: 13, scatole: 32, dinamiche: true, scala: 1, dist: 900, erba: 1.3, erbaR: 6 },
-  { rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 12, scatole: 24, scala: 1, dist: 700, erba: 1, erbaR: 5 },
+  // `sole` = l'ombra del cielo: 0 = spenta, qualunque altro numero = accesa.
+  // (Era una portata in blocchi ai tempi del cammino per-pixel; il campo del
+  // sole non ha passi da contare e le ombre lunghe arrivano fin dove devono.)
+  { rifl: true, ombre: true, schiuma: true, acquaRicca: true, maxOmbre: 8, sole: 13, scala: 1, dist: 900, erba: 1.3, erbaR: 6 },
+  { rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 12, scala: 1, dist: 700, erba: 1, erbaR: 5 },
   // ⚠ IL TILT-SHIFT NON SI SPEGNE PIU' QUI, e lo dicono le misure del
   // committente: sul suo Chromebook, in DUE giri diversi e con la voce misurata
   // alternata, spento costa il 6% di GPU IN PIU' (28,95 ms contro 27,26; e prima
@@ -4080,9 +3450,9 @@ const LIVELLI_Q = rig.mobile ? [
   // appena la scala scende sotto 1 — spegnerlo non risparmia niente e toglie
   // meta' dell'aspetto del diorama. Restava in scala per un'ipotesi mia mai
   // verificata: «e' un post-process, quindi costa». Non su quel chip.
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 8, scatole: 14, scala: 1, dist: 500, erba: 0.6, erbaR: 3 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 6, scatole: 8, scala: 0.82, dist: 500 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scatole: 4, scala: 0.66, dist: 360 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 8, scala: 1, dist: 500, erba: 0.6, erbaR: 3 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 6, scala: 0.82, dist: 500 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scala: 0.66, dist: 360 },
   // ⚠ GLI ULTIMI DUE SCALINI SONO NUOVI, e li ha chiesti una misura precisa: sul
   // Chromebook del committente (Intel HD 400) il pass principale costa 69,8 ms a
   // scala 1 e 24,1 ms a scala 0,50 — cioè la RISOLUZIONE è la leva, e la scala
@@ -4090,25 +3460,28 @@ const LIVELLI_Q = rig.mobile ? [
   // «desktop» era tarato su un portatile lento, non su un chip integrato del
   // 2015: per quello serve arrivare dove arriva la scala mobile. Brutto, ma
   // giocabile — e sopra c'è tutta la scala per chi non ne ha bisogno.
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scatole: 0, scala: 0.55, dist: 300 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scatole: 0, scala: 0.45, dist: 240 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.55, dist: 300 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.45, dist: 240 },
 ];
 let qLivello = 0;
 let qManuale = false;        // qualità auto spenta: comandano le Impostazioni
 let riflessiUtente = true;
 let _schiumaQ = true;        // la passata schiuma se la può permettere questo livello?
-let _dinamicheOn = false;    // ombre dinamiche concesse (utente E livello)
 let _partiQ = 127;           // termini dello shader concessi dal livello di qualità
 
 // ---- Impostazioni utente (⚙️): persistenti, applicate subito -------------------
 const OPZ_CHIAVE = 'lantern.opzioni.v1';
-// luceCotta (ombre voxel) OFF di default su MOBILE, come già riflessi e tilt.
-// Misurato sul dispositivo del committente (Mali-G68): le ombre sono il singolo
-// costo per-pixel più alto e su questi chip fill-starved fanno cadere gli fps
-// del ~30%. Restano un opt-in per chi vuole e può permettersele; su desktop
-// restano accese. Chi ha un salvataggio vecchio con le ombre on: glielo dico,
-// oppure «Ripristina» le riporta al default giusto per il suo dispositivo.
-const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, autoQ: true, luceCotta: !rig.mobile, cameraFantasma: false, erba: true, foro: true, foroRaggio: 110, sagoma: false, sagomaTutti: false, scala: 1, riflForza: 1, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.mobile, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale', nitido: true, ombraSole: !rig.mobile, solePassi: 12, soleTerm: true, soleForza: 1, ombreDin: false };
+// luceCotta (ombre voxel delle LAMPADE) resta OFF di default su MOBILE: il DDA
+// nella texture 3D è ancora un costo per-pixel vero (misurato: ~30% di fps sui
+// Mali fill-starved). Restano un opt-in.
+// ⚠ L'OMBRA DEL SOLE INVECE SI ACCENDE ANCHE SU MOBILE, ed è il dividendo del
+// campo del sole: quello che prima costava un cammino di tredici letture più
+// le scatole per OGNI pixel adesso costa UNA lettura di texture — meno delle
+// ombre delle nuvole, che su telefono sono sempre state accese. Il cel shading
+// che il committente chiede («ombre e luci in cel shading») finalmente esiste
+// anche dove si gioca davvero. Se una diagnostica dal dispositivo dicesse il
+// contrario, la leva è questa: ombraSole nel default e `sole` nella scala.
+const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, autoQ: true, luceCotta: !rig.mobile, cameraFantasma: false, erba: true, foro: true, foroRaggio: 110, sagoma: false, sagomaTutti: false, scala: 1, riflForza: 1, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.mobile, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale', nitido: true, ombraSole: true, solePassi: 12, soleTerm: true, soleForza: 1, ombreDin: false };
 const opzioni = Object.assign({}, OPZ_DEFAULT, JSON.parse(localStorage.getItem(OPZ_CHIAVE) || '{}'));
 
 // preset grafici: un tocco e la macchina va — comodi per testare
@@ -4171,18 +3544,11 @@ function applicaQualita() {
   impostaPassiCielo(!soleOn ? 0 : (qManuale ? (opzioni.solePassi ?? 12) : (q.sole ?? 0)));
   // il terminatore è dentro la stessa opzione madre: da solo non ha senso
   impostaTerminatore(soleOn && opzioni.soleTerm !== false);
-  // OMBRE DINAMICHE: le chiede l'utente E il livello deve poterle reggere. È il
-  // termine più caro dell'ombra del cielo (una scatola alla volta, per
-  // frammento), quindi vive solo in cima alla scala.
-  _dinamicheOn = soleOn && !!opzioni.ombreDin && (qManuale || q.dinamiche === true);
-  // QUANTE SAGOME DI MOBILI PROIETTANO. È il termine che cresce con il numero di
-  // oggetti in scena e che il resto della scala non tocca: ogni sagoma è un
-  // pezzo di lavoro PER FRAMMENTO, e su una GPU integrata trentadue sagome sono
-  // trentadue confronti su ogni pixel di mondo. La scala automatica finora
-  // abbassava i pixel ma non questo — un bosco fitto restava caro anche a metà
-  // risoluzione. Con zero le ombre dei mobili spariscono e resta quella del
-  // terreno, che costa una lettura di heightmap.
-  impostaBudgetScatole(qManuale ? SCATOLE_BUDGET : (q.scatole ?? SCATOLE_BUDGET));
+  // (QUI SI DOSAVANO «ombre dinamiche» e budget delle sagome: due manopole del
+  // costo per-pixel delle scatole, che il campo del sole ha azzerato. Le sagome
+  // dei mobili adesso costano UNA lettura di texture qualunque sia il loro
+  // numero — un bosco fitto e una panchina sola pesano uguale — quindi la scala
+  // di qualità non ha più niente da dosare qui.)
   ciclo.forzaOmbra = Math.max(0, Math.min(1.5, opzioni.soleForza ?? 1));
   // ⚠ E QUI SI DECIDE COSA VIENE COMPILATO, non solo cosa viene eseguito.
   // Spegnere l'ombra del sole o le lampade con un `if` non le spegne davvero su
@@ -4196,6 +3562,9 @@ function applicaQualita() {
   impostaProfiloShader({
     sole: soleOn && passiCielo() > 0,
     ombreLuci: (qManuale ? true : LIVELLI_Q[qLivello].ombre) && opzioni.luceCotta !== false,
+    // i pezzi cari del pelo dell'acqua: sui gradini bassi il fragment non li
+    // CONTIENE proprio (uParti qui sotto resta come bisturi sul profilo pieno)
+    acquaRicca: qManuale || q.acquaRicca !== false,
   });
   // L'ERBA SEGUE LA QUALITÀ: diradare i fili è meglio che spegnerli tutti — un
   // prato con la metà dei fili è ancora un prato, un prato spento è una moquette.
@@ -4262,7 +3631,27 @@ function applicaOpzioni(salva = true) {
   audio.muto(!!opzioni.muto);
   bersaglio.posa = opzioni.posa || 'davanti';
   btnPosa.textContent = posaCorrente().icona;
+  // ---- LA CREATIVA È UNA MODALITÀ, non una manopola dello scavo --------------
+  //
+  // ⚠ ERANO DUE METÀ CHE NON SI PARLAVANO, ed è il difetto che il committente ha
+  // descritto con «la creativa è rotta: non ti fa piazzare gli item finiti».
+  // Aveva ragione, e la ragione è peggiore di un baco: la creativa NON ESISTEVA.
+  // C'era «✨ Creativa» fra le durezze — che spegneva solo la salute dei blocchi,
+  // cioè li rompeva in un colpo — e c'erano le risorse infinite, un interruttore
+  // sepolto nel menu debug che nessun giocatore trova. Chi sceglieva Creativa
+  // otteneva metà creativa: rompi tutto ma finisci i mattoni, cioè il peggio di
+  // tutt'e due i mondi.
+  //
+  // Adesso è UNA scelta sola. Creativa = non si conta niente e si rompe subito;
+  // Normale/Dura = si conta, come è sempre stato. E siccome la scelta vive in
+  // `opzioni`, sopravvive alla ricarica come tutto il resto.
+  const creativa = (opzioni.durezza || 'normale') === 'creativa';
   scavo.impostaDurezza(opzioni.durezza || 'normale');
+  if (inventario.infinito !== creativa) {
+    inventario.impostaInfinito(creativa);
+    rinfrescaTavolozza();          // i contatori diventano ∞ (o tornano numeri)
+    if (zaino && zaino.aperto) datiZaino();
+  }
   // si mostra solo quando serve: in Costruisci e coi comandi a schermo
   document.body.classList.toggle('mostra-posa', !!opzioni.comandiTouch && costruisci);
   if (!opzioni.comandiTouch) input.asseVirtuale = null;    // spegnendo: ferma il gatto
@@ -4369,7 +3758,9 @@ for (const b of document.querySelectorAll('[data-durezza]')) {
   b.addEventListener('click', () => {
     opzioni.durezza = b.getAttribute('data-durezza');
     applicaOpzioni();
-    hud.toast(`⛏ Resistenza: ${DUREZZE[opzioni.durezza].nome}`);
+    hud.toast(opzioni.durezza === 'creativa'
+      ? '✨ Creativa: materiali infiniti, blocchi a un tocco'
+      : `${DUREZZE[opzioni.durezza].nome}: i materiali si contano`);
   });
 }
 for (const [nome, valori] of Object.entries(PRESET_GRAFICA)) {
@@ -4383,7 +3774,7 @@ for (const [nome, valori] of Object.entries(PRESET_GRAFICA)) {
 }
 // il tasto Diagnostica DUPLICATO nella scheda Grafica (vedi index.html): stessa
 // azione del gemello in Avanzate, così chi ha cali di fps lo trova subito
-document.getElementById('opzDiagnostica')?.addEventListener('click', () => eseguiDiagnostica());
+document.getElementById('opzDiagnostica')?.addEventListener('click', () => batteria.esegui());
 document.getElementById('opzResetTutto').addEventListener('click', () => {
   Object.assign(opzioni, OPZ_DEFAULT);
   localStorage.removeItem(OPZ_CHIAVE);
@@ -4511,6 +3902,17 @@ document.getElementById('opzMeteo').addEventListener('click', () => {
 // renderer perché renderer.js non deve dipendere dai materiali (la suite lo
 // carica da sola, senza DOM).
 filtroCieloLineare(!!rig.renderer.extensions.get('OES_texture_float_linear'));
+
+// ---- IL CAMPO DEL SOLE ------------------------------------------------------
+// L'ombra del cielo, precalcolata per colonna (fx/campoSole.js): lo shader ne fa
+// UNA lettura al posto del cammino di tredici più le scatole dei mobili. Su
+// mobile la grana resta a un texel per blocco (metà memoria, metà spazzata);
+// su desktop mezza cella, che tiene fine il bordo degli ottagoni delle chiome.
+// Stessa politica di filtro della heightmap: bilineare solo se la scheda sa
+// filtrare le texture float.
+const campoSole = new CampoSole(256, -128, rig.mobile ? 1 : 2);
+impostaCampoSole(campoSole.texture);
+campoSole.filtroLineare(!!rig.renderer.extensions.get('OES_texture_float_linear'));
 
 // La presenza verso il nostro server (spenta finché config.ANALITICA_URL è vuoto)
 globalThis.VERSIONE_CODICE = VERSIONE_CODICE;
@@ -4651,8 +4053,9 @@ const cadenza = new Cadenza(0);  // decide quali tick diventano frame (vedi cade
 // spezza il frame in voci e le pubblica nel report — costa un performance.now()
 // per voce e solo mentre la batteria di misure gira, zero il resto del tempo.
 const _sez = new Map();
+const _round2 = (x) => (typeof x === 'number' && isFinite(x) ? Math.round(x * 100) / 100 : null);
 function crono(nome, fn) {
-  if (!_diagInCorso) return fn();
+  if (!batteria.inCorso) return fn();
   const t = performance.now();
   const v = fn();
   _sez.set(nome, (_sez.get(nome) || 0) + (performance.now() - t));
@@ -4661,15 +4064,41 @@ function crono(nome, fn) {
 let _sezFrame = 0;
 function _sezLeggi() {
   const out = {};
-  if (_sezFrame > 0) for (const [k, v] of _sez) out[k] = round2(v / _sezFrame);
+  if (_sezFrame > 0) for (const [k, v] of _sez) out[k] = _round2(v / _sezFrame);
   return out;
 }
 function _sezAzzera() { _sez.clear(); _sezFrame = 0; }
 
+// ---- LA BATTERIA DI MISURE, e tutto ciò di cui ha bisogno --------------------
+//
+// Nasce QUI, in fondo, e non dov'è usata: pesca da mezzo main (cadenza, la scala
+// di qualità, l'erba, il meteo…) e quelle cose esistono solo da questa riga in
+// giù. Il contratto sta scritto in engine/batteria.js — ed è il guadagno vero
+// del trasloco: prima queste trenta dipendenze c'erano lo stesso, solo che non
+// le vedeva nessuno.
+const batteria = creaBatteria({
+  perf, rig, ciclo, mondo, arredo, mesher, inventario, tavolozza,
+  pioggia, erba, foglie, riflesso, opzioni, cadenza, meteo, hud,
+  modalitaAR, modalitaXR,
+  versioneCodice: VERSIONE_CODICE,
+  buildPubblicata: () => _buildPubblicata,
+  qManuale: () => qManuale,
+  setQManuale: (v) => { qManuale = v; },
+  qLivello: () => qLivello,
+  riflessiUtente: () => riflessiUtente,
+  partiQualita: () => _partiQ,
+  controllaBuild: () => _controllaBuild(),
+  ricostruisciLuci: () => ricostruisciLuciBlocchi(),
+  ricostruisciSpeciali: () => ricostruisciBlocchiSpeciali(),
+  applicaQualita: () => applicaQualita(),
+  sezAzzera: () => _sezAzzera(),
+  sezLeggi: () => _sezLeggi(),
+});
+
 function loop(adesso) {
   requestAnimationFrame(loop);
-  _diagRaf++;                        // gli inviti del browser, contati prima di tutto
-  if (_diagInCorso) _sezFrame++;
+  batteria.contaRaf();               // gli inviti del browser, contati prima di tutto
+  if (batteria.inCorso) _sezFrame++;
   // in XR i frame arrivano SOLO dalla sessione (setAnimationLoop): il rAF
   // di pagina si mette da parte per non fare passi doppi
   if (modalitaXR.attiva) return;
@@ -4688,7 +4117,7 @@ function passo(adesso, frameXR) {
   const _passoMs = adesso - prima;        // intervallo VERO fra due frame (per la diagnostica)
   const dt = Math.min(_passoMs / 1000, 0.05);
   prima = adesso;
-  if (_diagPassi) _diagPassi(_passoMs);
+  batteria.passoFrame(_passoMs);
 
   ciclo.aggiorna(dt);
   ciclo.zoomComp = Math.min(1, Math.max(0.3, 18 / rig.distanza));   // dezoom → nebbia più aperta
@@ -4741,17 +4170,22 @@ function passo(adesso, frameXR) {
   calpestaFoglie();
   mesher.aggiornaMaterialeMondo();   // opaco quando il buco è chiuso: early-z
 
-  // I CORPI CHE FANNO OMBRA: player + gatti in rete + palle. `y` è la BASE e `h`
-  // l'altezza — servono alle ombre DINAMICHE, che proiettano la scatola vera
-  // lungo il raggio del sole; ai coni alla Bedrock basta il raggio.
-  // Le SAGOME DEI MOBILI viaggiano nella stessa lista (vedi scatoleVicine).
+  // I CORPI CHE FANNO OMBRA: player + gatti in rete + palle, coi coni sotto i
+  // piedi (uPg). I MOBILI non passano più di qui: le loro sagome stanno nel
+  // CAMPO DEL SOLE, e qui sotto lo si tiene solo sveglio — che quasi sempre
+  // vuol dire un confronto di stringhe e basta.
   _ombrePg.length = 0;
   _ombrePg.push({ x: controller.pos.x, y: controller.pos.y + 0.06, z: controller.pos.z, r: 0.42, h: 0.95 });
   for (const g of gattiRemoti.values()) _ombrePg.push({ x: g.pos.x, y: g.pos.y + 0.06, z: g.pos.z, r: 0.42, h: 0.95 });
-  // la palla: `y` resta il centro (è l'ancora del cono, non toccarla) e `y0` dice
-  // dove comincia la scatola — il cono e la scatola non misurano la stessa cosa
   for (const e of ecs.ognuna('sfera', 'vista')) { const v = ecs.leggi(e, 'vista'), s = ecs.leggi(e, 'sfera'); _ombrePg.push({ x: v.mesh.position.x, y: v.mesh.position.y, z: v.mesh.position.z, r: s.raggio, y0: v.mesh.position.y - s.raggio, h: s.raggio * 2 }); }
-  impostaOmbre(scatoleVicine(), _ombrePg, _dinamicheOn);
+  impostaOmbre(scatoleVertice(), _ombrePg);
+  campoSole.aggiorna({
+    ...cieloSorgente(),
+    dir: uniformiCondivise().uSoleDir.value,
+    scatole: scatoleCampo(),
+    versioneScatole: arredo.versione,
+    attivo: passiCielo() > 0,
+  });
   aggiornaTempo(adesso / 1000);          // orologio degli shader (acqua)
   // LE NUVOLE DECIDONO DOVE PIOVE: si passano i loro dischi alla pioggia prima
   // di aggiornarla, se no il rovescio insegue di un fotogramma la nuvola che lo
@@ -4951,11 +4385,15 @@ function passo(adesso, frameXR) {
     g.inAcqua = dentroR;
   }
 
-  crono('mesher', () => mesher.aggiorna(mondo));   // solo i chunk sporchi
+  crono('mesher', () => mesher.aggiorna(mondo, rig.bersaglio));   // i chunk sporchi, i vicini prima
   menuDebug.aggiorna(dt);
   // coi comandi touch la mira è il mirino centrale (l'anteprima segue lì)
   if (opzioni.comandiTouch) { mira.x = innerWidth / 2; mira.y = innerHeight / 2; }
-  if (costruisci) aggiornaGhost();
+  // ⚠ COL TOCCO L'ANTEPRIMA È GIÀ STATA RIFATTA in cima al frame (segue il gatto):
+  // rifarla qui voleva dire due volte per frame — due `puoiPiazzare`, due giri
+  // sulle celle del mobile, due scritture di materiale — per disegnare lo stesso
+  // identico ghost. Col mouse invece l'unica chiamata è questa.
+  if (costruisci && !opzioni.comandiTouch) aggiornaGhost();
 
   // COSA HA IN MANO: attrezzo, mini-blocco coi suoi colori, o mobile —
   // ma solo in Costruisci: esplorando il gatto ha le zampe libere
@@ -5031,8 +4469,7 @@ function passo(adesso, frameXR) {
   _cpuMsMedio += (_cpuMs - _cpuMsMedio) * 0.1;
   // gancio della DIAGNOSTICA: un contatore di frame VERI (rispetta la cadenza) e
   // un raccoglitore di ms CPU per-frame, attivi solo mentre la batteria gira.
-  _diagFrames++;
-  if (_diagCpu) _diagCpu(_cpuMs);
+  batteria.contaFrame(_cpuMs);
 
   // AUTOSALVATAGGIO deboundato e FUORI dal frame (vedi pianificaSalvataggio).
   // Da OSPITE niente autosave: in RAM c'è il diorama dell'host, non il tuo.

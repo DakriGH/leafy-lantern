@@ -9,7 +9,7 @@
 // trasparente; la GUI resta viva via dom-overlay.
 
 import * as THREE from 'three';
-import { impostaMondoInv } from '../fx/materials.js?v=msaxgi9o';
+import { impostaMondoInv } from '../fx/materials.js?v=mtafl3ai';
 
 const SCALA_CELLE = 24;
 

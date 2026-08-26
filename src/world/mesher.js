@@ -9,13 +9,13 @@
 // Il mondo è a chunk: si ricostruiscono solo i chunk sporchi.
 
 import * as THREE from 'three';
-import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=msaxgi9o';
-import { paletteBlocco, coloreFaccia } from './stagioni.js?v=msaxgi9o';
-import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=msaxgi9o';
-import { tintaPalette } from './motivi.js?v=msaxgi9o';
-import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=msaxgi9o';
-import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel, mondoVelato } from '../fx/materials.js?v=msaxgi9o';
-import { CHUNK } from './world.js?v=msaxgi9o';
+import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=mtafl3ai';
+import { paletteBlocco, coloreFaccia } from './stagioni.js?v=mtafl3ai';
+import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=mtafl3ai';
+import { tintaPalette } from './motivi.js?v=mtafl3ai';
+import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=mtafl3ai';
+import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel, mondoVelato } from '../fx/materials.js?v=mtafl3ai';
+import { CHUNK } from './world.js?v=mtafl3ai';
 
 const U = 1 / 16;                 // 1 pixel in unità mondo
 const COPPIE_SMUSSO = [[0, 1], [0, 2], [1, 2]];
@@ -596,7 +596,9 @@ export class Mesher {
     // spento l'interruttore" e di "mondo vuoto". Tre stati diversi sotto
     // un'etichetta sola: se il paracadute si aprisse davvero, nessuno saprebbe
     // distinguerlo da una preferenza.
-    this.statistiche = { ultimaMs: 0, chunkAttivi: 0, occMs: 0, occCelle: 0, occLocali: 0, occTroppoGrande: 0, voxTroppoLarga: 0 };
+    this.statistiche = { ultimaMs: 0, chunkAttivi: 0, occMs: 0, occCelle: 0, occLocali: 0, occTroppoGrande: 0, voxTroppoLarga: 0, inCoda: 0 };
+    this._codaPiena = new Set();   // chunk in attesa di rebuild INTERO (vedi aggiorna)
+    this._codaAcqua = new Set();   // chunk in attesa del solo rebuild dell'acqua
     this.luce = null;              // GrigliaLuce (i muri), rifatta prima dei chunk
     this.occlusioneAttiva = true;  // interruttore delle Impostazioni
     this._velato = false;          // il mondo sta usando il materiale dell'occhio di bue?
@@ -936,6 +938,9 @@ export class Mesher {
     for (const kc of mondo.chunks.keys()) this._chunk(mondo, kc);
     mondo.sporchi.clear();
     mondo.sporchiAcqua.clear();
+    // le code degli sporchi di PRIMA parlano di un mondo che non c'è più
+    this._codaPiena.clear();
+    this._codaAcqua.clear();
     this.statistiche.ultimaMs = performance.now() - t0;
     this.statistiche.chunkAttivi = this.chunks.size;
   }
@@ -1013,25 +1018,59 @@ export class Mesher {
     this.statistiche.occLocali = cambi.length;
   }
 
-  /** Ricostruzione incrementale: solo i chunk sporchi. Da chiamare nel loop. */
-  aggiorna(mondo) {
-    if (mondo.sporchi.size === 0 && mondo.sporchiAcqua.size === 0
-        && mondo.cambiate.length === 0) return;
+  /**
+   * Ricostruzione incrementale: solo i chunk sporchi. Da chiamare nel loop.
+   *
+   * ⚠ A BILANCIO, NON PIÙ TUTTI IN UN COLPO. Sul mondo gigante l'acqua che si
+   * assesta sporca i chunk a grappoli, e rifarli tutti nello stesso frame è
+   * costato un fotogramma da 177 MILLISECONDI — misurato camminando, ed è
+   * esattamente lo scatto che si sente. (E a ruota il render pagava il
+   * caricamento di tutta quella geometria fresca insieme: altri 155.)
+   *
+   * I chunk sporchi passano in una CODA interna e si ricostruiscono i più
+   * VICINI al punto guardato prima, dentro ~3 ms a frame — sempre almeno uno,
+   * così il blocco appena posato dal giocatore (che è per forza vicino) compare
+   * nello stesso fotogramma di prima. Il resto scivola ai frame dopo: un chunk
+   * d'acqua in fondo al mondo che si aggiorna tre frame più tardi non lo vede
+   * nessuno, un fotogramma da 177 ms lo vedono tutti.
+   *
+   * @param bersaglio (facolt.) il punto guardato: Vector3 o {x,z}
+   */
+  aggiorna(mondo, bersaglio = null) {
+    if (mondo.cambiate.length) this._rillumina(mondo);   // luce: subito, costa a blocco
+    // gli sporchi nuovi entrano in coda (il pieno vince sul solo-acqua)
+    if (mondo.sporchi.size) {
+      for (const kc of mondo.sporchi) { this._codaPiena.add(kc); this._codaAcqua.delete(kc); }
+      mondo.sporchi.clear();
+    }
+    if (mondo.sporchiAcqua.size) {
+      for (const kc of mondo.sporchiAcqua) if (!this._codaPiena.has(kc)) this._codaAcqua.add(kc);
+      mondo.sporchiAcqua.clear();
+    }
+    if (this._codaPiena.size === 0 && this._codaAcqua.size === 0) return;
     const t0 = performance.now();
-    this._rillumina(mondo);
-    for (const kc of mondo.sporchi) {
-      if (mondo.chunks.has(kc)) this._chunk(mondo, kc);
+    // ordina per distanza dal punto guardato: ciò che si vede si aggiorna prima
+    const bx = bersaglio ? bersaglio.x : 0, bz = bersaglio ? bersaglio.z : 0;
+    const coda = [];
+    for (const kc of this._codaPiena) coda.push([kc, false]);
+    for (const kc of this._codaAcqua) coda.push([kc, true]);
+    coda.sort((a, b) => {
+      const [ax, az] = a[0].split(','), [cx, cz] = b[0].split(',');
+      const da = (ax * 16 + 8 - bx) ** 2 + (az * 16 + 8 - bz) ** 2;
+      const db = (cx * 16 + 8 - bx) ** 2 + (cz * 16 + 8 - bz) ** 2;
+      return da - db;
+    });
+    let fatti = 0;
+    for (const [kc, soloAcqua] of coda) {
+      if (fatti > 0 && performance.now() - t0 > 3) break;   // bilancio: mai il primo
+      if (mondo.chunks.has(kc)) this._chunk(mondo, kc, soloAcqua);
       else this._rimuovi(kc);
+      (soloAcqua ? this._codaAcqua : this._codaPiena).delete(kc);
+      fatti++;
     }
-    for (const kc of mondo.sporchiAcqua) {
-      if (mondo.sporchi.has(kc)) continue;           // già rifatto per intero
-      if (mondo.chunks.has(kc)) this._chunk(mondo, kc, true);
-      else this._rimuovi(kc);
-    }
-    mondo.sporchi.clear();
-    mondo.sporchiAcqua.clear();
     this.statistiche.ultimaMs = performance.now() - t0;
     this.statistiche.chunkAttivi = this.chunks.size;
+    this.statistiche.inCoda = this._codaPiena.size + this._codaAcqua.size;
   }
 }
 

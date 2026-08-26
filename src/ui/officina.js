@@ -6,9 +6,9 @@
 // Persistenza in localStorage; in P2P le definizioni viaggiano nel benvenuto
 // così l'ospite vede i blocchi custom dell'host.
 
-import { BLOCCHI, registraBlocco, rimuoviBlocco } from '../world/blocks.js?v=msaxgi9o';
+import { BLOCCHI, registraBlocco, rimuoviBlocco } from '../world/blocks.js?v=mtafl3ai';
 import { SCHEMI, LATI_BLOCCO, FABBRICHE, valoriDefault, campiVisibili,
-         hexInt, intHex } from '../officina/schemi.js?v=msaxgi9o';
+         hexInt, intHex } from '../officina/schemi.js?v=mtafl3ai';
 
 const CHIAVE = 'lantern.officina.v1';
 
@@ -50,11 +50,36 @@ export function caricaOfficina() {
 
 // definizioni arrivate dalla RETE (P2P): dell'host, non nostre — via all'uscita
 let _idRete = [];
+
+/**
+ * ⚠ QUESTA È LA PORTA, E DA UNA PORTA NON SI FA ENTRARE MARKUP.
+ *
+ * Entrando da un amico si ricevono i blocchi che LUI ha inventato con
+ * l'Officina, nome compreso — cioè una stringa scritta da un'altra persona, che
+ * poi il gioco mostra in mezza interfaccia. Basta un posto solo che la scriva
+ * come HTML invece che come testo (ne è già stato trovato uno, il foglietto
+ * della tavolozza) e quel nome diventa codice che gira nella pagina di chi
+ * ospita — con dentro il suo mondo e i suoi salvataggi.
+ *
+ * Ripulire OGNI punto in cui il nome finisce a schermo è una promessa che prima
+ * o poi si rompe: basta una `innerHTML` di comodo scritta fra sei mesi. Ripulire
+ * QUI, invece, vale per tutti i posti insieme, anche per quelli che non esistono
+ * ancora. E già che si è alla porta si mette anche un tetto alla lunghezza: un
+ * nome di duemila caratteri non è un nome, è un modo di sfondare una GUI.
+ */
+function ripulisciNome(n, ripiego = 'Blocco') {
+  const t = String(n == null ? '' : n).replace(/[<>&"'`\\]/g, ' ').replace(/\s+/g, ' ').trim();
+  return t.slice(0, 32) || ripiego;
+}
+
 export function registraDaRete(blocchi) {
   rimuoviDaRete();
-  for (const b of blocchi || []) {
-    if (typeof b.id !== 'string' || !b.id.startsWith('off:')) continue;
-    fabbricaBlocco(b);
+  if (!Array.isArray(blocchi)) return;
+  // e un tetto al NUMERO: uno snapshot con centomila definizioni non è una
+  // partita, è un modo di riempire la memoria di chi entra
+  for (const b of blocchi.slice(0, 256)) {
+    if (!b || typeof b.id !== 'string' || !b.id.startsWith('off:')) continue;
+    fabbricaBlocco({ ...b, nome: ripulisciNome(b.nome) });
     _idRete.push(b.id);
   }
 }

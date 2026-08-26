@@ -1355,12 +1355,13 @@
         <button id="opzSagoma" class="opz-tgl" title="Quando qualcosa copre il gatto, la sua sagoma si vede in trasparenza sopra l'ostacolo. Il mondo resta pieno: non si vede attraverso i muri, solo il gatto">🐾 Sagoma attraverso</button>
         <button id="opzSagomaTutti" class="opz-tgl" title="La sagoma vale anche per i gatti degli amici in rete, non solo per il tuo">👥 Sagoma anche degli altri</button>
       </div>
-      <div class="opz-tit-sez">⛏ Resistenza dei blocchi</div>
+      <div class="opz-tit-sez">🎮 Come si gioca</div>
       <div class="opz-riga opz-toggles opz-durezza">
-        <button class="opz-tgl" data-durezza="creativa">✨ Creativa</button>
-        <button class="opz-tgl" data-durezza="normale">⛏ Normale</button>
-        <button class="opz-tgl" data-durezza="dura">🪨 Dura</button>
+        <button class="opz-tgl" data-durezza="creativa" title="Costruisci e basta: materiali infiniti e blocchi che vanno via al primo tocco">✨ Creativa</button>
+        <button class="opz-tgl" data-durezza="normale" title="I materiali si contano e i blocchi si rompono a colpi">⛏ Normale</button>
+        <button class="opz-tgl" data-durezza="dura" title="Come Normale, ma i blocchi resistono di più">🪨 Dura</button>
       </div>
+      <p class="stanza-hint">In <b>Creativa</b> non finisce niente: prendi dallo zaino e costruisci. Nelle altre due i materiali si consumano e si raccolgono rompendo.</p>
       <div class="opz-tit-sez">🔊 Audio</div>
       <label class="opz-riga">🔊 Volume <span id="valVol" class="opz-val"></span>
         <input id="opzVol" type="range" min="0" max="100" step="5">
@@ -1466,68 +1467,13 @@
     <p class="stanza-hint">Le impostazioni si salvano da sole.</p>
   </div>
 
-  <div id="stanza" class="hud pannello">
-    <div class="stanza-testa">
-      <b>👥 Gioca insieme</b>
-      <span id="stanzaStato">🔴 da soli</span>
-      <button id="stanzaChiudi" title="Chiudi">✕</button>
-    </div>
-    <div id="stanzaScelta">
-      <div id="codiceBox">
-        <div class="opz-tit-sez">✨ Con codice stanza (facile)</div>
-        <button id="rcCrea" class="stanza-big">🏠 Crea stanza</button>
-        <div id="rcCodice"></div>
-        <input id="rcInput" type="text" maxlength="5" placeholder="CODICE (es. K7QF)" spellcheck="false" style="text-transform:uppercase;text-align:center;font-weight:800;letter-spacing:3px">
-        <button id="rcEntra" class="stanza-big">🚪 Entra col codice</button>
-        <details id="rcServer">
-          <summary>⚙️ Server di segnalazione (una volta sola)</summary>
-          <p class="stanza-hint">Serve un piccolo server gratis (istruzioni in server/signaling.mjs → Deno Deploy). Incolla qui l'indirizzo, es. <code>wss://tuo.deno.dev</code></p>
-          <input id="rcUrl" type="text" placeholder="wss://…" spellcheck="false">
-          <button id="rcUrlSalva" class="stanza-mini">💾 Salva server</button>
-        </details>
-      </div>
-      <div class="opz-tit-sez">📋 Oppure con codici manuali (senza server)</div>
-      <button id="stanzaCrea" class="stanza-big">🏠 Crea la stanza / ➕ invita un altro</button>
-      <button id="stanzaEntra" class="stanza-big">🚪 Entra in una stanza</button>
-      <p class="stanza-hint">Uno crea, gli altri entrano (un codice per ciascuno: rifai «invita» per ogni amico). Connessione diretta e cifrata.</p>
-      <details id="turnBox">
-        <summary>🌐 Non vi connettete su rete mobile? Aggiungi un TURN gratuito</summary>
-        <p class="stanza-hint">Registrati gratis su metered.ca (20 GB/mese), copia i 3 valori TURN e incollali qui: la connessione diventa affidabile ovunque.</p>
-        <input id="turnUrl" type="text" placeholder="turn:… (URL del server)" spellcheck="false">
-        <input id="turnUser" type="text" placeholder="username" spellcheck="false">
-        <input id="turnPass" type="text" placeholder="password / credential" spellcheck="false">
-        <button id="turnSalva" class="stanza-mini">💾 Salva TURN</button>
-      </details>
-    </div>
-    <div class="opz-tit-sez">Nella stanza</div>
-    <div id="stanzaMembri"></div>
-    <div id="chatLog"></div>
-    <div class="chat-riga-invio">
-      <input id="chatTesto" type="text" maxlength="200" placeholder="scrivi in chat…">
-      <button id="chatInvia" class="stanza-big" style="width:auto;margin:0;padding:8px 12px">➤</button>
-    </div>
-    <div id="stanzaHost" class="stanza-fase">
-      <p><b>1</b> Manda questo codice all'amico <span class="stanza-ok" id="okMio"></span></p>
-      <textarea id="codiceMio" readonly spellcheck="false"></textarea>
-      <button id="copiaMio" class="stanza-big">📋 Copia il codice stanza</button>
-      <p><b>2</b> Incolla qui la sua risposta:</p>
-      <textarea id="codiceSuo" placeholder="incolla qui la risposta dell'amico…" spellcheck="false"></textarea>
-      <button id="incollaSuo" class="stanza-mini">📥 Incolla dagli appunti</button>
-      <button id="confermaHost" class="stanza-big">🔗 Collega!</button>
-      <button class="stanza-indietro">← indietro</button>
-    </div>
-    <div id="stanzaOspite" class="stanza-fase">
-      <p><b>1</b> Incolla il codice della stanza:</p>
-      <textarea id="codiceStanza" placeholder="incolla qui il codice ricevuto…" spellcheck="false"></textarea>
-      <button id="incollaStanza" class="stanza-mini">📥 Incolla dagli appunti</button>
-      <button id="generaRisposta" class="stanza-big">➡️ Genera la mia risposta</button>
-      <p><b>2</b> Rimandala a chi ha creato la stanza <span class="stanza-ok" id="okRisposta"></span></p>
-      <textarea id="codiceRisposta" readonly spellcheck="false"></textarea>
-      <button id="copiaRisposta" class="stanza-big">📋 Copia la risposta</button>
-      <p class="stanza-hint">Quando l'amico la conferma, siete collegati.</p>
-      <button class="stanza-indietro">← indietro</button>
-    </div>
-  </div>
+  <!-- QUI STAVA IL PANNELLO «Gioca insieme» VECCHIO (#stanza): sessanta righe di
+       interfaccia che non si apriva piu' da mesi — tre modi di collegarsi (codice
+       stanza, codici WebRTC copia/incolla, credenziali TURN), una chat sua e una
+       lista membri sua. Il gioco continuava a tenerla in pari a ogni cambio di
+       stanza, e chi leggeva il codice trovava due multiplayer invece di uno.
+       Quello vero e' il tasto 🌐 in alto (ui/multiplayer.js). Le regole del CSS
+       restano: .stanza-hint e .stanza-indietro le usano il menu e l'Officina. -->
 
   <!-- BARRA BASSA: colonna unica (modalità sopra, poi zaino/officina + tavolozza).
        Un solo contenitore = niente più sovrapposizioni. -->
@@ -1604,6 +1550,6 @@
   <div id="loading"><div><span class="lanterna">🏮</span><span id="loadingTxt">Un momento…</span></div></div>
 
   <input id="fileImporta" type="file" accept="application/json" style="display:none">
-  <script type="module" src="./src/main.js?v=msaxgi9o"></script>
+  <script type="module" src="./src/main.js?v=mtafl3ai"></script>
 </body>
 </html>

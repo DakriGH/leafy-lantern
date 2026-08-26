@@ -22,8 +22,8 @@
 // interroga il server ogni cinque secondi è, su cento giocatori, un migliaio di
 // richieste al minuto per disegnare qualcosa che nessuno sta guardando.
 
-import { RUOLI, DESCRIZIONE } from '../net/permessi.js?v=msaxgi9o';
-import { leggiProfilo, salvaProfilo, COLORI } from '../net/profilo.js?v=msaxgi9o';
+import { RUOLI, DESCRIZIONE } from '../net/permessi.js?v=mtafl3ai';
+import { leggiProfilo, salvaProfilo, COLORI } from '../net/profilo.js?v=mtafl3ai';
 
 const OGNI_STANZE_MS = 6000;
 
@@ -274,6 +274,40 @@ export class PannelloInsieme {
     });
   }
 
+  /**
+   * ⚠ LA LISTA DELLE STANZE ARRIVA A PEZZI. Ogni copia del server conosce le
+   * stanze aperte su di se': una domanda sola rende una lista PARZIALE, e la
+   * stessa domanda ripetuta rende liste diverse — che e' il motivo per cui la
+   * lista sembrava svuotarsi e riempirsi da sola. Si chiede tre volte e si
+   * uniscono le risposte: non e' elegante, ma e' quello che si puo' fare da
+   * questa parte del filo, e la differenza si vede.
+   */
+  async _chiediPiuVolte(via, quante = 3) {
+    const per = new Map();
+    let aVuoto = 0;
+    for (let i = 0; i < quante; i++) {
+      try {
+        const r = await fetch(via);
+        if (!r.ok) continue;
+        const d = await r.json();
+        const prima = per.size;
+        for (const st of (d.stanze || [])) if (!per.has(st.code)) per.set(st.code, st);
+        if (i === 0) this._ultimoCorpo = d;
+        // ⚠ E SI SMETTE APPENA NON ARRIVA PIU' NIENTE DI NUOVO. Questo giro di
+        // domande e' un ripiego: se il server tiene il suo registro condiviso
+        // (`/diag` → `copieCheRispondono` maggiore di zero) la PRIMA risposta e'
+        // gia' completa, e le altre due sono richieste buttate — moltiplicate per
+        // ogni giocatore col pannello aperto, su un piano gratuito dove le
+        // richieste sono la cosa contata. Un giro a vuoto non prova niente (le
+        // copie sono poche e ci si ricapita); due di fila vogliono dire che la
+        // lista e' quella.
+        if (per.size === prima && ++aVuoto >= 2) break;
+        else if (per.size > prima) aVuoto = 0;
+      } catch { /* una copia che non risponde non ferma le altre */ }
+    }
+    return [...per.values()];
+  }
+
   _entra(code, pw, spia) {
     const c = String(code || '').trim().toUpperCase();
     if (c.length < 3) return;
@@ -410,9 +444,8 @@ export class PannelloInsieme {
   async _chiediStanze() {
     if (!this.api.urlServer) { this.listaStanze.replaceChildren(el('div', 'mp-nota', 'Nessun server configurato.')); return; }
     try {
-      const r = await fetch(this.api.urlServer.replace(/\/+$/, '') + '/stanze');
-      const d = await r.json();
-      this._dipingiStanze(d.stanze || []);
+      const lista = await this._chiediPiuVolte(this.api.urlServer.replace(/\/+$/, '') + '/stanze');
+      this._dipingiStanze(lista);
     } catch {
       this.listaStanze.replaceChildren(el('div', 'mp-nota', 'Server non raggiungibile.'));
     }
@@ -591,6 +624,14 @@ export class PannelloInsieme {
         return;
       }
       const d = await r.json();
+      // le stanze si raccolgono da piu' copie, come nella lista pubblica — ma la
+      // prima risposta e' gia' in mano, quindi si fanno solo i giri MANCANTI
+      const per = new Map();
+      for (const st of (d.stanze || [])) per.set(st.code, st);
+      for (const st of await this._chiediPiuVolte(`${base}/admin/tutto?g=${encodeURIComponent(this.gettoneAdmin)}`, 2)) {
+        if (!per.has(st.code)) per.set(st.code, st);
+      }
+      d.stanze = [...per.values()];
       const box = this.adminBox;
       box.replaceChildren();
 

@@ -3,8 +3,8 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=msaxgi9o';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=msaxgi9o';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtafl3ai';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtafl3ai';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -23,34 +23,18 @@ const GBANDE = BANDE_LUCE.toFixed(1);
 // valore sensato (un milionesimo di cella) restando in notazione decimale.
 const GSCARTO = SCARTO_OMBRA.toFixed(6);
 
-// TETTO DEGLI ATTRAVERSAMENTI di cella dell'ombra del cielo: è il limite del
-// ciclo GLSL, che pretende una costante. NON è la portata dell'ombra — quella è
-// `uSolePassi` e si misura in BLOCCHI, la muove la scala di qualità.
-const SOLE_PASSI_MAX = 24;
-// PORTATA MASSIMA dell'ombra del cielo, in blocchi. Il legame con SOLE_PASSI_MAX
-// non è arbitrario: un raggio attraversa al più √3 ≈ 1.74 confini di cella per
-// unità di lunghezza (quando va in diagonale su tutti e tre gli assi), quindi
-// con 24 attraversamenti si arriva SEMPRE a 13 blocchi. Chiedere di più
-// vorrebbe dire che il contatore dei passi si esaurisce prima della distanza, e
-// il taglio tornerebbe seghettato proprio nelle ore in cui l'ombra è lunga.
-const SOLE_RAGGIO_MAX = Math.floor(SOLE_PASSI_MAX / Math.sqrt(3));   // 13
-
-// QUANTE SCATOLE POSSONO PROIETTARE nello stesso frame. Ci stanno dentro due
-// cose che a lungo sono state separate e che il sole tratta identiche:
-//   · la SAGOMA DEI MOBILI (alberi, lampioni, panchine), qualche scatola a
-//     testa, ferma finché non si sposta il mobile;
-//   · i CORPI IN MOVIMENTO (gatto, gatti in rete, palle), quando l'utente
-//     accende «ombre dinamiche».
-// Sono provate una per una per frammento, quindi il numero è un costo diretto —
-// ma con lo scarto in pianta calcolato da CPU quasi tutte cadono al primo
-// confronto. Ventiquattro coprono il pieno di un diorama attorno al giocatore.
-// Chi resta fuori dal budget (perché più lontano) non proietta: è una scala di
-// dettaglio, e la si sceglie per DISTANZA dal punto guardato, non a caso.
-const SCATOLE_MAX = 32;
+// (QUI VIVEVANO SOLE_PASSI_MAX, SOLE_RAGGIO_MAX e SCATOLE_MAX: il tetto del
+// cammino per-pixel dell'ombra del cielo e il budget delle scatole per-pixel.
+// L'ombra del cielo adesso è un CAMPO precalcolato — fx/campoSole.js — e lo
+// shader ne fa una lettura: non ci sono più passi da contare né budget da
+// riempire. La spazzata del campo è in tempo lineare e senza portata: le ombre
+// lunghe dell'alba arrivano fin dove devono, cosa che il tetto dei passi
+// tagliava proprio nelle ore in cui l'ombra è più bella.)
 // QUANTO LONTANO PUÒ CADERE l'ombra di una scatola, in celle. È un'ombra DI
 // CONTATTO: serve a incollare le cose al terreno, non a disegnare una lama
-// lunga mezzo schermo all'alba (che con l'astro radente sarebbe il caso
-// normale, non l'eccezione).
+// lunga mezzo schermo all'alba. La usa il canale per-VERTICE della vegetazione;
+// il campo del sole ha la sua copia (campoSole.LUNGHEZZA_OMBRA) e i due numeri
+// devono restare uguali, o l'erba si scurirebbe dove l'ombra stampata non c'è.
 const DIN_LUNG = 12.0;
 
 // ---- heightmap del cielo: per colonna, la quota della superficie più alta.
@@ -82,6 +66,7 @@ export function filtroCieloLineare(si) {
 }
 
 /** Scrive le quote di un chunk (mappa "x,z" → quota superficie). */
+let _cieloVersione = 0;
 export function aggiornaCielo(colonne) {
   for (const [k, alt] of colonne) {
     const [x, z] = k;
@@ -89,7 +74,21 @@ export function aggiornaCielo(colonne) {
     if (ix < 0 || ix >= CIELO_DIM || iz < 0 || iz >= CIELO_DIM) continue;
     _cieloDati[iz * CIELO_DIM + ix] = alt;
   }
+  _cieloVersione++;                // il campo del sole sa che deve rifarsi
   _cieloTex.needsUpdate = true;
+}
+
+/** La heightmap CRUDA, per chi la ricalcola in blocco (il campo del sole):
+ *  stessi dati della texture, con dominio e numero di versione. */
+export function cieloSorgente() {
+  return { cielo: _cieloDati, dim: CIELO_DIM, origine: CIELO_ORIGINE, versioneCielo: _cieloVersione };
+}
+
+/** La texture del CAMPO DEL SOLE (fx/campoSole.js): il limite d'ombra di ogni
+ *  colonna, già calcolato. Lo shader ne fa UNA lettura al posto del vecchio
+ *  cammino da tredici più trentadue prove di scatola. */
+export function impostaCampoSole(texture) {
+  uniformi.uCampoSole.value = texture;
 }
 
 // ---- maschera d'ombra delle nuvole ----------------------------------------
@@ -349,6 +348,11 @@ const uniformi = {
   uOmbraSbieco: { value: new THREE.Vector2(0, 0) },
   uCielo: { value: _cieloTex },
   uCieloInfo: { value: new THREE.Vector4(CIELO_ORIGINE, CIELO_ORIGINE, 1 / CIELO_DIM, CIELO_DIM) },
+  // IL CAMPO DEL SOLE (fx/campoSole.js): R = limite d'ombra del terreno,
+  // G = terreno + sagome dei mobili. Stesso dominio di uCielo, quindi stesse
+  // coordinate: la uv la fa già uCieloInfo. Null finché main non lo aggancia —
+  // e uSolePassi resta 0 finché è null, quindi non si legge mai a vuoto.
+  uCampoSole: { value: null },
   uTempo: { value: 0 },
   // il vento che piega gli alberi e l'ultimo urto ricevuto (vedi GLSL_VENTO)
   uVentoFurni: { value: new THREE.Vector4(1, 0, 0.10, 0.16) },
@@ -379,16 +383,9 @@ const uniformi = {
   uRiflessoForza: { value: 1 },                  // slider Impostazioni (0..1.5)
   uPgPos: { value: arrV4(6, 0, -999, 0, 0) },
   uPgNum: { value: 0 },                          // ombre-cono dei personaggi
-  // LE SCATOLE CHE PROIETTANO AL SOLE: la sagoma dei mobili (sempre) e i corpi
-  // in movimento (se l'utente accende le ombre dinamiche). Provate analiticamente
-  // contro il raggio dell'astro — è così che l'ombra di un albero ha la forma
-  // dell'albero invece del passo della griglia.
-  uDinPos: { value: arrV4(SCATOLE_MAX, 0, -999, 0, 0) },
-  uDinMez: { value: arrV4(SCATOLE_MAX) },
-  // i limiti DIAGONALI dell'ottagono: (s0, s1, d0, d1) con s = x+z e d = x−z.
-  // Sono loro a togliere all'ombra gli angoli che il modello non ha.
-  uDinDiag: { value: arrV4(SCATOLE_MAX) },
-  uDinNum: { value: 0 },
+  // (le scatole per-pixel dei mobili — uDin, tre array da trentadue vec4 in OGNI
+  // materiale patchato — non esistono più: le sagome stanno nel campo del sole.
+  // Su GPU mobile erano anche un centinaio di vec4 di uniform risparmiati.)
   // OCCHIO DI BUE: (centro.x, centro.y in pixel, raggio, bordo) e la distanza
   // camera→personaggio. `uForoDist` a 0 spegne tutto senza costo.
   uForo: { value: new THREE.Vector4(0, 0, 90, 40) },
@@ -497,58 +494,42 @@ export function impostaForo(x, y, dist, raggio, bordo, forza) {
  *  non una ricompilazione. */
 export function mondoVelato() { return _veloAcceso; }
 
-export function impostaOmbre(scatole, corpi, dinamiche = false) {
-  const dir = uniformi.uSoleDir.value;
-  const oriz = Math.hypot(dir.x, dir.z) / Math.max(dir.y, 0.05);
-  let n = 0;
-  // `diag` sono i limiti dell'ottagono (s0,s1,d0,d1); per i CORPI, che sono
-  // scatole piene, si ricavano dal rettangolo: nessun angolo tagliato.
-  const metti = (cx, cy, cz, hx, hy, hz, diag, peso = 1) => {
-    if (n >= SCATOLE_MAX) return;
-    // IL PESO STA IN uDinMez.w, che era zero e basta. Serve a far COMPARIRE
-    // un'ombra invece di farla apparire: chi entra nel budget camminando entra
-    // da trasparente e si scurisce in un blocco o due di cammino. Senza, le
-    // ombre lontane «si caricavano» a scatti — e si vedeva, eccome.
-    scriviV4(uniformi.uDinMez.value, n, hx, hy, hz, peso);
-    if (diag) scriviV4(uniformi.uDinDiag.value, n, diag.s0, diag.s1, diag.d0, diag.d1);
-    else {
-      const s = cx + cz, d = cx - cz, h = hx + hz;
-      scriviV4(uniformi.uDinDiag.value, n, s - h, s + h, d - h, d + h);
-    }
-    const raggio = Math.hypot(hx, hz) + Math.min(DIN_LUNG, (hy * 2 + DIN_LUNG) * oriz);
-    scriviV4(uniformi.uDinPos.value, n, cx, cy, cz, raggio);
-    n++;
-  };
-
-  // I CORPI PRIMA DEI MOBILI, e non è un dettaglio di stile: quando il budget si
-  // riempie chi resta fuori non proietta, e l'ombra che non può mancare è quella
-  // del gatto che stai muovendo — un albero in meno in fondo allo schermo non se
-  // lo fila nessuno, il proprio personaggio senza ombra sì.
-  // ⚠ I CORPI NON DIVENTANO PIÙ SCATOLE, e il committente ha ragione due volte:
-  // «non capisco perché hai dato l'ombra dinamica anche al player quando non ne
-  // ha bisogno, ed è anche sbagliata quella attuale». È sbagliata alla lettera:
-  // un gatto è una figura tondeggiante, la sua scatola è un parallelepipedo, e
-  // l'ombra che ne usciva era un rettangolo inclinato che con la sagoma del
-  // gatto non c'entra niente. E non serve: il disco sotto i piedi (uPgPos) dice
-  // «sono appoggiato qui», che è tutto quello che l'ombra di un personaggio deve
-  // dire in un diorama. `dinamiche` resta nella firma per non toccare i
-  // chiamanti, ma non fa più niente.
-
-  for (const s of scatole) {
-    metti((s.x0 + s.x1) * 0.5, (s.y0 + s.y1) * 0.5, (s.z0 + s.z1) * 0.5,
-      (s.x1 - s.x0) * 0.5, (s.y1 - s.y0) * 0.5, (s.z1 - s.z0) * 0.5, s, s.peso ?? 1);
+export function impostaOmbre(scatole, corpi) {
+  // ⚠ QUI NON SI RIEMPIE PIÙ NESSUN BUDGET PER-PIXEL, ed è il cuore della
+  // rifondazione: le sagome dei MOBILI stanno nel CAMPO DEL SOLE
+  // (fx/campoSole.js), calcolate una volta ogni pochi secondi e lette dallo
+  // shader con UNA texture2D. Il vecchio giro — trentadue scatole provate per
+  // OGNI pixel, per OGNI frame, col budget dei «32 più vicini», l'isteresi che
+  // inseguiva la camera e il peso di dissolvenza per nascondere il pop-in di
+  // chi entrava e usciva dal budget — non ha più niente da fare: nel campo ci
+  // stanno TUTTE le scatole, sempre, quindi non c'è budget, non c'è pop-in, e
+  // non c'è la dissolvenza che lo mascherava.
+  //
+  // Quello che resta qui è ciò che si MUOVE ogni frame e nel campo non può stare:
+  //  · i CORPI (gatto, ospiti, palle) → i coni sotto i piedi (uPg), che non
+  //    sanno nemmeno dov'è il sole e costano un confronto di distanza;
+  //  · le POCHE scatole vicine per la VEGETAZIONE (uQ): l'erba si scurisce
+  //    per VERTICE sotto gli alberi, e otto scatole per un shader di vertice
+  //    sono niente — è lo stesso elenco di prima, solo che adesso è l'UNICO
+  //    consumatore, non la copia ridotta di un elenco da trentadue.
+  const nq = Math.min(scatole.length, SCATOLE_VERTICE);
+  const p = uniformiQ.uQPos.value, m = uniformiQ.uQMez.value, g = uniformiQ.uQDiag.value;
+  for (let i = 0; i < nq; i++) {
+    const s = scatole[i];
+    const cx = (s.x0 + s.x1) * 0.5, cy = (s.y0 + s.y1) * 0.5, cz = (s.z0 + s.z1) * 0.5;
+    const hx = (s.x1 - s.x0) * 0.5, hy = (s.y1 - s.y0) * 0.5, hz = (s.z1 - s.z0) * 0.5;
+    scriviV4(p, i, cx, cy, cz, Math.hypot(hx, hz) + DIN_LUNG);
+    scriviV4(m, i, hx, hy, hz, 1);
+    scriviV4(g, i, s.s0, s.s1, s.d0, s.d1);
   }
+  uniformiQ.uQNum.value = nq;
 
-  {
-    const m = Math.min(corpi.length, 6);
-    for (let i = 0; i < m; i++) {
-      const e = corpi[i];
-      scriviV4(uniformi.uPgPos.value, i, e.x, e.y, e.z, e.r);
-    }
-    uniformi.uPgNum.value = m;
+  const nc = Math.min(corpi.length, 6);
+  for (let i = 0; i < nc; i++) {
+    const e = corpi[i];
+    scriviV4(uniformi.uPgPos.value, i, e.x, e.y, e.z, e.r);
   }
-  uniformi.uDinNum.value = n;
-  _copiaPiccoli();
+  uniformi.uPgNum.value = nc;
 }
 
 /** Il chiaroscuro (facce girate dal sole) si può spegnere da solo: su terreno a
@@ -779,11 +760,12 @@ const GLSL_FRAGMENT = /* glsl */`
   // Due livelli sono ancora cel shading (i toon shader classici ne hanno due o
   // tre): quello che lo stile non vuole è la RAMPA, e qui di rampa non ce n'è.
   uniform float uSoleTerm;         // 0 = niente chiaroscuro; se no quanto resta illuminato
-  // scatole che proiettano: sagome dei mobili + corpi in moto (vedi ombraScatole)
-  uniform vec4 uDinPos[${SCATOLE_MAX}]; // (centro.xyz, raggio di scarto in XZ)
-  uniform vec4 uDinMez[${SCATOLE_MAX}]; // mezze estensioni della scatola
-  uniform vec4 uDinDiag[${SCATOLE_MAX}]; // limiti diagonali: (s0, s1, d0, d1) con s=x+z, d=x−z
-  uniform int uDinNum;
+  // IL CAMPO DEL SOLE (fx/campoSole.js): per ogni colonna, la quota sotto cui si
+  // sta in ombra. R = solo terreno (lo leggono i mobili), G = terreno + sagome
+  // dei mobili (lo legge tutto il resto). Ha preso il posto del cammino di
+  // tredici letture e delle trentadue prove di scatola che stavano QUI, per
+  // pixel, per frame. Stesso dominio di uCielo: la uv la fa uCieloInfo.
+  uniform sampler2D uCampoSole;
 
   // CHI FERMA LE LAMPADE PER QUESTO MATERIALE.
   // 0.31 = anche gli ingombri opachi fermano la luce: è il mondo, l'acqua, i
@@ -946,76 +928,13 @@ const GLSL_FRAGMENT = /* glsl */`
     return gl_FrontFacing ? n : -n;
   }
 
-  // ---- LE SCATOLE CHE PROIETTANO: la sagoma dei mobili e i corpi in moto -----
-  //
-  // PERCHÉ NON STANNO NELLA GRIGLIA. La griglia dei voxel ha il passo di un
-  // blocco, e un albero scritto lì dentro proietta un quadrato 3×3 col bordo a
-  // scalini: né la forma della chioma né un bordo pulito. Da vicino è il difetto
-  // che si nota di più — «seghettate e non coerenti con i modelli 3D». Qui invece
-  // ogni mobile porta un pugno di SCATOLE con la virgola (la torta di fette di
-  // furniture.js) e il raggio del sole le prova una per una col classico test a
-  // fette: il bordo dell'ombra è dritto e la forma è quella del modello.
-  // La griglia serve ancora, ma solo alle LAMPADE, che la camminano.
-  //
-  // CI STANNO ANCHE I CORPI IN MOVIMENTO quando l'utente accende le ombre
-  // dinamiche: la griglia si ricarica quando si POSA un blocco, non sessanta
-  // volte al secondo, quindi un gatto che corre lì dentro non ci può stare.
-  //
-  // DUE SCARTI A BUON MERCATO PRIMA DEL TEST VERO, perché questo gira per ogni
-  // frammento dello schermo: la distanza in pianta (il raggio arriva già
-  // calcolato da CPU e tiene conto di quanto l'ombra si allunga a quell'ora) e
-  // la quota (il sole viene dall'alto, sotto non ci si va). È il motivo per cui
-  // ventiquattro scatole costano quanto poche: quasi tutte cadono al primo
-  // confronto.
-  // 1/x che non esplode MAI cambiando il segno del risultato: quando il raggio
-  // è quasi parallelo a uno slab il denominatore va a zero, e lo slab deve
-  // diventare «non stringe» (frammento dentro) o «taglia tutto» (fuori) — che è
-  // esattamente ciò che dà un inverso enorme col segno giusto.
-  float invSicuro(float v) { return 1.0 / (abs(v) < 1e-6 ? (v < 0.0 ? -1e-6 : 1e-6) : v); }
-
-  // Rende QUANTO scurisce la scatola più forte che copre questo frammento:
-  // 0 nessuna, 1 ombra piena. Era un bool, e un bool non sa sfumare.
-  float ombraScatole() {
-    float forte = 0.0;
-    vec3 seg = vec3(uSoleDir.x >= 0.0 ? 1.0 : -1.0, uSoleDir.y >= 0.0 ? 1.0 : -1.0, uSoleDir.z >= 0.0 ? 1.0 : -1.0);
-    vec3 inv = seg / max(abs(uSoleDir), vec3(1e-4));
-    // le due direzioni diagonali del raggio, per gli slab dell'ottagono
-    float invS = invSicuro(uSoleDir.x + uSoleDir.z);
-    float invD = invSicuro(uSoleDir.x - uSoleDir.z);
-    float fs = vPosMondo.x + vPosMondo.z;
-    float fd = vPosMondo.x - vPosMondo.z;
-    for (int i = 0; i < ${SCATOLE_MAX}; i++) {
-      if (i >= uDinNum) break;
-      vec4 p = uDinPos[i];
-      vec2 d = vPosMondo.xz - p.xz;
-      if (dot(d, d) > p.w * p.w) continue;
-      vec3 h = uDinMez[i].xyz;
-      if (vPosMondo.y > p.y + h.y) continue;
-      vec3 t0 = (p.xyz - h - vPosMondo) * inv;
-      vec3 t1 = (p.xyz + h - vPosMondo) * inv;
-      vec3 tmin = min(t0, t1), tmax = max(t0, t1);
-      float a = max(max(tmin.x, tmin.y), tmin.z);
-      float b = min(min(tmax.x, tmax.y), tmax.z);
-      // GLI SLAB DIAGONALI: il rettangolo diventa l'ottagono ESATTO della
-      // fetta, e l'ombra perde gli angoli che il modello non ha — era il
-      // «parallelogramma pieno e squadrato» al posto della chioma.
-      vec4 dg = uDinDiag[i];
-      float sA = (dg.x - fs) * invS, sB = (dg.y - fs) * invS;
-      a = max(a, min(sA, sB)); b = min(b, max(sA, sB));
-      float dA = (dg.z - fd) * invD, dB = (dg.w - fd) * invD;
-      a = max(a, min(dA, dB)); b = min(b, max(dA, dB));
-      // IL CONFRONTO SU a NON È UN DETTAGLIO: chiede che la scatola stia DAVANTI al
-      // frammento lungo il raggio. Un frammento del corpo stesso sta dentro la
-      // propria scatola, quindi lì a è negativo e la prova cade — se bastasse
-      // «il raggio attraversa la scatola», ogni gatto si annerirebbe da solo,
-      // tutto intero (provato: succede, ed è vistoso).
-      if (b > a && a > 0.04 && a < ${DIN_LUNG.toFixed(1)}) {
-        forte = max(forte, uDinMez[i].w);
-        if (forte >= 0.999) return forte;      // piena: inutile provare le altre
-      }
-    }
-    return forte;
-  }
+  // (QUI VIVEVANO ombraScatole E LE SUE TRENTADUE SCATOLE PER PIXEL. Le sagome
+  // dei mobili adesso stanno nel CAMPO DEL SOLE — fx/campoSole.js — calcolate
+  // una volta ogni pochi secondi e lette da ombraCielo con la stessa identica
+  // texture2D del terreno: la matematica degli slab a ottagono non e' sparita,
+  // si e' spostata dove gira una volta per texel invece che una volta per pixel
+  // per frame. La copia per la VEGETAZIONE vive ancora, per vertice, in
+  // GLSL_SCATOLE_VERTICE.)
 
   float ombraCielo() {
     if (uSoleForza <= 0.0) return 1.0;               // opzione spenta o astro sotto
@@ -1029,97 +948,67 @@ const GLSL_FRAGMENT = /* glsl */`
     // fotogramma: un lampo, non un tramonto. La rampa è larga un decimo di
     // coseno — a schermo sono qualche minuto di gioco, che basta e avanza per
     // non vederlo scattare, e resta comunque un cel shading a due toni.
+    // ⚠ LA RAMPA C'È MA NON DEVE ESSERE LISCIA, e questa è la differenza che il
+    // committente ha visto: «vedo sfumature e ombre sbagliate». Erano queste. Un
+    // mix con uno smoothstep dà una transizione CONTINUA — cioè l'unica cosa
+    // morbida in un gioco in cui le luci-sfera, il fade dell'ombra del gatto e
+    // gli anelli di pioggia sono tutti tagliati a gradini netti. Sulle facce
+    // piatte del mondo non si nota (il coseno è costante per faccia), ma sul
+    // gatto e sui mobili — che hanno normali curve — diventa una smanacciata di
+    // grigi al posto del confine netto fra chiaro e scuro.
+    //
+    // La rampa serve, e non si toglie: senza, un'alba fa RIBALTARE tutte le
+    // pareti in un fotogramma (è già successo). Quello che si toglie è la
+    // continuità: gli stessi gradini di tutto il resto (BANDE_LUCE), così la
+    // transizione resta graduale nel TEMPO ma a schermo è sempre a toni piatti.
     float _term = 1.0;
     if (uSoleTerm > 0.0) {
       float _d = dot(normaleGeom(), uSoleDir);
       if (_d <= -0.02) return uSoleTerm;              // girata del tutto: esce subito
-      _term = mix(uSoleTerm, 1.0, smoothstep(-0.02, 0.10, _d));
+      float _r = ceil(smoothstep(-0.02, 0.10, _d) * ${GBANDE}) / ${GBANDE};
+      _term = mix(uSoleTerm, 1.0, _r);
     }
-    // (2) le scatole: la sagoma dei mobili e i corpi in moto, che nella griglia
-    //     non ci sono (o non ci starebbero senza diventare cubi). I materiali
-    //     dei MOBILI le saltano in blocco (vedi FURNI): il ramo sparisce in
-    //     compilazione, non è un if pagato per pixel.
-    if (!FURNI && uDinNum > 0) {
-      float sc = ombraScatole();
-      if (sc > 0.002) return (1.0 - sc) * _term;   // sfuma invece di apparire di colpo
-    }
-    if (uSolePassi == 0 || uVoxMin.w < 0.5) return _term;
-    // chi sta sopra la cima del mondo non ha niente sopra di sé: niente cammino
-    if (vPosMondo.y >= uVoxCima) return _term;
-    // ---- (3) L'OMBRA PORTATA DAL MONDO: SI CAMMINA LA HEIGHTMAP -----------
+    // ---- (2) L'OMBRA PORTATA: UNA LETTURA DEL CAMPO DEL SOLE ----------------
     //
-    // MISURATO, ed e' il numero che ha deciso questa riscrittura: sul Chromebook
-    // del committente (Intel HD 400, timer GPU disponibile, 31 luglio 2026)
-    // l'ombra del sole costava +69,8 ms GPU — piu' di TUTTO il resto sommato, e
-    // il pass principale intero ne valeva 64,7 contro i 10,7 del mondo nudo.
+    // QUI C'ERA IL CONTO PIU' CARO DEL GIOCO, pagato per pixel e per frame: un
+    // cammino di tredici letture di heightmap (l'ombra del terreno) piu' fino a
+    // trentadue prove di scatola (le sagome dei mobili). Sul Chromebook del
+    // committente valeva +69,8 ms di GPU — piu' di tutto il resto sommato — ed
+    // e' il motivo per cui su mobile il cel shading stava spento.
     //
-    // Prima qui si camminava la GRIGLIA 3D dei voxel con un DDA: fino a 24
-    // attraversamenti di cella, e a ogni attraversamento una lettura di texture
-    // 3D. Su una GPU integrata quella e' la lettura piu' cara che esista: le
-    // texture 3D non stanno in cache come le 2D, e due pixel vicini leggono
-    // celle lontane in memoria.
+    // Il conto adesso lo fa fx/campoSole.js, UNA volta ogni pochi secondi, e lo
+    // scrive in una texture: per ogni colonna, la quota sotto cui si sta in
+    // ombra. Qui resta una lettura e una sottrazione. Il canale lo sceglie la
+    // compilazione: i MOBILI leggono R (solo terreno — un albero non deve
+    // annerirsi sotto la propria chioma), tutto il resto legge G (terreno +
+    // sagome dei mobili: e' l'ombra dell'albero sull'erba).
     //
-    // Adesso si cammina la HEIGHTMAP — la stessa che le nuvole usano gia' per
-    // sapere qual e' la superficie di ogni colonna. Un passo = un blocco in XZ,
-    // una lettura 2D, e due pixel vicini leggono texel vicini: la cache fa il
-    // suo lavoro. Meta' delle iterazioni e la lettura piu' economica al posto
-    // della piu' cara.
-    //
-    // PERCHE' E' CORRETTO e non un'approssimazione furba: l'ombra del sole su
-    // una superficie chiede «lungo il raggio verso l'astro, c'e' terreno piu'
-    // alto del raggio?». La heightmap risponde esattamente a questa domanda per
-    // ogni colonna. Quello che NON sa sono gli sbalzi (un tetto con il vuoto
-    // sotto) e le cose sottili — ma le cose sottili sono i furni, e quelli hanno
-    // gia' il loro canale (ombraScatole, punto 2), mentre sotto un tetto la
-    // faccia guarda in basso e il TERMINATORE l'ha gia' scartata al punto 1.
-    //
-    // ⚠ SI PARTE DAL PASSO 1, non da 0: al passo 0 si campionerebbe la colonna
-    // del frammento stesso, e ogni pixel su una parete verticale — che sta sotto
-    // la cima della propria colonna — si dichiarerebbe in ombra da solo.
-    //
-    // ⚠ E IL SALTO SECCO ERA LA CAUSA DEL SEGHETTATO. Il cammino campiona una
-    // colonna ogni blocco: con un test booleano il bordo dell'ombra cade sempre
-    // su un confine di colonna, e siccome il raggio va in diagonale quei confini
-    // formano una scaletta. «Le ombre sono tutte seghettate e fatte malissimo»,
-    // parole del committente, ed è esattamente questo — non i blocchi del mondo,
-    // il campionamento.
-    //
-    // La cura non è campionare di più (si paga per pixel): è misurare DI QUANTO
-    // il terreno supera il raggio, invece di chiedere solo se lo supera. A
-    // cavallo del bordo quella differenza passa per zero con continuità, quindi
-    // la scaletta si dissolve in mezza cella di penombra. Restano due toni —
-    // il cel shading non si tocca — solo che il confine fra i due non è più
-    // tagliato con l'accetta della griglia.
-    vec2 dirXZ = uSoleDir.xz;
-    float lenXZ = length(dirXZ);
-    if (lenXZ < 0.02) return _term;      // astro allo zenit: non porta ombra
-    vec2 dxz = dirXZ / lenXZ;            // avanzare di 1 blocco in XZ...
-    float salita = uSoleDir.y / lenXZ;   // ...fa salire il raggio di tanto
-    vec3 p0 = vPosMondo + uSoleDir * ${GSCARTO};
+    // «sopra» e' un campo CONTINUO (filtro lineare), quindi il confine fra due
+    // bande cade dove il campo attraversa un valore — una curva che segue il
+    // terreno vero, non i confini delle colonne: toni piatti SENZA scaletta.
+    // E si arrotonda al PIU' VICINO, non per eccesso: un ceil qui promuoveva
+    // qualunque briciola di interpolazione a un terzo di ombra piena — erano i
+    // «puntini in diagonale».
+    if (uSolePassi == 0) return _term;
+    vec2 uvC = (vPosMondo.xz - uCieloInfo.xy) * uCieloInfo.z;
     float occ = 0.0;
-    // ⚠ IL PASSO CRESCE, e sono due guadagni in uno. Vicino al frammento serve
-    // finezza — è lì che il bordo dell'ombra si legge — mentre a dieci blocchi di
-    // distanza un errore di mezzo blocco non lo vede nessuno. Con il passo fisso
-    // a 1 si pagavano tredici letture per arrivare a tredici blocchi; con questa
-    // crescita ci si arriva in NOVE, e con le stesse nove si arriverebbe a
-    // venticinque. Sul Chromebook l'ombra del cielo è la voce più cara di tutto
-    // il frame (+19,7 ms nel banco): un terzo di letture in meno si sente.
-    // Funziona perché il campo è continuo (filtro lineare, vedi sopra): con
-    // Nearest un passo lungo salterebbe colonne intere.
-    for (int k = 1; k <= ${SOLE_PASSI_MAX}; k++) {
-      float fk = float(k) + 0.085 * float(k) * float(k - 1);
-      if (fk > float(uSolePassi)) break;          // la portata, in blocchi
-      float y = p0.y + salita * fk;
-      // sopra la cima del mondo non c'e' piu' niente da incontrare, e il raggio
-      // sale: da qui in poi ogni lettura sarebbe sicuramente vuota
-      if (y >= uVoxCima) break;
-      vec2 uv = (p0.xz + dxz * fk - uCieloInfo.xy) * uCieloInfo.z;
-      if (uv.x <= 0.0 || uv.x >= 1.0 || uv.y <= 0.0 || uv.y >= 1.0) break;
-      // quanto il terreno di quella colonna supera il raggio, in blocchi
-      float sopra = texture2D(uCielo, uv).r - y;
-      occ = max(occ, smoothstep(0.0, 0.55, sopra));
-      if (occ > 0.995) break;                     // già piena: inutile continuare
+    if (uvC.x > 0.0 && uvC.x < 1.0 && uvC.y > 0.0 && uvC.y < 1.0) {
+      vec4 cs = texture2D(uCampoSole, uvC);
+      // il TERRENO è un limite semplice: in ombra sotto la quota cs.r
+      occ = smoothstep(0.0, 0.55, cs.r - vPosMondo.y);
+      // le SAGOME dei mobili sono un INTERVALLO [pavimento cs.b, tetto cs.g]:
+      // in ombra solo se il raggio verso il sole incrocia la scatola DAVVERO.
+      // Con un limite solo, il terreno sotto una chioma che galleggia risultava
+      // in ombra anche quando il raggio le passava sotto — la «bolla» attorno
+      // agli alberi. I MOBILI non leggono le sagome (un albero si annerirebbe
+      // sotto la propria chioma): il ramo sparisce in compilazione.
+      if (!FURNI) {
+        float mob = min(smoothstep(0.0, 0.55, cs.g - vPosMondo.y),
+                        smoothstep(0.0, 0.55, vPosMondo.y - cs.b));
+        occ = max(occ, mob);
+      }
     }
+    occ = floor(occ * ${GBANDE} + 0.5) / ${GBANDE};
     return (1.0 - occ) * _term;
   }
 
@@ -1324,9 +1213,25 @@ gl_FragColor.a *= velaOcchioDiBue();
 const GLSL_COMPOSIZIONE = /* glsl */`
 _ombraTot = 1.0;
 if (uParti != 0) {
-  _ombraTot = lanternaOmbra() * ombraPg();
+  // ⚠ LE OMBRE NON SI MOLTIPLICANO PIÙ FRA LORO, ed è la regola dello stile:
+  // «ombra» è UN tono, non una somma. Prima nuvola × cono del gatto × ombra
+  // del sole si moltiplicavano — il gatto dentro l'ombra di un albero aveva
+  // una seconda macchia più scura sotto i piedi, due ombre sovrapposte
+  // facevano una zona doppia, e il committente l'ha chiamato «si mescolano in
+  // maniera sottrattiva». Adesso:
+  //  · nuvola e cono si combinano col MINIMO (vince la più scura, non il
+  //    prodotto);
+  //  · e valgono solo per la parte di luce che il SOLE lascia: dentro l'ombra
+  //    portata piena il cono e la nuvola non aggiungono niente — è già ombra.
   #ifdef LANTERNA_SOLE
-    vec3 _amb = uAmbiente * mix(uOmbraFatt, vec3(1.0), ombraCielo());
+    float _sole = ombraCielo();
+  #else
+    const float _sole = 1.0;
+  #endif
+  float _extra = min(lanternaOmbra(), ombraPg());
+  _ombraTot = 1.0 - (1.0 - _extra) * _sole;
+  #ifdef LANTERNA_SOLE
+    vec3 _amb = uAmbiente * mix(uOmbraFatt, vec3(1.0), _sole);
   #else
     vec3 _amb = uAmbiente;
   #endif
@@ -1350,15 +1255,17 @@ if (uParti != 0) {
 // Con i #define quei blocchi non vengono proprio COMPILATI: a qualità bassa lo
 // shader del mondo è un altro shader, piccolo. Cambiare profilo ricompila —
 // costa un momento, e succede solo quando la scala di qualità si muove.
-let _profilo = { sole: true, ombreLuci: true };
+let _profilo = { sole: true, ombreLuci: true, acquaRicca: true };
 const _patchati = new Set();      // chi va ricompilato quando il profilo cambia
 
 /** Quali blocchi cari deve CONTENERE lo shader del mondo. Lo chiama la scala di
- *  qualità (main.js, applicaQualita). Ricompila solo se cambia davvero. */
-export function impostaProfiloShader({ sole, ombreLuci }) {
-  const s2 = !!sole, l2 = !!ombreLuci;
-  if (s2 === _profilo.sole && l2 === _profilo.ombreLuci) return;
-  _profilo = { sole: s2, ombreLuci: l2 };
+ *  qualità (main.js, applicaQualita). Ricompila solo se cambia davvero.
+ *  `acquaRicca` = i pezzi cari del pelo (ondeggio del riflesso e schiuma a
+ *  silhouette): sui gradini bassi escono dalla COMPILAZIONE, non solo dagli if. */
+export function impostaProfiloShader({ sole, ombreLuci, acquaRicca = true }) {
+  const s2 = !!sole, l2 = !!ombreLuci, a2 = !!acquaRicca;
+  if (s2 === _profilo.sole && l2 === _profilo.ombreLuci && a2 === _profilo.acquaRicca) return;
+  _profilo = { sole: s2, ombreLuci: l2, acquaRicca: a2 };
   for (const m of _patchati) m.needsUpdate = true;
 }
 
@@ -1371,7 +1278,10 @@ function glslFragmento(ingombro) {
   if (!s) {
     s = (GLSL_FRAGMENT + GLSL_FORO)
       .replace('__SOGLIA_LUME__', ingombro ? '0.5' : '0.31')
-      .replace('__FURNI__', ingombro ? 'true' : 'false');
+      .replace('__FURNI__', ingombro ? 'true' : 'false')
+      // il canale del campo del sole: i MOBILI leggono il solo terreno (R), il
+      // mondo legge terreno + sagome (G) — vedi il commento in ombraCielo
+      ;   // (il canale del campo non si sceglie più qui: decide il bool FURNI)
     _fragVarianti.set(ingombro, s);
   }
   return s;
@@ -1389,8 +1299,26 @@ function glslFragmento(ingombro) {
 // inclinato si illuminerebbe come se fosse ancora dritto.
 function iniettaLanterna(shader, ingombro, vento) {
   Object.assign(shader.uniforms, uniformi);
+  // ⚠ QUESTE DUE RIGHE HANNO TENUTO SPENTE LE OMBRE DELLE LAMPADE DA SEMPRE, e
+  // sono il caso peggiore che esista: una funzione MORTA CHE SEMBRA VIVA.
+  // C'erano due errori sovrapposti, e ognuno da solo bastava a spegnere tutto:
+  //   · si leggeva `_profilo.luci`, un campo CHE NON ESISTE — il profilo ha
+  //     `sole` e `ombreLuci` — quindi la riga non veniva mai scritta;
+  //   · e anche se fosse stata scritta, diceva LANTERNA_LUCI mentre lo shader
+  //     chiede `#ifdef LANTERNA_OMBRE_LUCI`. Due nomi diversi per la stessa cosa.
+  //
+  // Intorno a questo interruttore spento girava tutto il resto, e funzionava: la
+  // texture 3D dei muri caricata a ogni remesh, il DDA scritto e provato, le due
+  // classi di luce (`ombra: true/false`), il budget `maxOmbre` misurato col
+  // banco, lo scalino `ombre` nella scala di qualità, l'early-out «se non c'è
+  // nemmeno una pesante in vista». Tutto vero, tutto pagato, e nessuno che
+  // leggesse il risultato. Da fuori: «le ombre sono rotte» — e lo erano.
+  //
+  // La lezione è la stessa già scritta in memoria dopo un caso identico: una
+  // uniform giusta non prova NIENTE. Prova solo il pixel.
   const define = (_profilo.sole ? '#define LANTERNA_SOLE\n' : '')
-    + (_profilo.luci ? '#define LANTERNA_LUCI\n' : '');
+    + (_profilo.ombreLuci ? '#define LANTERNA_OMBRE_LUCI\n' : '')
+    + (_profilo.acquaRicca ? '#define LANTERNA_ACQUA_RICCA\n' : '');
   shader.fragmentShader = define + shader.fragmentShader;
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\n' + GLSL_VERTEX)
@@ -1422,7 +1350,7 @@ export function patchLuci(materiale, ingombro = false, vento = false) {
   // scambierebbero lo stesso programma compilato
   materiale.customProgramCacheKey = () =>
     'lanterna-luci-' + (ingombro ? 'furni' : 'mondo') + (vento ? '-vento' : '')
-    + (_profilo.sole ? '-s' : '') + (_profilo.ombreLuci ? '-o' : '');
+    + (_profilo.sole ? '-s' : '') + (_profilo.ombreLuci ? '-o' : '') + (_profilo.acquaRicca ? '-a' : '');
   _patchati.add(materiale);
   return materiale;
 }
@@ -1619,6 +1547,14 @@ const GLSL_ACQUA_COLORE = /* glsl */`
 
     // RIFLESSO: wobble a VALUE-NOISE (mai ripetitivo) che sfuma con la
     // distanza — da lontano lo specchio resta fermo, niente pattern
+    //
+    // ⚠ SUI GRADINI BASSI QUESTO BLOCCO NON VIENE NEMMENO COMPILATO. Prima lo
+    // spegneva solo uParti a runtime, e su GPU mobile un if falso non
+    // restituisce i registri: lo shader resta dimensionato per il caso
+    // peggiore. Stessa lezione, stessa cura di sole e ombre delle lampade —
+    // il profilo (LANTERNA_ACQUA_RICCA) decide cosa si compila, il bisturi
+    // uParti resta dentro per la diagnostica sul profilo pieno.
+    #ifdef LANTERNA_ACQUA_RICCA
     if (uRiflessoOn > 0.5 && (uParti & 16) != 0) {
       vec4 ruv = vRiflessoUv;
       // L'ONDEGGIO SI SPEGNE DEL TUTTO A 32 UNITÀ, e allora oltre non si calcola.
@@ -1638,6 +1574,7 @@ const GLSL_ACQUA_COLORE = /* glsl */`
       float fres = pow(1.0 - clamp(vistaDir.y, 0.0, 1.0), 1.4);
       diffuseColor.rgb = mix(diffuseColor.rgb, rifl, (0.28 + 0.42 * fres) * uRiflessoForza);
     }
+    #endif
 
     // SCHIUMA = CARATTERISTICA DELLO SHADER, per tutto ciò che tocca l'acqua:
     //  · RIVE e blocchi: dal gradiente aRiva (0 al bordo coi solidi);
@@ -1656,6 +1593,9 @@ const GLSL_ACQUA_COLORE = /* glsl */`
     // silhouette VIVA: il punto di campionamento ONDEGGIA col tempo (il
     // contorno non sta mai fermo) e l'anello di dilatazione "respira"
     float sagoma = 0.0;
+    // la SILHOUETTE è l'altro pezzo caro del pelo (cinque letture più due
+    // rumori per pixel bagnato): stessa regola del riflesso qui sopra
+    #ifdef LANTERNA_ACQUA_RICCA
     if (uSchiumaRTInfo.w > 0.5 && (uParti & 32) != 0) {
       vec2 uvC = (vPosMondo.xz - uSchiumaRTInfo.xy) * uSchiumaRTInfo.z;
       if (uvC.x > 0.001 && uvC.x < 0.999 && uvC.y > 0.001 && uvC.y < 0.999) {
@@ -1678,6 +1618,7 @@ const GLSL_ACQUA_COLORE = /* glsl */`
         }
       }
     }
+    #endif
     float maschera = (uParti & 256) != 0 ? anelloImpatti(vPosMondo.xz, vPosMondo.y) : 0.0;   // impatti cascate
     // stessa regola: vivo sfrangia la SILHOUETTE, e dove la silhouette è zero
     // il prodotto è zero comunque. La sagoma copre una manciata di pixel attorno
@@ -1997,16 +1938,10 @@ export function uniformiScatole() { return uniformiQ; }
  * che illumina il prato davanti è un caso che non capita quasi mai, e quando
  * capita costa molto meno di quanto costerebbe cercarlo.
  */
-/** Ricopia nell'array PICCOLO delle scatole quello che serve alla vegetazione.
- *  Lo chiama impostaOmbre a fine giro: otto copie per fotogramma contro il
- *  traffico di tre array da trentadue per ognuno dei materiali di vegetazione. */
-function _copiaPiccoli() {
-  const n = Math.min(SCATOLE_VERTICE, uniformi.uDinNum.value);
-  const D = uniformi.uDinPos.value, M = uniformi.uDinMez.value, G = uniformi.uDinDiag.value;
-  const p = uniformiQ.uQPos.value, m = uniformiQ.uQMez.value, g = uniformiQ.uQDiag.value;
-  for (let i = 0; i < n * 4; i++) { p[i] = D[i]; m[i] = M[i]; g[i] = G[i]; }
-  uniformiQ.uQNum.value = n;
-}
+// (QUI VIVEVA _copiaPiccoli, che travasava in uQ le prime otto scatole
+// dell'elenco per-pixel. L'elenco per-pixel non esiste più — le sagome stanno
+// nel campo del sole — e uQ lo riempie direttamente impostaOmbre: la
+// vegetazione è rimasta l'UNICO consumatore delle scatole analitiche.)
 
 /**
  * LE LAMPADE LE VEDE TUTTE, e il taglio a otto che avevo provato qui era un
@@ -2244,7 +2179,10 @@ export function impostaOmbraCielo(dir, forza, fatt, k) {
   uniformi.uOmbraSbieco.value.set(d.x / oriz * s, d.z / oriz * s);
 }
 const SBIECO_MAX = 2.5;
-export function impostaPassiCielo(n) { uniformi.uSolePassi.value = Math.max(0, Math.min(SOLE_RAGGIO_MAX, n | 0)); }
+// ⚠ NON È PIÙ UNA PORTATA: il campo del sole non ha passi da contare. Resta
+// l'interruttore — 0 = ombra del cielo spenta, >0 = accesa — con la stessa
+// firma di sempre perché la muovono la scala di qualità e le opzioni.
+export function impostaPassiCielo(n) { uniformi.uSolePassi.value = Math.max(0, n | 0); }
 export function passiCielo() { return uniformi.uSolePassi.value; }
 
 /** Rampa liscia in [0,1]: agli estremi la derivata e' nulla, quindi il congedo

@@ -43,6 +43,14 @@ export function livello(ruolo) {
 // noti, piuttosto che passi e non se ne accorga nessuno.
 const MINIMO = {
   furniStato: 'visitatore',    // accendere una lampada, aprire una porta, pescare
+  // LE MANOPOLE DEI MACCHINARI stanno con la lampada, non col martello, e la
+  // ragione è che sono la STESSA cosa vista da vicino: toccare il campanello lo
+  // accende, toccare lo scintillatore ne cambia il ritmo, e tutti e due passano
+  // dalla stessa manopola. Metterle a «costruttore» avrebbe voluto dire che un
+  // visitatore — che per contratto «accende e spegne le cose» — trovava il
+  // macchinario che non risponde al tocco, cioè che sembra rotto. Chi non vuole
+  // farsi toccare niente ha lo spettatore, ed è lì che serve la linea.
+  macchinaConfig: 'visitatore',
   metti: 'costruttore',
   togli: 'costruttore',
   furniPiazza: 'costruttore',

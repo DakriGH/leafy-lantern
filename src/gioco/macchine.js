@@ -220,11 +220,25 @@ export function impostaConfig(servizi, m, chiave, valore) {
   if (!op) return false;
   const v = normalizzaValore(op, valore);
   if (m.config[chiave] === v) return false;
+  // ⚠ IL PERMESSO SI CHIEDE QUI, E QUI SOLTANTO. Le manopole si girano da tre
+  // strade diverse — il pannello, il tocco sul macchinario, e il codice del def
+  // stesso (quasi tutti gli `onInteragisci` scrivono passando da qui) — e mettere
+  // il controllo su ognuna vuol dire dimenticarlo sulla quarta che verrà. Questo
+  // è il collo di bottiglia: chi non può, non passa, da qualunque parte arrivi.
+  // Fuori dalla rete `consentiConfig` non esiste e non costa niente.
+  if (typeof servizi.consentiConfig === 'function' && !servizi.consentiConfig(m, chiave)) return false;
   m.config[chiave] = v;
   if (typeof m.def.onConfig === 'function') chiamaDef(m, 'onConfig', servizi, chiave);
   // solo chi ha un `aggiorna` ha senso svegliarlo: per gli altri sarebbe una
   // voce d'agenda che nasce solo per essere buttata via al primo scarico.
   if (typeof m.def.aggiorna === 'function') svegliaMacchina(servizi, m, 1);
+  // ⚠ E LO SI DICE A CHI DEVE SALVARE E A CHI DEVE SPEDIRE. Stesso ragionamento
+  // del permesso: una manopola girata è una modifica al mondo esattamente come un
+  // blocco posato, e finora non lo sapeva nessuno — non il salvataggio quando la
+  // manopola veniva girata col tocco, e MAI la rete. Due giocatori nella stessa
+  // stanza vedevano lo stesso macchinario andare a due ritmi diversi, e quando
+  // l'host salvava vinceva la sua versione: il lavoro dell'ospite spariva.
+  if (typeof servizi.onConfigCambiata === 'function') servizi.onConfigCambiata(m, chiave, v);
   return true;
 }
 
