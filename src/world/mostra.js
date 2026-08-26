@@ -11,45 +11,54 @@
 // Fra un campione e l'altro c'è sempre una cella vuota: niente culling fra
 // vicini, ogni pezzo si vede per intero da tutti i lati.
 
-import { BLOCCHI, registraBlocco } from './blocks.js?v=mtafl3ai';
+import { BLOCCHI, registraBlocco, CATEGORIA_PROVE } from './blocks.js?v=mtaobft4';
 
 const PASSO = 3;          // distanza fra un campione e il successivo
 const FILA = 4;           // distanza fra una fila e l'altra
 const LATO = 26;          // mezzo lato del pavimento
 
 /** I blocchi dimostrativi: esistono solo qui, prefisso mostra: per non
- *  confonderli con quelli dell'utente (prefisso off:). */
+ *  confonderli con quelli dell'utente (prefisso off:).
+ *
+ *  ⚠ TERZO ARGOMENTO OBBLIGATORIO: `CATEGORIA_PROVE`. Senza, `registraBlocco`
+ *  li mette in `CATEGORIA_OFFICINA` — cioè nella scheda dove il giocatore
+ *  ritrova i blocchi che ha inventato LUI. Bastava aprire la sala prove una
+ *  volta e da quel momento «Forma: cubo», «Motivo: chiazze» e altri quindici
+ *  restavano lì in mezzo, in OGNI mondo, per sempre. È lo stesso guasto già
+ *  curato per il Banco ombre (`world/bancoOmbre.js`), da cui `CATEGORIA_PROVE`
+ *  esiste: questo file non era mai stato convertito.
+ *  `test/mostra-categoria.test.mjs` pretende che resti così. */
 function registraCampioni() {
   const base = { solido: true, nav: 10, fam: 'mina', salute: 100, officina: true };
   const grigio = { cima: 0xb9c0cb, lato: 0xa3aab6, fondo: 0x8f96a2 };
 
   // forme
-  registraBlocco('mostra:cubo',     { ...base, ...grigio, nome: 'Forma: cubo' });
-  registraBlocco('mostra:bordino',  { ...base, cima: 0x64bb4f, lato: 0xc98f60, fondo: 0xb57e50, cappello: true, nome: 'Forma: bordino' });
-  registraBlocco('mostra:lastra',   { ...base, ...grigio, forma: 'lastra',   nome: 'Forma: lastra' });
-  registraBlocco('mostra:pilastro', { ...base, ...grigio, forma: 'pilastro', nome: 'Forma: pilastro' });
-  registraBlocco('mostra:croce',    { ...base, cima: 0x4faa3e, lato: 0x3f8a32, fondo: 0x357528, forma: 'croce', solido: false, nome: 'Forma: croce' });
+  registraBlocco('mostra:cubo',     { ...base, ...grigio, nome: 'Forma: cubo' }, CATEGORIA_PROVE);
+  registraBlocco('mostra:bordino',  { ...base, cima: 0x64bb4f, lato: 0xc98f60, fondo: 0xb57e50, cappello: true, nome: 'Forma: bordino' }, CATEGORIA_PROVE);
+  registraBlocco('mostra:lastra',   { ...base, ...grigio, forma: 'lastra',   nome: 'Forma: lastra' }, CATEGORIA_PROVE);
+  registraBlocco('mostra:pilastro', { ...base, ...grigio, forma: 'pilastro', nome: 'Forma: pilastro' }, CATEGORIA_PROVE);
+  registraBlocco('mostra:croce',    { ...base, cima: 0x4faa3e, lato: 0x3f8a32, fondo: 0x357528, forma: 'croce', solido: false, nome: 'Forma: croce' }, CATEGORIA_PROVE);
 
   // motivi
-  registraBlocco('mostra:liscio',   { ...base, ...grigio, nome: 'Motivo: liscio' });
-  registraBlocco('mostra:chiazze',  { ...base, ...grigio, motivo: 'chiazze',  motivoForza: 0.8, nome: 'Motivo: chiazze' });
-  registraBlocco('mostra:venature', { ...base, cima: 0xb08650, lato: 0x9c7242, fondo: 0x8d6539, motivo: 'venature', motivoForza: 0.8, nome: 'Motivo: venature' });
-  registraBlocco('mostra:sfumato',  { ...base, ...grigio, motivo: 'sfumato',  motivoForza: 0.9, nome: 'Motivo: sfumato' });
+  registraBlocco('mostra:liscio',   { ...base, ...grigio, nome: 'Motivo: liscio' }, CATEGORIA_PROVE);
+  registraBlocco('mostra:chiazze',  { ...base, ...grigio, motivo: 'chiazze',  motivoForza: 0.8, nome: 'Motivo: chiazze' }, CATEGORIA_PROVE);
+  registraBlocco('mostra:venature', { ...base, cima: 0xb08650, lato: 0x9c7242, fondo: 0x8d6539, motivo: 'venature', motivoForza: 0.8, nome: 'Motivo: venature' }, CATEGORIA_PROVE);
+  registraBlocco('mostra:sfumato',  { ...base, ...grigio, motivo: 'sfumato',  motivoForza: 0.9, nome: 'Motivo: sfumato' }, CATEGORIA_PROVE);
 
   // reazioni all'ambiente
-  registraBlocco('mostra:fisso',     { ...base, ...grigio, nome: 'Reazione: nessuna' });
-  registraBlocco('mostra:stagione',  { ...base, cima: 0x8ecf6a, lato: 0x79b657, fondo: 0x659c49, reagisce: 'stagione', reagisceForza: 1, nome: 'Reazione: stagioni' });
-  registraBlocco('mostra:quota',     { ...base, ...grigio, reagisce: 'quota', reagisceForza: 1, nome: 'Reazione: altezza' });
+  registraBlocco('mostra:fisso',     { ...base, ...grigio, nome: 'Reazione: nessuna' }, CATEGORIA_PROVE);
+  registraBlocco('mostra:stagione',  { ...base, cima: 0x8ecf6a, lato: 0x79b657, fondo: 0x659c49, reagisce: 'stagione', reagisceForza: 1, nome: 'Reazione: stagioni' }, CATEGORIA_PROVE);
+  registraBlocco('mostra:quota',     { ...base, ...grigio, reagisce: 'quota', reagisceForza: 1, nome: 'Reazione: altezza' }, CATEGORIA_PROVE);
 
   // effetti
   registraBlocco('mostra:luce', {
     ...base, cima: 0xa8ffb0, lato: 0x5fd66e, fondo: 0x46b957, nome: 'Effetto: luce',
     luce: { colore: 0x7dffa0, raggio: 5, intensita: 1.1 },
-  });
+  }, CATEGORIA_PROVE);
   const part = (id, nome, tipo, colore, salita) => registraBlocco(id, {
     ...base, ...grigio, nome,
     particelle: { tipo, colore, ritmo: 0.6, salita, su: 1 },
-  });
+  }, CATEGORIA_PROVE);
   part('mostra:scintille', 'Effetto: scintille', 'scintille', [1, 0.88, 0.45], 0.55);
   part('mostra:fumo',      'Effetto: fumo',      'fumo',      [0.8, 0.8, 0.85], 1.15);
   part('mostra:bolle',     'Effetto: bolle',     'bolle',     [0.55, 0.85, 1],  0.35);
@@ -57,12 +66,17 @@ function registraCampioni() {
     ...base, ...grigio, nome: 'Effetto: 6 facce dipinte',
     // ordine: +X −X +Y(cima) −Y(fondo) +Z −Z
     facce: [0xe05a4e, 0x4a7fd4, 0xf2c94c, 0x58b368, 0xe07ad0, 0x4fc2ec],
-  });
+  }, CATEGORIA_PROVE);
 }
 
 /** Le file della sala, in ordine. */
 export function fileMostra() {
-  const diBase = Object.keys(BLOCCHI).filter((id) => !id.startsWith('mostra:') && !BLOCCHI[id].officina);
+  // «di base» = ne' inventati dall'utente (Officina) ne' campioni di collaudo.
+  // Il filtro guarda CATEGORIA_PROVE e non il prefisso `mostra:`: cosi' esclude
+  // anche i `prova:` del Banco ombre, che prima finivano in questa fila appena
+  // si era aperto quel banco una volta nella stessa sessione.
+  const diBase = Object.keys(BLOCCHI).filter(
+    (id) => !CATEGORIA_PROVE.blocchi.includes(id) && !BLOCCHI[id].officina);
   return [
     { nome: 'Blocchi di base', ids: diBase },
     { nome: 'Forme', ids: ['mostra:cubo', 'mostra:bordino', 'mostra:lastra', 'mostra:pilastro', 'mostra:croce'] },

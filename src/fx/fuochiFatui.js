@@ -33,7 +33,7 @@
 // gli stessi fuochi dallo stesso seme.
 
 import * as THREE from 'three';
-import { creaLuceLeggera, rimuoviLuce, spostaLuce } from './materials.js?v=mtafl3ai';
+import { creaLuceLeggera, rimuoviLuce, spostaLuce } from './materials.js?v=mtaobft4';
 
 /** TETTO DICHIARATO dei fuochi vivi in tutto il mondo. Non e' prudenza
  *  generica: senza, bastano venti nidi vicini per avere trecento luci e

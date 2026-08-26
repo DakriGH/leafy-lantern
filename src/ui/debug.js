@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=mtafl3ai';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtafl3ai';
-import { FISICA } from '../config.js?v=mtafl3ai';
+import { CHUNK } from '../world/world.js?v=mtaobft4';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtaobft4';
+import { FISICA } from '../config.js?v=mtaobft4';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -24,19 +24,24 @@ function luceTesto(st, gu) {
   return `${(st.occCelle / 1000).toFixed(0)}k celle · ${kb} KB in GPU · agg. ${st.occMs.toFixed(1)} ms${st.occLocali ? ` (${st.occLocali} celle)` : ''}`;
 }
 
+// L'ORDINE DI QUESTO PANNELLO È UNA DECISIONE, non un accumulo. Sopra sta ciò
+// che si tocca per GIUDICARE lo stile di V2 — lo zoo, l'ora, gli overlay —
+// perché è quello che si apre venti volte in una sessione; sotto ciò che si
+// tocca una volta e si dimentica. Prima era una pila cronologica di otto
+// bottoni-mondo tutti uguali, e trovare quello giusto costava più del guardare.
 const HTML = /* html */`
-  <div class="dbg-testa"><span>🐞 Debug</span><button data-az="chiudi" title="Chiudi (F3)">×</button></div>
+  <div class="dbg-testa"><span>🧪 Banco V2 <span data-el="netStato" title="stato del collegamento P2P" style="opacity:.6">⭘</span></span><button data-az="chiudi" title="Chiudi (F3)">×</button></div>
 
   <div class="dbg-sez">
-    <button data-az="diagnostica" title="Prova TUTTO sul tuo dispositivo e scarica un file con i risultati"
-      style="width:100%;min-height:52px;padding:12px;border-radius:12px;border:1px solid rgba(124,255,176,.5);background:linear-gradient(90deg,rgba(91,209,255,.22),rgba(124,255,176,.22));color:#eaf3ff;font:700 15px/1.3 system-ui,Segoe UI,Roboto,sans-serif;cursor:pointer">📊 Diagnostica completa (scarica report)</button>
-    <div style="font-size:11px;opacity:.6;margin-top:4px">~20‑30s: misura fps, CPU e GPU sul mondo attuale, poi scarica un file. Il mondo NON viene toccato.</div>
+    <button data-az="zoo" title="Il mondo di riferimento di Leafy V2: otto stazioni in fila, sempre identiche, tutte raggiungibili a piedi. Il mondo di adesso finisce nello snapshot."
+      style="width:100%;min-height:52px;padding:12px;border-radius:12px;border:1px solid rgba(255,212,77,.55);background:linear-gradient(90deg,rgba(255,212,77,.22),rgba(124,255,176,.20));color:#eaf3ff;font:700 15px/1.3 system-ui,Segoe UI,Roboto,sans-serif;cursor:pointer">🦓 Zoo delle prove</button>
+    <div style="font-size:11px;opacity:.6;margin-top:4px">Piano nudo · face shading · ombre portate · luci · matrice sorgenti · acqua · vegetazione · materiali.
+    Ogni stazione ha il punto <b>sguardo</b> (da cui si giudica e si fotografa) e il punto <b>piedi</b> (dentro, per il dettaglio).</div>
+    <div class="dbg-riga" data-el="zone" style="display:none"></div>
   </div>
 
-  <div class="dbg-sez"><pre class="dbg-stat" data-el="stat">…</pre></div>
-
   <div class="dbg-sez">
-    <div class="dbg-tit">⏱ Tempo</div>
+    <div class="dbg-tit">⏱ Ora del giorno</div>
     <div class="dbg-riga">
       <button data-az="ora" data-t="0.27">🌅</button>
       <button data-az="ora" data-t="0.50">☀️</button>
@@ -48,63 +53,11 @@ const HTML = /* html */`
       <button data-az="vel" data-d="48">10×</button>
       <button data-az="vel" data-d="8">60×</button>
     </div>
+    <div style="font-size:11px;opacity:.55;margin-top:4px">⚠️ Per un confronto A/B l'ora va <b>ferma</b> (⏸): due scatti a due ore diverse
+    misurano il tempo che passa, non lo shader.</div>
   </div>
 
-  <div class="dbg-sez">
-    <div class="dbg-tit">🌸 Stagione</div>
-    <div class="dbg-riga">
-      <button data-az="stagione" data-s="primavera">🌸 Primavera</button>
-      <button data-az="stagione" data-s="estate">🌾 Estate</button>
-      <button data-az="stagione" data-s="autunno">🍂 Autunno</button>
-      <button data-az="stagione" data-s="inverno">❄️ Inverno</button>
-    </div>
-  </div>
-
-  <div class="dbg-sez">
-    <div class="dbg-tit">🌍 Mondo</div>
-    <div class="dbg-riga">
-      <button data-az="snapshot" title="Salva il mondo attuale (2 livelli)">📸 Snapshot</button>
-      <button data-az="ripristina" title="Torna all'ultimo snapshot">↩️ Ripristina</button>
-      <button data-az="isola">🏝 Isola demo</button>
-    </div>
-    <div class="dbg-riga">
-      <button data-az="arcipelago">🌌 Arcipelago</button>
-      <button data-az="open">⛰ Open world</button>
-      <button data-az="mostra" title="Mondo piatto con TUTTI i blocchi separati, per provarli">🧪 Sala prove</button>
-      <button data-az="collaudo" title="Sei zone per guardare luci e acqua: terrazze, grotta, tettoia, muro, cascata, piano nudo">🔦 Collaudo luci</button>
-      <button data-az="mondoGigante" title="Montagne alte e mezzo milione di blocchi: il banco delle PRESTAZIONI, con le ombre accese">⛰ Mondo gigante</button>
-      <button data-az="bancoOmbre" title="Sagome contro il sole, terrazze, ingombri e la MATRICE delle sorgenti: raggio, intensita, colore, con e senza ombra">🌗 Banco ombre</button>
-      <button data-az="testLuci" title="Mondo di SOLA luce: pesante vs leggera, occlusione difficile, colori che si mescolano, fuochi fatui e il tetto delle 48 piastrelle">💡 Test delle luci</button>
-      <button data-az="testMacchine" title="Banco dei MACCHINARI: tutti montati e già funzionanti, ognuno col contorno che gli serve (acqua per la pompa, catena allineata). Tocca per usarli, tieni premuto per le manopole">⚙️ Test macchinari</button>
-      <label>seme <input data-el="seme" type="number" value="42" min="0" max="99999"></label>
-      <label>raggio <select data-el="est">
-        <option value="32">32</option><option value="48" selected>48</option>
-        <option value="64">64</option><option value="96">96</option>
-      </select></label>
-    </div>
-    <div class="dbg-riga" data-el="zone" style="display:none"></div>
-  </div>
-
-  <div class="dbg-sez">
-    <div class="dbg-tit">📷 AR</div>
-    <div class="dbg-riga">
-      <button data-az="arProva" title="Avvia l'AR con una camera FINTA che inquadra il marker: se il diorama appare, motore e marker funzionano">🧪 AR di prova (camera finta)</button>
-    </div>
-    <div class="dbg-tit">🎞 Vista</div>
-    <div class="dbg-riga">
-      fog
-      <button data-az="fog" data-f="1">vicina</button>
-      <button data-az="fog" data-f="0.45">media</button>
-      <button data-az="fog" data-f="0.18">lontana</button>
-    </div>
-    <div class="dbg-riga">
-      acqua
-      <button data-az="riflessi">✨ riflessi</button>
-      <span class="dbg-sep"></span>
-      meteo
-      <button data-az="pioggia">🌧 pioggia</button>
-    </div>
-  </div>
+  <div class="dbg-sez"><pre class="dbg-stat" data-el="stat">…</pre></div>
 
   <div class="dbg-sez">
     <div class="dbg-tit">👁 Overlay</div>
@@ -118,19 +71,71 @@ const HTML = /* html */`
   </div>
 
   <div class="dbg-sez">
-    <div class="dbg-tit">🌐 P2P di prova <span style="opacity:.6">(WebRTC, cifrato DTLS)</span> <span data-el="netStato">⭘</span></div>
+    <button data-az="diagnostica" title="Prova TUTTO sul tuo dispositivo e scarica un file con i risultati"
+      style="width:100%;min-height:52px;padding:12px;border-radius:12px;border:1px solid rgba(124,255,176,.5);background:linear-gradient(90deg,rgba(91,209,255,.22),rgba(124,255,176,.22));color:#eaf3ff;font:700 15px/1.3 system-ui,Segoe UI,Roboto,sans-serif;cursor:pointer">📊 Diagnostica completa (scarica report)</button>
+    <div style="font-size:11px;opacity:.6;margin-top:4px">~20‑30s: misura fps, CPU e GPU sul mondo attuale, poi scarica un file. Il mondo NON viene toccato.</div>
+  </div>
+
+  <div class="dbg-sez">
+    <div class="dbg-tit">🌍 Mondo</div>
     <div class="dbg-riga">
-      <button data-az="netCrea">🎬 Crea partita</button>
-      <span style="font-size:10px;opacity:.6">oppure incolla l'offerta e</span>
-      <button data-az="netGenera">🚪 Genera risposta</button>
+      <button data-az="snapshot" title="Salva il mondo attuale (2 livelli)">📸 Snapshot</button>
+      <button data-az="ripristina" title="Torna all'ultimo snapshot">↩️ Ripristina</button>
     </div>
-    <textarea data-el="netA" rows="2" placeholder="codice OFFERTA (l'host lo crea, l'ospite lo incolla qui)"></textarea>
     <div class="dbg-riga">
-      <button data-az="netCopiaA">📋 Copia offerta</button>
-      <button data-az="netConferma">✅ Conferma risposta (host)</button>
-      <button data-az="netCopiaB">📋 Copia risposta</button>
+      <button data-az="isola">🏝 Isola demo</button>
+      <button data-az="arcipelago">🌌 Arcipelago</button>
+      <button data-az="open">⛰ Open world</button>
+      <label>seme <input data-el="seme" type="number" value="42" min="0" max="99999"></label>
+      <label>raggio <select data-el="est">
+        <option value="32">32</option><option value="48" selected>48</option>
+        <option value="64">64</option><option value="96">96</option>
+      </select></label>
     </div>
-    <textarea data-el="netB" rows="2" placeholder="codice RISPOSTA (l'ospite lo genera, l'host lo incolla qui)"></textarea>
+  </div>
+
+  <div class="dbg-sez">
+    <div class="dbg-tit">🧰 Gli altri banchi</div>
+    <div class="dbg-riga">
+      <button data-az="mostra" title="Mondo piatto con TUTTI i blocchi separati, per provarli">🧪 Sala prove</button>
+      <button data-az="mondoGigante" title="Montagne alte e mezzo milione di blocchi: il banco delle PRESTAZIONI, con le ombre accese">⛰ Mondo gigante</button>
+      <button data-az="testMacchine" title="Banco dei MACCHINARI: tutti montati e già funzionanti, ognuno col contorno che gli serve. Tocca per usarli, tieni premuto per le manopole">⚙️ Macchinari</button>
+    </div>
+    <!-- SUPERATI DALLO ZOO, e stanno qui dentro invece che nel niente: le loro
+         tre generatrici reggono 46 prove del motore (sagome-ombra 27,
+         test-luci 19), quindi il CODICE non si tocca — a sparire è il posto
+         che occupavano in prima fila. -->
+    <details style="margin-top:6px">
+      <summary style="font-size:11px;opacity:.55;cursor:pointer">i tre banchi superati dallo zoo</summary>
+      <div class="dbg-riga" style="margin-top:4px">
+        <button data-az="collaudo" title="Sei zone per luci e acqua. Lo zoo le rifà tutte, con i punti di sguardo">🔦 Collaudo</button>
+        <button data-az="bancoOmbre" title="Sagome contro il sole e matrice delle sorgenti. Sono le stazioni 3 e 5 dello zoo">🌗 Banco ombre</button>
+        <button data-az="testLuci" title="Solo luce: pesante contro leggera, occlusione, colori, fatui. È la stazione 4 dello zoo">💡 Test luci</button>
+      </div>
+    </details>
+  </div>
+
+  <div class="dbg-sez">
+    <div class="dbg-tit">🌸 Stagione</div>
+    <div class="dbg-riga">
+      <button data-az="stagione" data-s="primavera">🌸 Primavera</button>
+      <button data-az="stagione" data-s="estate">🌾 Estate</button>
+      <button data-az="stagione" data-s="autunno">🍂 Autunno</button>
+      <button data-az="stagione" data-s="inverno">❄️ Inverno</button>
+    </div>
+  </div>
+
+  <div class="dbg-sez">
+    <div class="dbg-tit">🎞 Vista e meteo</div>
+    <div class="dbg-riga">
+      fog
+      <button data-az="fog" data-f="1">vicina</button>
+      <button data-az="fog" data-f="0.45">media</button>
+      <button data-az="fog" data-f="0.18">lontana</button>
+      <span class="dbg-sep"></span>
+      <button data-az="riflessi">✨ riflessi</button>
+      <button data-az="pioggia">🌧 pioggia</button>
+    </div>
   </div>
 
   <div class="dbg-sez">
@@ -143,6 +148,9 @@ const HTML = /* html */`
       <button data-az="lamp" data-m="auto">Auto</button>
       <button data-az="lamp" data-m="on">ON</button>
       <button data-az="lamp" data-m="off">OFF</button>
+    </div>
+    <div class="dbg-riga">
+      <button data-az="arProva" title="Avvia l'AR con una camera FINTA che inquadra il marker: se il diorama appare, motore e marker funzionano">📷 AR di prova (camera finta)</button>
     </div>
   </div>
 `;
@@ -171,8 +179,6 @@ export class MenuDebug {
     this.elEst = this.el.querySelector('[data-el="est"]');
     this.btnVolo = this.el.querySelector('[data-el="btnVolo"]');
     this.btnPausa = this.el.querySelector('[data-el="btnPausa"]');
-    this.elNetA = this.el.querySelector('[data-el="netA"]');
-    this.elNetB = this.el.querySelector('[data-el="netB"]');
     this.elNetStato = this.el.querySelector('[data-el="netStato"]');
     this.elZone = this.el.querySelector('[data-el="zone"]');
 
@@ -255,6 +261,7 @@ export class MenuDebug {
     else if (az === 'isola') this.azioni.isolaDemo();
     else if (az === 'arcipelago') this.azioni.arcipelago(Number(this.elSeme.value) || 0, Number(this.elEst.value));
     else if (az === 'open') this.azioni.openWorld(Number(this.elSeme.value) || 0, Number(this.elEst.value));
+    else if (az === 'zoo') this.azioni.zoo();
     else if (az === 'mostra') this.azioni.salaProve();
     else if (az === 'collaudo') this.azioni.collaudo();
     else if (az === 'testLuci') this.azioni.testLuci();
@@ -266,26 +273,12 @@ export class MenuDebug {
     else if (az === 'riflessi') b.classList.toggle('attivo', this.azioni.riflessi());
     else if (az === 'pioggia') b.classList.toggle('attivo', this.azioni.pioggia());
     else if (az === 'inf') b.classList.toggle('attivo', this.azioni.infinito());
-    else if (az === 'netCrea') this.azioni.netCrea();
-    else if (az === 'netGenera') this.azioni.netGenera(this.elNetA.value);
-    else if (az === 'netConferma') this.azioni.netConferma(this.elNetB.value);
-    else if (az === 'netCopiaA') this._copia(this.elNetA);
-    else if (az === 'netCopiaB') this._copia(this.elNetB);
     else if (az === 'volo') { this.controller.imposta_volo(!this.controller.vola); this.sincronizza(); }
     else if (az === 'respawn') this.azioni.respawn();
     else if (az === 'lamp') this._lampade(b.getAttribute('data-m'));
     this._rinfrescaOverlay();
   }
 
-  _copia(area) {
-    area.select();
-    if (navigator.clipboard) navigator.clipboard.writeText(area.value).catch(() => {});
-    this.hud.toast('📋 Copiato');
-  }
-
-  setNet(campo, valore) {
-    (campo === 'A' ? this.elNetA : this.elNetB).value = valore;
-  }
 
   netStato(testo) { this.elNetStato.textContent = testo; }
 

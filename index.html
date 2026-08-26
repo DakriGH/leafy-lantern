@@ -1335,7 +1335,7 @@
       <button class="opz-scheda attivo" data-scheda="gioco">🎮 Gioco</button>
       <button class="opz-scheda" data-scheda="grafica">🖼 Grafica</button>
       <button class="opz-scheda" data-scheda="ar">📷 AR</button>
-      <button class="opz-scheda" data-scheda="avanzate">🔧 Avanzate</button>
+      <button class="opz-scheda" data-scheda="avanzate">🧪 Banco V2</button>
     </div>
 
     <div class="opz-pagina attivo" data-pagina="gioco">
@@ -1431,10 +1431,10 @@
         <button id="opzLuce" class="opz-tgl" title="I lampioni non attraversano i muri: la luce si ferma dove la lampada non arriva davvero">💡 Luce nei muri</button>
       </div>
 
-      <div class="opz-tit-sez">☀️ Ombre</div>
+      <div class="opz-tit-sez">☀️ Ombre <span class="opz-nota">la regola di V2: la luce dipende da DOVE, non da COME È GIRATO</span></div>
       <div class="opz-riga opz-toggles">
         <button id="opzSole" class="opz-tgl" title="Ombra netta del sole (e della luna, più leggera), col colore del cielo invece del nero: alberi, lampioni e mobili la proiettano come i blocchi. Stesso stile piatto delle luci">☀️ Ombra del sole</button>
-        <button id="opzTerm" class="opz-tgl" title="Il chiaroscuro: i lati girati dalla parte opposta al sole si scuriscono, come l'ombra portata e con lo stesso salto netto. È ciò che fa leggere in 3D i cubi — ma su terreno a terrazze fitte si nota parecchio. Spegnilo per tenere solo le ombre proiettate">🌗 Chiaroscuro</button>
+        <button id="opzTerm" class="opz-tgl" title="FACE SHADING, ed è SPENTO di fabbrica in Leafy V2. Scurisce i lati girati dalla parte opposta al sole — cioè fa dipendere la luminosità da COME È GIRATA una superficie invece che da DOVE STA. Acceso tocca il 33% dei pixel e sulle terrazze fa a scaletta. Le ombre PORTATE del sole restano accese comunque: sono l'interruttore qui sopra.">🌗 Chiaroscuro (face shading)</button>
 </div>
 
       <button id="opzDiagnostica"
@@ -1550,6 +1550,6 @@
   <div id="loading"><div><span class="lanterna">🏮</span><span id="loadingTxt">Un momento…</span></div></div>
 
   <input id="fileImporta" type="file" accept="application/json" style="display:none">
-  <script type="module" src="./src/main.js?v=mtafl3ai"></script>
+  <script type="module" src="./src/main.js?v=mtaobft4"></script>
 </body>
 </html>

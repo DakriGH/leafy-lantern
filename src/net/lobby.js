@@ -4,7 +4,25 @@
 // (copia/incolla): nessun server nel mezzo. STUN pubblico solo per scoprire
 // il proprio indirizzo. I messaggi in arrivo passano da una whitelist.
 
-const TIPI_VALIDI = new Set(['benvenuto', 'benvPezzo', 'evento', 'posa', 'tempo', 'chat', 'ciao']);
+// I TIPI DI MESSAGGIO CHE ENTRANO. Tutto quello che non e' qui dentro viene
+// buttato in silenzio da `dc.onmessage`, e il silenzio e' il punto: un tipo che
+// manca non da' errore, da' una funzione che non funziona e nessuno sa perche'.
+// E' successo davvero per tre settimane con `negato` e `rivogliotutto`, aggiunti
+// a main col commit dei ruoli e mai aggiunti qui: l'ospite senza permessi non
+// vedeva la spiegazione del rifiuto e i due mondi restavano diversi in silenzio.
+// Percio' l'elenco NON si tiene a memoria: `test/lobby-tipi.test.mjs` lo ricava
+// da main.js e pretende che ogni tipo spedito stia qui — ed e' esportato apposta.
+// Regola: chi aggiunge un `lobby.invia*` con un tipo nuovo lo aggiunge QUI.
+export const TIPI_VALIDI = new Set([
+  'benvenuto',      // snapshot piccolo in un colpo solo (retro-compat: non si spedisce piu')
+  'benvPezzo',      // snapshot a pezzi da 60KB — quello che spedisce inviaGrandeA
+  'evento',         // una modifica al mondo
+  'posa',           // dove sta e cosa fa un gatto
+  'tempo',          // l'ospite chiede di spostare l'orologio
+  'chat',
+  'negato',         // host -> ospite: quell'evento non e' permesso al tuo ruolo
+  'rivogliotutto',  // ospite -> host: sono fuori sincrono, rimandami tutto
+]);
 
 // ---- codici COMPATTI: il SDP è molto ripetitivo, gzip lo dimezza abbondante,
 // così su mobile il codice da incollare è molto più corto. Prefisso 'Z' =

@@ -1,77 +1,80 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO } from './config.js?v=mtafl3ai';
-import { Rig } from './engine/renderer.js?v=mtafl3ai';
-import { Input } from './engine/input.js?v=mtafl3ai';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtafl3ai';
-import { Cadenza } from './engine/cadenza.js?v=mtafl3ai';
-import { GpuProfiler } from './engine/gpuTimer.js?v=mtafl3ai';
-import { creaBatteria } from './engine/batteria.js?v=mtafl3ai';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtafl3ai';
-import { Mondo } from './world/world.js?v=mtafl3ai';
-import { SimAcqua } from './world/acqua.js?v=mtafl3ai';
-import { Lobby } from './net/lobby.js?v=mtafl3ai';
-import { Segnalatore } from './net/segnalatore.js?v=mtafl3ai';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtafl3ai';
-import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtafl3ai';
-import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtafl3ai';
-import { PannelloInsieme } from './ui/multiplayer.js?v=mtafl3ai';
-import { Targhetta } from './ui/targhetta.js?v=mtafl3ai';
-import { Bolla } from './ui/bolla.js?v=mtafl3ai';
-import { Scelta } from './ui/scelta.js?v=mtafl3ai';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtafl3ai';
-import { Zaino } from './ui/zaino.js?v=mtafl3ai';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mtafl3ai';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtafl3ai';
-import { generaMostra } from './world/mostra.js?v=mtafl3ai';
-import { generaCollaudo } from './world/collaudo.js?v=mtafl3ai';
-import { generaTestLuci } from './world/testLuci.js?v=mtafl3ai';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtafl3ai';
-import { generaTestMacchine } from './world/testMacchine.js?v=mtafl3ai';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mtafl3ai';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtafl3ai';
-import { Meteo } from './fx/meteo.js?v=mtafl3ai';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtafl3ai';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtafl3ai';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=mtafl3ai';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtafl3ai';
-import { CicloGiorno } from './fx/daynight.js?v=mtafl3ai';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole } from './fx/materials.js?v=mtafl3ai';
-import { CampoSole } from './fx/campoSole.js?v=mtafl3ai';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtafl3ai';
-import { ModalitaAR } from './ar/ar.js?v=mtafl3ai';
-import { Nuvole } from './fx/nuvole.js?v=mtafl3ai';
-import { SagomaVista } from './fx/sagomaVista.js?v=mtafl3ai';
-import { Erba } from './fx/erba.js?v=mtafl3ai';
-import { Foglie } from './fx/foglie.js?v=mtafl3ai';
-import { SegnaPercorso } from './fx/percorso.js?v=mtafl3ai';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mtafl3ai';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mtafl3ai';
-import { Pioggia } from './fx/pioggia.js?v=mtafl3ai';
-import { Particelle } from './fx/particelle.js?v=mtafl3ai';
-import { Audio } from './fx/audio.js?v=mtafl3ai';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtafl3ai';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtafl3ai';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtafl3ai';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtafl3ai';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtafl3ai';
-import { Registro } from './ecs/registro.js?v=mtafl3ai';
-import { Orologio, Rng } from './ecs/orologio.js?v=mtafl3ai';
-import { Sistemi } from './ecs/sistemi.js?v=mtafl3ai';
-import { Agenda } from './ecs/agenda.js?v=mtafl3ai';
-import { Gatto } from './player/player.js?v=mtafl3ai';
-import { ManoStrumento } from './player/mano.js?v=mtafl3ai';
-import { dropDi } from './gioco/drop.js?v=mtafl3ai';
-import { Controller } from './player/controller.js?v=mtafl3ai';
-import { FURNI, centroide } from './furniture/registry.js?v=mtafl3ai';
-import { caricaModelli } from './furniture/loader.js?v=mtafl3ai';
-import { Arredo } from './furniture/furniture.js?v=mtafl3ai';
-import { HUD } from './ui/hud.js?v=mtafl3ai';
-import { MenuDebug } from './ui/debug.js?v=mtafl3ai';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtafl3ai';
-import { ModalitaXR } from './ar/ar-xr.js?v=mtafl3ai';
-import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot } from './save.js?v=mtafl3ai';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO } from './config.js?v=mtaobft4';
+import { Rig } from './engine/renderer.js?v=mtaobft4';
+import { Input } from './engine/input.js?v=mtaobft4';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtaobft4';
+import { Cadenza } from './engine/cadenza.js?v=mtaobft4';
+import { GpuProfiler } from './engine/gpuTimer.js?v=mtaobft4';
+import { creaBatteria } from './engine/batteria.js?v=mtaobft4';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtaobft4';
+import { Mondo } from './world/world.js?v=mtaobft4';
+import { SimAcqua } from './world/acqua.js?v=mtaobft4';
+import { Lobby } from './net/lobby.js?v=mtaobft4';
+import { Segnalatore } from './net/segnalatore.js?v=mtaobft4';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtaobft4';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtaobft4';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtaobft4';
+import { PannelloInsieme } from './ui/multiplayer.js?v=mtaobft4';
+import { Targhetta } from './ui/targhetta.js?v=mtaobft4';
+import { Bolla } from './ui/bolla.js?v=mtaobft4';
+import { Scelta } from './ui/scelta.js?v=mtaobft4';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtaobft4';
+import { Zaino } from './ui/zaino.js?v=mtaobft4';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mtaobft4';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtaobft4';
+import { generaMostra } from './world/mostra.js?v=mtaobft4';
+import { generaCollaudo } from './world/collaudo.js?v=mtaobft4';
+import { generaTestLuci } from './world/testLuci.js?v=mtaobft4';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtaobft4';
+import { generaTestMacchine } from './world/testMacchine.js?v=mtaobft4';
+import { generaZoo } from './world/zoo.js?v=mtaobft4';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mtaobft4';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtaobft4';
+import { Meteo } from './fx/meteo.js?v=mtaobft4';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtaobft4';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtaobft4';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=mtaobft4';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtaobft4';
+import { CicloGiorno } from './fx/daynight.js?v=mtaobft4';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole } from './fx/materials.js?v=mtaobft4';
+import { CampoSole } from './fx/campoSole.js?v=mtaobft4';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtaobft4';
+import { ModalitaAR } from './ar/ar.js?v=mtaobft4';
+import { Nuvole } from './fx/nuvole.js?v=mtaobft4';
+import { SagomaVista } from './fx/sagomaVista.js?v=mtaobft4';
+import { Erba } from './fx/erba.js?v=mtaobft4';
+import { Foglie } from './fx/foglie.js?v=mtaobft4';
+import { SegnaPercorso } from './fx/percorso.js?v=mtaobft4';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mtaobft4';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mtaobft4';
+import { Pioggia } from './fx/pioggia.js?v=mtaobft4';
+import { Particelle } from './fx/particelle.js?v=mtaobft4';
+import { Audio } from './fx/audio.js?v=mtaobft4';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtaobft4';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtaobft4';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtaobft4';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtaobft4';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtaobft4';
+import { Registro } from './ecs/registro.js?v=mtaobft4';
+import { Orologio, Rng } from './ecs/orologio.js?v=mtaobft4';
+import { Sistemi } from './ecs/sistemi.js?v=mtaobft4';
+import { Agenda } from './ecs/agenda.js?v=mtaobft4';
+import { Gatto } from './player/player.js?v=mtaobft4';
+import { ManoStrumento } from './player/mano.js?v=mtaobft4';
+import { dropDi } from './gioco/drop.js?v=mtaobft4';
+import { Controller } from './player/controller.js?v=mtaobft4';
+import { FURNI, centroide } from './furniture/registry.js?v=mtaobft4';
+import { caricaModelli } from './furniture/loader.js?v=mtaobft4';
+import { Arredo } from './furniture/furniture.js?v=mtaobft4';
+import { HUD } from './ui/hud.js?v=mtaobft4';
+import { MenuDebug } from './ui/debug.js?v=mtaobft4';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtaobft4';
+import { ModalitaXR } from './ar/ar-xr.js?v=mtaobft4';
+import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot,
+  spingiSnapshot, sbirciaSnapshot, togliSnapshot, livelliSnapshot,
+  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtaobft4';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -109,8 +112,6 @@ async function conCaricamento(testo, lavoro) {
   }
 }
 
-const CHIAVE_SNAPSHOT = 'lantern.snapshot.v1';
-const CHIAVE_SNAPSHOT_PREC = 'lantern.snapshot.prec.v1';
 // ⚠ IL DIORAMA MESSO DA PARTE PER LA VISITA NON E' LO SNAPSHOT DELL'UTENTE.
 // Andare a casa di un amico metteva il proprio mondo nello stesso cassetto dove
 // l'utente tiene lo snapshot che si e' salvato a mano — quello con cui torna
@@ -2413,7 +2414,11 @@ function arrivoBenvenuto(m) {
     modalitaOspite = true;                          // da ospite NIENTE autosave: il mondo non è tuo
     if (!(Array.isArray(m.posa) && teletrasportaVicino(m.posa[0], m.posa[1], m.posa[2]))) respawn();
     hud.toast('🏠 Sei OSPITE nel diorama dell’amico, proprio accanto a lui — il tuo è al sicuro');
-  } catch { hud.toast('Snapshot non valido 😿'); }
+  } catch (e) {
+    // il benvenuto P2P passa dallo STESSO formato del salvataggio: se l'amico ha
+    // una build diversa il rifiuto dev'essere leggibile, non un «non valido».
+    hud.toast('Il diorama dell\u2019amico non si apre: ' + (e && e.message ? e.message : '😿'), 6000);
+  }
 }
 
 let _pezziBenv = null;
@@ -2590,20 +2595,22 @@ fileImporta.addEventListener('change', async () => {
     const dati = JSON.parse(await file.text());
     applica(dati, mondo, arredo, ciclo, inventario);
     applicaTavolozza(dati);
+    _mondoUsaEGetta = false;
     mesher.ricostruisciTutto(mondo);
     ricostruisciLuciBlocchi();
     ricostruisciBlocchiSpeciali();
     respawn();
     hud.toast('Diorama importato 📂');
     segnaSalvataggio();
-  } catch {
-    hud.toast('File non valido 😿');
+  } catch (e) {
+    hud.toast('File non caricato: ' + (e && e.message ? e.message : 'non valido 😿'));
   }
   fileImporta.value = '';
 });
 document.getElementById('btnReset').addEventListener('click', () => {
   if (!confirm('Ricominciare con una nuova isola? Il diorama attuale verrà perso (salvalo prima come partita, se vuoi tenerlo).')) return;
   cancellaLocale();
+  _mondoUsaEGetta = false;   // l'isola nuova è un mondo vero: va messa da parte come tale
   nuovaIsola();
   mesher.ricostruisciTutto(mondo);
   ricostruisciLuciBlocchi();
@@ -2658,6 +2665,7 @@ function caricaPartita(id, nome) {
   try {
     applica(dati, mondo, arredo, ciclo, inventario);
     applicaTavolozza(dati);
+    _mondoUsaEGetta = false;
     mesher.ricostruisciTutto(mondo);
     ricostruisciLuciBlocchi();
     ricostruisciBlocchiSpeciali();
@@ -2665,7 +2673,7 @@ function caricaPartita(id, nome) {
     segnaSalvataggio();
     hud.toast(`▶ «${nome}» caricata`);
     document.getElementById('opzioni').classList.remove('aperto');
-  } catch { hud.toast('Partita non valida 😿'); }
+  } catch (e) { hud.toast('Partita non caricata: ' + (e && e.message ? e.message : 'non valida 😿'), 5000); }
 }
 document.getElementById('btnSalvaSlot').addEventListener('click', () => {
   const nome = prompt('Nome della partita:', 'Partita ' + (elencoSlot().length + 1));
@@ -2718,8 +2726,9 @@ function tornaDallaVisita() {
   try {
     applica(JSON.parse(raw), mondo, arredo, ciclo, inventario);
     applicaTavolozza(JSON.parse(raw));
-  } catch { hud.toast('Il tuo diorama non si rilegge 😿'); return; }
+  } catch (e) { hud.toast('Il tuo diorama non si rilegge: ' + (e && e.message ? e.message : '😿'), 5000); return; }
   sessionStorage.removeItem(CHIAVE_VISITA);
+  _mondoUsaEGetta = false;   // sei tornato in un mondo VERO: il prossimo salto lo mette da parte
   mesher.ricostruisciTutto(mondo);
   ricostruisciLuciBlocchi();
   ricostruisciBlocchiSpeciali();
@@ -2727,34 +2736,79 @@ function tornaDallaVisita() {
   segnaSalvataggio();
 }
 
+/**
+ * Spinge il mondo attuale sulla PILA degli snapshot (due livelli veri: la
+ * meccanica sta in save.js). Rende true se ce l'ha fatta.
+ *
+ * ⚠ L'esito non si butta via. Prima la scrittura del secondo livello stava
+ * FUORI dal try, quindi un localStorage pieno faceva fallire tutto in silenzio:
+ * è il guasto vissuto il 4 agosto, e chi lo subiva vedeva solo un mondo che
+ * spariva.
+ */
 function salvaSnapshot(conToast = true) {
-  const attuale = localStorage.getItem(CHIAVE_SNAPSHOT);
-  if (attuale) localStorage.setItem(CHIAVE_SNAPSHOT_PREC, attuale);
-  try {
-    localStorage.setItem(CHIAVE_SNAPSHOT, JSON.stringify(serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() })));
-    if (conToast) hud.toast('📸 Snapshot salvato');
-  } catch {
-    hud.toast('Snapshot troppo grande 😿');
-  }
+  const esito = spingiSnapshot(
+    serializza(mondo, arredo, ciclo, inventario, { tavolozza: tavolozza.serializza() }));
+  if (!esito.ok) { hud.toast(esito.motivo); return false; }
+  if (conToast) hud.toast(`📸 Snapshot salvato (${livelliSnapshot()} livelli in memoria)`);
+  return true;
 }
 
+/**
+ * IMBUTO delle scene del menu debug: mette da parte il mondo prima di
+ * sostituirlo con uno generato.
+ *
+ * @param diProva true se il mondo che si sta per COSTRUIRE è una scena di
+ *   collaudo (usa e getta), false se è un mondo che si può voler tenere
+ *   (isola demo, arcipelago, open world).
+ * @returns false se il mondo non si è potuto mettere da parte: chi chiama DEVE
+ *   fermarsi, perché generare sopra vuol dire distruggerlo (il `segnaSalvataggio`
+ *   in fondo a ogni scena riscrive anche l'autosave).
+ *
+ * PERCHÉ IL FLAG. La pila ha due livelli; le scene di prova del menu sono sei. Senza
+ * questo controllo, passare da una scena di prova all'altra consumava un livello
+ * per volta per conservare mondi usa e getta, e al secondo salto il diorama vero
+ * era già fuori dalla pila. Un mondo di prova non vale un livello: si lascia
+ * cadere e basta.
+ */
+let _mondoUsaEGetta = false;
+function mettiDaParte(diProva) {
+  if (!_mondoUsaEGetta && !salvaSnapshot(false)) return false;
+  _mondoUsaEGetta = !!diProva;
+  return true;
+}
+
+/**
+ * Toglie un mondo dalla pila e ci torna dentro. Il livello di sotto RISALE:
+ * premere «↩️ Ripristina» due volte torna dove si era due mondi fa. È il
+ * secondo livello che il bottone prometteva da sempre e che non esisteva.
+ */
 function ripristinaSnapshot() {
-  const raw = localStorage.getItem(CHIAVE_SNAPSHOT);
+  // SI SBIRCIA, non si toglie: applicare può fallire (formato sconosciuto,
+  // JSON rotto, arredo illeggibile) e togliere prima di saperlo brucia lo
+  // snapshot PROPRIO nel momento in cui serve. La pila si consuma sotto, solo
+  // quando il mondo è dentro davvero.
+  const raw = sbirciaSnapshot();
   if (!raw) { hud.toast('Nessuno snapshot da ripristinare'); return; }
   try {
     const dati = JSON.parse(raw);
     applica(dati, mondo, arredo, ciclo, inventario);
     applicaTavolozza(dati);
-  } catch {
-    hud.toast('Snapshot corrotto 😿');
-    return;
+  } catch (e) {
+    hud.toast('Snapshot non ripristinato: ' + (e && e.message ? e.message : 'illeggibile 😿')
+      + ' — resta nella pila, puoi riprovare', 5000);
+    return;                        // la pila NON è stata toccata
   }
+  togliSnapshot();                 // il mondo è dentro: adesso si può consumare
+  _mondoUsaEGetta = false;   // questo è un mondo vero: il prossimo salto lo salva
   mesher.ricostruisciTutto(mondo);
-    ricostruisciLuciBlocchi();
-    ricostruisciBlocchiSpeciali();
+  ricostruisciLuciBlocchi();
+  ricostruisciBlocchiSpeciali();
   respawn();
   segnaSalvataggio();
-  hud.toast('↩️ Snapshot ripristinato');
+  const restano = livelliSnapshot();
+  hud.toast(restano
+    ? `↩️ Snapshot ripristinato — ne resta ${restano} indietro (premi ancora per tornarci)`
+    : '↩️ Snapshot ripristinato');
 }
 
 function nuovaIsola() {
@@ -2785,8 +2839,51 @@ const menuDebug = new MenuDebug({
     stagione: (chiave) => cambiaStagione(chiave),
     snapshot: () => salvaSnapshot(),
     ripristina: () => ripristinaSnapshot(),
+    // ═══ LO ZOO DELLE PROVE — il mondo di riferimento di Leafy V2. ═══
+    // Otto stazioni in fila su tre passeggiate, sempre identiche, tutte
+    // raggiungibili a piedi. Sostituisce collaudo/testLuci/bancoOmbre: le loro
+    // lezioni sono citate stazione per stazione dentro world/zoo.js.
+    // ⚠ Ogni stazione ha DUE punti: `sguardo` (sulla passeggiata, da cui si
+    // giudica e si fotografa) e `piedi` (dentro, per il dettaglio). Le foto di
+    // confronto si prendono SEMPRE da `sguardo`, se no si confrontano due
+    // inquadrature e si crede di confrontare uno shader.
+    zoo: () => conCaricamento('🦓 Preparo lo zoo delle prove…', () => {
+      // il mondo di prima va messo da parte PRIMA di generarci sopra: se non ci
+      // sta, ci si ferma qui invece di distruggerlo.
+      if (!mettiDaParte(true)) return;
+      arredo.svuota();
+      const r = generaZoo(mondo);
+      // il generatore non conosce l'arredo: i mobili glieli piazza chi chiama
+      for (const f of r.furni) arredo.piazza(f.id, f.cella, f.rot, true);
+      mesher.ricostruisciTutto(mondo);
+      ricostruisciLuciBlocchi();
+      erba.risemina();   // mondo nuovo: il campo seminato non c'entra più niente
+      foglie.risemina();
+      ricostruisciBlocchiSpeciali();
+      for (const c of r.acqua) sim.pianificaAttorno(c);   // sveglia pozze e cascata
+      controller.spawn(r.spawn);
+      rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
+      segnaSalvataggio();
+      menuDebug.mostraZone(r.zone, (piedi) => {
+        controller.spawn(piedi);
+        rig.bersaglio.copy(controller.pos).add(new THREE.Vector3(0, 1, 0));
+      });
+      // LA SCATOLA VA DETTA, ed è il numero che decide se lo zoo funziona sul
+      // dispositivo per cui è stato costruito: le ombre delle lampade camminano
+      // una texture 3D larga quanto il mondo, e il minimo GARANTITO da WebGL2 è
+      // 256 per lato. Oltre, `voxTroppoLarga` scatta e le ombre spariscono in
+      // SILENZIO — lo zoo sembrerebbe rotto proprio dove serve.
+      const s = r.scatola;
+      const lato = Math.max(s.larghezza, s.profondita);
+      hud.toast(`🦓 Zoo delle prove: ${r.totale.toLocaleString('it')} blocchi · 8 stazioni`
+        + ` · lato ${lato}/251 · ${r.lampade.pesanti} lampade pesanti`
+        + ' — i bottoni delle stazioni sono qui sotto', 7000);
+      return r;
+    }),
     salaProve: () => conCaricamento('🧪 Preparo la sala prove…', () => {
-      salvaSnapshot(false);
+      // il mondo di prima va messo da parte PRIMA di generarci sopra: se non ci
+      // sta, ci si ferma qui invece di distruggerlo.
+      if (!mettiDaParte(true)) return;
       menuDebug.mostraZone(null);
       arredo.svuota();
       const r = generaMostra(mondo);
@@ -2804,7 +2901,9 @@ const menuDebug = new MenuDebug({
     // Scena di collaudo: le sei zone dei fenomeni di luce/acqua, tutte a
     // distanza di camminata. Come la sala prove, salva prima uno snapshot.
     collaudo: () => conCaricamento('🔦 Preparo la scena di collaudo…', () => {
-      salvaSnapshot(false);
+      // il mondo di prima va messo da parte PRIMA di generarci sopra: se non ci
+      // sta, ci si ferma qui invece di distruggerlo.
+      if (!mettiDaParte(true)) return;
       arredo.svuota();
       const r = generaCollaudo(mondo);
       mesher.ricostruisciTutto(mondo);
@@ -2830,7 +2929,9 @@ const menuDebug = new MenuDebug({
     // classi di luce, l'occlusione nei casi difficili, la mescolanza dei colori,
     // i fuochi fatui e il tetto delle 48 piastrelle). Vedi world/testLuci.js.
     testLuci: () => conCaricamento('💡 Preparo il test delle luci…', () => {
-      salvaSnapshot(false);
+      // il mondo di prima va messo da parte PRIMA di generarci sopra: se non ci
+      // sta, ci si ferma qui invece di distruggerlo.
+      if (!mettiDaParte(true)) return;
       arredo.svuota();
       const r = generaTestLuci(mondo);
       mesher.ricostruisciTutto(mondo);
@@ -2863,7 +2964,9 @@ const menuDebug = new MenuDebug({
     // blocchi, dimensionato per stare appena sotto il paracadute della griglia
     // luce, così le prestazioni si misurano CON le ombre accese.
     mondoGigante: () => conCaricamento('⛰ Genero il mondo gigante…', () => {
-      salvaSnapshot(false);
+      // il mondo di prima va messo da parte PRIMA di generarci sopra: se non ci
+      // sta, ci si ferma qui invece di distruggerlo.
+      if (!mettiDaParte(true)) return;
       arredo.svuota();
       const r = generaMondoGigante(mondo, (Math.random() * 1e4) | 0);
       mesher.ricostruisciTutto(mondo);
@@ -2882,7 +2985,9 @@ const menuDebug = new MenuDebug({
       return r;
     }),
     bancoOmbre: () => conCaricamento('🌗 Preparo il banco delle ombre…', () => {
-      salvaSnapshot(false);
+      // il mondo di prima va messo da parte PRIMA di generarci sopra: se non ci
+      // sta, ci si ferma qui invece di distruggerlo.
+      if (!mettiDaParte(true)) return;
       arredo.svuota();
       const r = generaBancoOmbre(mondo);
       for (const f of r.furni) arredo.piazza(f.id, f.cella, f.rot, true);
@@ -2907,7 +3012,9 @@ const menuDebug = new MenuDebug({
     // palla, catena allineata). Unico mondo di prova che arreda: `arredo` va
     // passato a `genera`, e non si svuota prima — se lo svuota lui.
     testMacchine: () => conCaricamento('⚙️ Preparo il banco dei macchinari…', () => {
-      salvaSnapshot(false);
+      // il mondo di prima va messo da parte PRIMA di generarci sopra: se non ci
+      // sta, ci si ferma qui invece di distruggerlo.
+      if (!mettiDaParte(true)) return;
       const r = generaTestMacchine(mondo, arredo);
       mesher.ricostruisciTutto(mondo);
       ricostruisciLuciBlocchi();
@@ -2929,7 +3036,9 @@ const menuDebug = new MenuDebug({
       return r;
     }),
     isolaDemo: () => conCaricamento('🏝 Nuova isola…', () => {
-      salvaSnapshot(false);
+      // il mondo di prima va messo da parte PRIMA di generarci sopra: se non ci
+      // sta, ci si ferma qui invece di distruggerlo.
+      if (!mettiDaParte(false)) return;
       menuDebug.mostraZone(null);
       nuovaIsola();
       mesher.ricostruisciTutto(mondo);
@@ -2941,7 +3050,9 @@ const menuDebug = new MenuDebug({
       hud.toast('🏝 Isola demo — il mondo di prima è nello snapshot');
     }),
     arcipelago: (seme, est) => conCaricamento('🌌 Genero l’arcipelago…', () => {
-      salvaSnapshot(false);
+      // il mondo di prima va messo da parte PRIMA di generarci sopra: se non ci
+      // sta, ci si ferma qui invece di distruggerlo.
+      if (!mettiDaParte(false)) return;
       menuDebug.mostraZone(null);
       arredo.svuota();
       generaArcipelago(mondo, seme, est);
@@ -2955,7 +3066,9 @@ const menuDebug = new MenuDebug({
       hud.toast(`🌌 Seme ${seme}: ${mondo.contaBlocchi} blocchi — snapshot salvato`);
     }),
     openWorld: (seme, est) => conCaricamento('⛰ Genero l’open world…', () => {
-      salvaSnapshot(false);
+      // il mondo di prima va messo da parte PRIMA di generarci sopra: se non ci
+      // sta, ci si ferma qui invece di distruggerlo.
+      if (!mettiDaParte(false)) return;
       menuDebug.mostraZone(null);
       arredo.svuota();
       const { alberi, lampioni, fiume } = generaOpenWorld(mondo, seme, est);
@@ -3047,26 +3160,20 @@ const menuDebug = new MenuDebug({
       hud.toast(inventario.infinito ? '✨ Creativa: risorse infinite, blocchi a un tocco' : '⛏ Normale: risorse contate');
       return inventario.infinito;
     },
-    netCrea: async () => {
-      try {
-        menuDebug.setNet('A', await lobby.creaOfferta());
-        hud.toast('🎬 Offerta pronta: copiala e mandala all’amico');
-      } catch (err) { hud.toast('Errore WebRTC 😿'); console.warn(err); }
-    },
-    netGenera: async (offerta) => {
-      if (!offerta.trim()) { hud.toast('Incolla prima il codice OFFERTA'); return; }
-      try {
-        menuDebug.setNet('B', await lobby.rispondi(offerta));
-        hud.toast('🚪 Risposta pronta: mandala all’host');
-      } catch (err) { hud.toast('Codice offerta non valido 😿'); console.warn(err); }
-    },
-    netConferma: async (risposta) => {
-      if (!risposta.trim()) { hud.toast('Incolla prima il codice RISPOSTA'); return; }
-      try { await lobby.completa(risposta); }
-      catch (err) { hud.toast('Codice risposta non valido 😿'); console.warn(err); }
-    },
   },
 });
+// ⚠️ QUI STAVA LA TERZA STRADA PER COLLEGARSI (netCrea/netGenera/netConferma,
+// i codici WebRTC da copiare a mano). Tolta il 26/08/2026, e non nascosta:
+//  · dava un ospite SENZA RUOLO — `_inArrivo` lo riempie solo il Segnalatore,
+//    quindi ruoliOspiti restava vuota e l'host lo trattava da spettatore,
+//    negandogli tutto; e siccome `negato` era fuori dalla whitelist P2P,
+//    glielo negava pure SENZA DIRE NIENTE;
+//  · `netGenera` chiamava `lobby.rispondi()`, che fa `this.chiudi()`: premuto
+//    mentre si ospita, buttava fuori tutti gli ospiti veri.
+// CLAUDE.md dichiarava questa strada «tolta, non nascosta» già dal 4 agosto:
+// non era vero, e adesso lo è. La strada per collegarsi è UNA, il pannello 🌐.
+// Se un giorno servisse un ripiego senza server, va rifatto DENTRO quel
+// pannello con la cucitura dei ruoli — non resuscitando questo.
 // il pannello debug VIVE nella scheda Avanzate del menu unico (via la doppia
 // finestra che confondeva): 🐞 e F3 aprono il menu già sulla scheda giusta
 document.getElementById('paginaAvanzate').appendChild(menuDebug.el);
@@ -3481,8 +3588,29 @@ const OPZ_CHIAVE = 'lantern.opzioni.v1';
 // che il committente chiede («ombre e luci in cel shading») finalmente esiste
 // anche dove si gioca davvero. Se una diagnostica dal dispositivo dicesse il
 // contrario, la leva è questa: ombraSole nel default e `sole` nella scala.
-const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, autoQ: true, luceCotta: !rig.mobile, cameraFantasma: false, erba: true, foro: true, foroRaggio: 110, sagoma: false, sagomaTutti: false, scala: 1, riflForza: 1, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.mobile, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale', nitido: true, ombraSole: true, solePassi: 12, soleTerm: true, soleForza: 1, ombreDin: false };
-const opzioni = Object.assign({}, OPZ_DEFAULT, JSON.parse(localStorage.getItem(OPZ_CHIAVE) || '{}'));
+const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, autoQ: true, luceCotta: !rig.mobile, cameraFantasma: false, erba: true, foro: true, foroRaggio: 110, sagoma: false, sagomaTutti: false, scala: 1, riflForza: 1, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.mobile, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale', nitido: true, ombraSole: true, solePassi: 12, soleTerm: false, soleForza: 1 };
+// ⚠ LE OPZIONI SALVATE NON SCAVALCANO PIÙ, DA SOLE, OGNI DEFAULT NUOVO.
+// `Object.assign({}, OPZ_DEFAULT, salvate)` — che è quello che c'era qui — fonde
+// i valori del giocatore SOPRA i valori di fabbrica: chi ha toccato il menu
+// Grafica una volta si porta i SUOI numeri per sempre, e quindi ogni default
+// migliore raggiunge solo i profili vergini, cioè NON le persone che si
+// lamentano degli fps. È il rischio numero uno del piano (docs/LEAFY-V2.md §12).
+// Adesso il blocco salvato ha una VERSIONE e passa dai gradini dichiarati nella
+// tabella MIGRAZIONI_OPZIONI (in save.js, con scritto accanto perché esistono).
+// La regola dei gradini è una sola: si scavalca UNA chiave per volta, e solo
+// quando è dimostrabile che il giocatore quella scelta non l'aveva mai fatta.
+//
+// `leggiOpzioni` non lancia mai: prima un JSON storto in `lantern.opzioni.v1`
+// buttava giù questa riga durante la valutazione del modulo, cioè pagina nera
+// senza uno straccio di messaggio.
+const _opzSalvate = leggiOpzioni(OPZ_CHIAVE);
+const _opzMigrate = migraOpzioni(_opzSalvate, OPZ_DEFAULT);
+const opzioni = _opzMigrate.opzioni;
+for (const perche of _opzMigrate.applicati) console.info('[lantern] impostazioni migrate:', perche);
+for (const avviso of _opzMigrate.avvisi) console.warn('[lantern] impostazioni:', avviso);
+// il gradino si sale UNA volta: se ha cambiato qualcosa lo si mette subito
+// nero su bianco, altrimenti si rifarebbe a ogni avvio.
+if (_opzSalvate && _opzMigrate.applicati.length) scriviOpzioni(OPZ_CHIAVE, opzioni, _opzMigrate.versione);
 
 // preset grafici: un tocco e la macchina va — comodi per testare
 // `luceCotta` = ombre voxel delle luci pesanti (nome storico della chiave
@@ -3503,22 +3631,22 @@ const opzioni = Object.assign({}, OPZ_DEFAULT, JSON.parse(localStorage.getItem(O
 const PRESET_GRAFICA = {
   bassa: {
     scala: 0.66, riflessi: false, luceCotta: false, riflForza: 0.6, dist: 250, fog: 0.9,
-    nitido: true, ombraSole: false, solePassi: 0, soleTerm: false, soleForza: 1, ombreDin: false,
+    nitido: true, ombraSole: false, solePassi: 0, soleTerm: false, soleForza: 1,
     erba: true, autoQ: true,
   },
   media: {
     scala: 0.85, riflessi: false, luceCotta: true, riflForza: 0.8, dist: 450, fog: 0.7,
-    nitido: true, ombraSole: true, solePassi: 8, soleTerm: true, soleForza: 1, ombreDin: false,
+    nitido: true, ombraSole: true, solePassi: 8, soleTerm: false, soleForza: 1,
     erba: true, autoQ: true,
   },
   alta: {
     scala: 1, riflessi: true, luceCotta: true, riflForza: 1, dist: 700, fog: 0.55,
-    nitido: true, ombraSole: true, solePassi: 12, soleTerm: true, soleForza: 1, ombreDin: false,
+    nitido: true, ombraSole: true, solePassi: 12, soleTerm: false, soleForza: 1,
     erba: true, autoQ: true,
   },
   ultra: {
     scala: 1, riflessi: true, luceCotta: true, riflForza: 1.2, dist: 900, fog: 0.4,
-    nitido: true, ombraSole: true, solePassi: 13, soleTerm: true, soleForza: 1, ombreDin: true,
+    nitido: true, ombraSole: true, solePassi: 13, soleTerm: false, soleForza: 1,
     erba: true, autoQ: false,
   },
 };
@@ -3680,7 +3808,12 @@ function applicaOpzioni(salva = true) {
   if (!qManuale) qLivello = 0;
   applicaQualita();
   aggiornaUIOpzioni();
-  if (salva) { try { localStorage.setItem(OPZ_CHIAVE, JSON.stringify(opzioni)); } catch { /* pazienza */ } }
+  // si riscrive SEMPRE con la versione attaccata: senza, le opzioni di chi
+  // non tocca più niente resterebbero per sempre senza numero e ogni gradino
+  // futuro glielo si dovrebbe rifare addosso ogni volta.
+  if (salva && !scriviOpzioni(OPZ_CHIAVE, opzioni, VERSIONE_OPZIONI)) {
+    hud.toast('Impostazioni non salvate: memoria piena \u{1F63F}');
+  }
 }
 
 function aggiornaUIOpzioni() {
