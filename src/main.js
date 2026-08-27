@@ -1,81 +1,81 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtavh9vl';
-import { Rig } from './engine/renderer.js?v=mtavh9vl';
-import { Input } from './engine/input.js?v=mtavh9vl';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtavh9vl';
-import { Cadenza } from './engine/cadenza.js?v=mtavh9vl';
-import { GpuProfiler } from './engine/gpuTimer.js?v=mtavh9vl';
-import { creaBatteria } from './engine/batteria.js?v=mtavh9vl';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtavh9vl';
-import { Mondo } from './world/world.js?v=mtavh9vl';
-import { SimAcqua } from './world/acqua.js?v=mtavh9vl';
-import { Lobby } from './net/lobby.js?v=mtavh9vl';
-import { Segnalatore } from './net/segnalatore.js?v=mtavh9vl';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtavh9vl';
-import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtavh9vl';
-import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtavh9vl';
-import { PannelloInsieme } from './ui/multiplayer.js?v=mtavh9vl';
-import { Targhetta } from './ui/targhetta.js?v=mtavh9vl';
-import { Bolla } from './ui/bolla.js?v=mtavh9vl';
-import { Scelta } from './ui/scelta.js?v=mtavh9vl';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtavh9vl';
-import { Zaino } from './ui/zaino.js?v=mtavh9vl';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mtavh9vl';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtavh9vl';
-import { generaMostra } from './world/mostra.js?v=mtavh9vl';
-import { generaCollaudo } from './world/collaudo.js?v=mtavh9vl';
-import { generaTestLuci } from './world/testLuci.js?v=mtavh9vl';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtavh9vl';
-import { generaTestMacchine } from './world/testMacchine.js?v=mtavh9vl';
-import { generaZoo } from './world/zoo.js?v=mtavh9vl';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mtavh9vl';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtavh9vl';
-import { Meteo } from './fx/meteo.js?v=mtavh9vl';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtavh9vl';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtavh9vl';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=mtavh9vl';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtavh9vl';
-import { CicloGiorno } from './fx/daynight.js?v=mtavh9vl';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, materialeOmbra, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtavh9vl';
-import { CampoSole } from './fx/campoSole.js?v=mtavh9vl';
-import { Controluce, configuraMappa } from './fx/controluce.js?v=mtavh9vl';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtavh9vl';
-import { ModalitaAR } from './ar/ar.js?v=mtavh9vl';
-import { Nuvole } from './fx/nuvole.js?v=mtavh9vl';
-import { SagomaVista } from './fx/sagomaVista.js?v=mtavh9vl';
-import { Erba } from './fx/erba.js?v=mtavh9vl';
-import { Foglie } from './fx/foglie.js?v=mtavh9vl';
-import { SegnaPercorso } from './fx/percorso.js?v=mtavh9vl';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mtavh9vl';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mtavh9vl';
-import { Pioggia } from './fx/pioggia.js?v=mtavh9vl';
-import { Particelle } from './fx/particelle.js?v=mtavh9vl';
-import { Audio } from './fx/audio.js?v=mtavh9vl';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtavh9vl';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtavh9vl';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtavh9vl';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtavh9vl';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtavh9vl';
-import { Registro } from './ecs/registro.js?v=mtavh9vl';
-import { Orologio, Rng } from './ecs/orologio.js?v=mtavh9vl';
-import { Sistemi } from './ecs/sistemi.js?v=mtavh9vl';
-import { Agenda } from './ecs/agenda.js?v=mtavh9vl';
-import { Gatto } from './player/player.js?v=mtavh9vl';
-import { ManoStrumento } from './player/mano.js?v=mtavh9vl';
-import { dropDi } from './gioco/drop.js?v=mtavh9vl';
-import { Controller } from './player/controller.js?v=mtavh9vl';
-import { FURNI, centroide } from './furniture/registry.js?v=mtavh9vl';
-import { caricaModelli } from './furniture/loader.js?v=mtavh9vl';
-import { Arredo } from './furniture/furniture.js?v=mtavh9vl';
-import { HUD } from './ui/hud.js?v=mtavh9vl';
-import { MenuDebug } from './ui/debug.js?v=mtavh9vl';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtavh9vl';
-import { ModalitaXR } from './ar/ar-xr.js?v=mtavh9vl';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtavryo3';
+import { Rig } from './engine/renderer.js?v=mtavryo3';
+import { Input } from './engine/input.js?v=mtavryo3';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtavryo3';
+import { Cadenza } from './engine/cadenza.js?v=mtavryo3';
+import { GpuProfiler } from './engine/gpuTimer.js?v=mtavryo3';
+import { creaBatteria } from './engine/batteria.js?v=mtavryo3';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtavryo3';
+import { Mondo } from './world/world.js?v=mtavryo3';
+import { SimAcqua } from './world/acqua.js?v=mtavryo3';
+import { Lobby } from './net/lobby.js?v=mtavryo3';
+import { Segnalatore } from './net/segnalatore.js?v=mtavryo3';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtavryo3';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtavryo3';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtavryo3';
+import { PannelloInsieme } from './ui/multiplayer.js?v=mtavryo3';
+import { Targhetta } from './ui/targhetta.js?v=mtavryo3';
+import { Bolla } from './ui/bolla.js?v=mtavryo3';
+import { Scelta } from './ui/scelta.js?v=mtavryo3';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtavryo3';
+import { Zaino } from './ui/zaino.js?v=mtavryo3';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mtavryo3';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtavryo3';
+import { generaMostra } from './world/mostra.js?v=mtavryo3';
+import { generaCollaudo } from './world/collaudo.js?v=mtavryo3';
+import { generaTestLuci } from './world/testLuci.js?v=mtavryo3';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtavryo3';
+import { generaTestMacchine } from './world/testMacchine.js?v=mtavryo3';
+import { generaZoo } from './world/zoo.js?v=mtavryo3';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mtavryo3';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtavryo3';
+import { Meteo } from './fx/meteo.js?v=mtavryo3';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtavryo3';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtavryo3';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=mtavryo3';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtavryo3';
+import { CicloGiorno } from './fx/daynight.js?v=mtavryo3';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, materialeOmbra, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtavryo3';
+import { CampoSole } from './fx/campoSole.js?v=mtavryo3';
+import { Controluce, configuraMappa } from './fx/controluce.js?v=mtavryo3';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtavryo3';
+import { ModalitaAR } from './ar/ar.js?v=mtavryo3';
+import { Nuvole } from './fx/nuvole.js?v=mtavryo3';
+import { SagomaVista } from './fx/sagomaVista.js?v=mtavryo3';
+import { Erba } from './fx/erba.js?v=mtavryo3';
+import { Foglie } from './fx/foglie.js?v=mtavryo3';
+import { SegnaPercorso } from './fx/percorso.js?v=mtavryo3';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mtavryo3';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mtavryo3';
+import { Pioggia } from './fx/pioggia.js?v=mtavryo3';
+import { Particelle } from './fx/particelle.js?v=mtavryo3';
+import { Audio } from './fx/audio.js?v=mtavryo3';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtavryo3';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtavryo3';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtavryo3';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtavryo3';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtavryo3';
+import { Registro } from './ecs/registro.js?v=mtavryo3';
+import { Orologio, Rng } from './ecs/orologio.js?v=mtavryo3';
+import { Sistemi } from './ecs/sistemi.js?v=mtavryo3';
+import { Agenda } from './ecs/agenda.js?v=mtavryo3';
+import { Gatto } from './player/player.js?v=mtavryo3';
+import { ManoStrumento } from './player/mano.js?v=mtavryo3';
+import { dropDi } from './gioco/drop.js?v=mtavryo3';
+import { Controller } from './player/controller.js?v=mtavryo3';
+import { FURNI, centroide } from './furniture/registry.js?v=mtavryo3';
+import { caricaModelli } from './furniture/loader.js?v=mtavryo3';
+import { Arredo } from './furniture/furniture.js?v=mtavryo3';
+import { HUD } from './ui/hud.js?v=mtavryo3';
+import { MenuDebug } from './ui/debug.js?v=mtavryo3';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtavryo3';
+import { ModalitaXR } from './ar/ar-xr.js?v=mtavryo3';
 import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot,
   spingiSnapshot, sbirciaSnapshot, togliSnapshot, livelliSnapshot,
-  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtavh9vl';
+  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtavryo3';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -3613,7 +3613,7 @@ const LIVELLI_Q = rig.mobile ? [
   // (Era una portata in blocchi ai tempi del cammino per-pixel; il campo del
   // sole non ha passi da contare e le ombre lunghe arrivano fin dove devono.)
   { rifl: true, ombre: true, schiuma: true, acquaRicca: true, maxOmbre: 8, sole: 13, scala: 1, dist: 900, erba: 1.3, erbaR: 6, raggi: 4, campioni: 4 },
-  { rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 12, scala: 1, dist: 700, erba: 1, erbaR: 5, raggi: 2, campioni: 4 },
+  { rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 12, scala: 0.9, dist: 700, erba: 1, erbaR: 5, raggi: 2, campioni: 4 },
   // ⚠ IL TILT-SHIFT NON SI SPEGNE PIU' QUI, e lo dicono le misure del
   // committente: sul suo Chromebook, in DUE giri diversi e con la voce misurata
   // alternata, spento costa il 6% di GPU IN PIU' (28,95 ms contro 27,26; e prima
@@ -3621,9 +3621,9 @@ const LIVELLI_Q = rig.mobile ? [
   // appena la scala scende sotto 1 — spegnerlo non risparmia niente e toglie
   // meta' dell'aspetto del diorama. Restava in scala per un'ipotesi mia mai
   // verificata: «e' un post-process, quindi costa». Non su quel chip.
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 8, scala: 1, dist: 500, erba: 0.6, erbaR: 3, raggi: 1, campioni: 2 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 6, scala: 0.82, dist: 500, erba: 0.45, erbaR: 3, raggi: 1, campioni: 2 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scala: 0.66, dist: 360, erba: 0.3, erbaR: 2, raggi: 1, campioni: 0 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 8, scala: 0.8, dist: 500, erba: 0.6, erbaR: 3, raggi: 1, campioni: 2 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 6, scala: 0.72, dist: 500, erba: 0.45, erbaR: 3, raggi: 1, campioni: 2 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scala: 0.62, dist: 360, erba: 0.3, erbaR: 2, raggi: 1, campioni: 0 },
   // ⚠ GLI ULTIMI DUE SCALINI SONO NUOVI, e li ha chiesti una misura precisa: sul
   // Chromebook del committente (Intel HD 400) il pass principale costa 69,8 ms a
   // scala 1 e 24,1 ms a scala 0,50 — cioè la RISOLUZIONE è la leva, e la scala
@@ -3631,9 +3631,26 @@ const LIVELLI_Q = rig.mobile ? [
   // «desktop» era tarato su un portatile lento, non su un chip integrato del
   // 2015: per quello serve arrivare dove arriva la scala mobile. Brutto, ma
   // giocabile — e sopra c'è tutta la scala per chi non ne ha bisogno.
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.55, dist: 300, erba: 0.2, erbaR: 2, raggi: 1, campioni: 0 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.53, dist: 300, erba: 0.2, erbaR: 2, raggi: 1, campioni: 0 },
   { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.45, dist: 240, erba: 0.15, erbaR: 1, raggi: 1, campioni: 0 },
 ];
+// ⚠️ IL FOTOGRAMMA È PROPORZIONALE AI PIXEL, E BASTA — misurato il 27/08 con il
+// freno a 210 MHz, open world, macchina assestata (spread 0,03-0,08 ms):
+//     1,78 Mpx → 13,21 ms (7,44 ms/Mpx) · 3,56 → 27,89 (7,83)
+//     7,11 Mpx → 52,35 ms (7,37 ms/Mpx) · 14,26 → 84,95 (5,96)
+// Il costo PER PIXEL è costante e il costo fisso è ~zero: otto volte i pixel,
+// sei volte e mezzo il tempo. Conseguenza scomoda ma netta: NON esiste una
+// funzionalità grassa da tagliare. Misurate una per una sullo stesso banco,
+// valgono tutte pochi punti percentuali — l'acqua INTERA è lo 0,95 ms su 29,75
+// (3,2%), di cui 0,81 sono gli anelli delle cascate. Il resto è il costo di
+// ombreggiare ogni pixel, e l'unica leva vera è QUANTI pixel.
+//
+// ⚠️ E LA SCALA PARTIVA TROPPO TARDI. I primi TRE gradini desktop erano tutti a
+// `scala: 1`: il paracadute spendeva i suoi primi due scalini su voci che valgono
+// pochi punti l'una, e la leva che vale il 100% non si muoveva fino al terzo.
+// Adesso scende da subito (1 → 0,9 → 0,8 → 0,82 …), che è anche la cosa che il
+// committente aveva intuito da solo: «pixel più grandi per prestazioni più basse».
+//
 // ⚠️ OGNI LIVELLO DICHIARA `erba` E `erbaR`, E NON È PIGNOLERIA: era la
 // MANOPOLA INVERTITA. Le due chiavi stavano solo sui primi tre gradini desktop e
 // su NESSUN gradino mobile; applicaQualita le legge con `q.erba ?? 1` e
