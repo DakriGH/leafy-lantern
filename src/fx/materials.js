@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbsyyoo';
-import { glslControluce } from './controluce.js?v=mtbsyyoo';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbsyyoo';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbv5pya';
+import { glslControluce } from './controluce.js?v=mtbv5pya';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbv5pya';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -421,6 +421,14 @@ const uniformi = {
   // Piccola e rifatta a ogni fotogramma: ci stanno gatto, ospiti, palle e
   // creature. Non può stare nella mappa del sole perché quella è CACHATA per
   // quanto di sole, e un corpo che si muove ci lascerebbe l'ombra incollata.
+  /** ⚠ L'ERBA HA DUE SORGENTI PER L'OMBRA DEL TERRENO, e non devono valere
+   *  insieme. Col sistema «marcia» la mappa contiene i soli MOBILI, quindi il
+   *  terreno il prato se lo deve prendere dalla heightmap (`erbaAlSole`). Col
+   *  sistema «controluce» nella mappa c'è TUTTO: prendere anche la heightmap
+   *  vorrebbe dire sommare due ombre dello stesso terreno — il prato più scuro
+   *  del blocco che ha sotto, con due bordi diversi. È il difetto «non
+   *  corrispondenti» in una forma nuova. 1 = usa anche la heightmap. */
+  uErbaCampo: { value: 1 },
   uCorpi: { value: null },
   uCorpiInfo: { value: new THREE.Vector4(0, 0, 0, 0) },
   uCorpiM: { value: new THREE.Matrix4() },

@@ -30,10 +30,10 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=mtbsyyoo';
-import { CHUNK } from '../world/world.js?v=mtbsyyoo';
-import { uniformiOmbraSole, uniformiScatole, uniformiLuci, uniformiControluce, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE, GBANDE } from './materials.js?v=mtbsyyoo';
-import { glslControluce } from './controluce.js?v=mtbsyyoo';
+import { paletteBlocco } from '../world/stagioni.js?v=mtbv5pya';
+import { CHUNK } from '../world/world.js?v=mtbv5pya';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, uniformiControluce, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE, GBANDE } from './materials.js?v=mtbv5pya';
+import { glslControluce } from './controluce.js?v=mtbv5pya';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -105,6 +105,7 @@ const GLSL_VERTEX = /* glsl */`
   uniform int uSolePassi;
   uniform float uSoleForza;
   uniform float uVoxCima;
+  uniform float uErbaCampo;   // 1 = somma anche l'ombra dalla heightmap
 
   // le sagome dei mobili (alberi in testa): dichiara uDinPos/uDinMez/uDinDiag e
   // la funzione sagomeAlSole. Vuole uSoleDir già dichiarata — è qui sopra.
@@ -203,7 +204,14 @@ ${GLSL_LUCI_VERTICE}
     // il TERRENO dalla heightmap come prima, i MOBILI dalla mappa condivisa.
     vec3 _p = iPos.xyz + vec3(0.0, 0.12, 0.0);
     vec3 _pl = (uControluceM * vec4(_p, 1.0)).xyz;
-    float _s = min(erbaAlSole(iPos.xyz), ombraDelSole(_pl, vec3(0.0, 1.0, 0.0), uSoleDir));
+    // ⚠ E LA HEIGHTMAP SI USA SOLO SE SERVE. Col sistema «controluce» il
+    // terreno sta già nella mappa, e sommarci la heightmap vorrebbe dire due
+    // ombre dello stesso terreno con due bordi diversi — il prato più scuro del
+    // blocco che ha sotto. È il «non corrispondenti» in una forma nuova.
+    // Il ramo salta un ciclo di SEI letture di texture per lamella, quindi
+    // spegnerlo non è solo correttezza: è anche il conto che non si paga.
+    float _s = ombraDelSole(_pl, vec3(0.0, 1.0, 0.0), uSoleDir);
+    if (uErbaCampo > 0.5) _s = min(_s, erbaAlSole(iPos.xyz));
     vSole = floor(_s * ${GBANDE} + 0.5) / ${GBANDE};
     // LE LAMPADE ILLUMINANO ANCHE L'ERBA. Si misura a mezza altezza del ciuffo:
     // una volta per filo, non per pixel, e la pozza di un lampione è larga metri
