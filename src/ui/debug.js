@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=mtaui0h5';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtaui0h5';
-import { FISICA } from '../config.js?v=mtaui0h5';
+import { CHUNK } from '../world/world.js?v=mtavac71';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtavac71';
+import { FISICA } from '../config.js?v=mtavac71';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -286,6 +286,14 @@ export class MenuDebug {
         aiuto: 'quante celle cammina la MARCIA prima di arrendersi: è letteralmente quanto lontano arriva l\'ombra. A zero il sole non proietta più.',
         leggi: () => (this.azioni.passiMarcia ? this.azioni.passiMarcia() : 0),
         scrivi: (v) => { if (this.azioni.passiMarcia) this.azioni.passiMarcia(v); } },
+      { id: 'raggi', nome: '🌤 Morbidezza (raggi)', min: 1, max: 6, passo: 1, unita: ' raggi',
+        aiuto: 'IL SOLE NON È UN PUNTO: con più raggi l\'ombra è netta al piede e sfumata in punta, come quella vera. È la cura ai triangoli con il sole radente — e resta cel, perché la penombra si taglia alle stesse bande. Costa lineare: 1 raggio = com\'è adesso.',
+        leggi: () => (this.azioni.raggiSole ? this.azioni.raggiSole() : 1),
+        scrivi: (v) => { if (this.azioni.raggiSole) this.azioni.raggiSole(v); } },
+      { id: 'cono', nome: '📐 Larghezza del cono', min: 0, max: 200, passo: 5, unita: '/1000 rad',
+        aiuto: 'quanto è «grosso» il sole. Zero = puntiforme (nessuna penombra anche con più raggi).',
+        leggi: () => Math.round((this.azioni.conoSole ? this.azioni.conoSole() : 0.045) * 1000),
+        scrivi: (v) => { if (this.azioni.conoSole) this.azioni.conoSole(v / 1000); } },
       { id: 'norm', nome: '🪚 Scostamento sugli smussi', min: 0, max: 60, passo: 1, unita: '/10 texel',
         aiuto: 'è la cura ai denti sugli smussi del supercubo: si sposta il punto di lettura lungo la normale, così lo scostamento è giusto a QUALUNQUE ora invece che a una sola',
         leggi: () => Math.round((this.azioni.scostaNormale ? this.azioni.scostaNormale() : 1.6) * 10),

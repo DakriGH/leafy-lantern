@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtaui0h5';
-import { glslControluce } from './controluce.js?v=mtaui0h5';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtaui0h5';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtavac71';
+import { glslControluce } from './controluce.js?v=mtavac71';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtavac71';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -14,6 +14,12 @@ import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtaui0h5';
 // Serve un valore JS e non una `const float` GLSL perché le bande servono in DUE
 // stringhe iniettate (quella comune e quella dell'acqua) e l'ordine con cui
 // finiscono nel sorgente non garantisce che la dichiarazione preceda l'uso.
+/** Il tetto dei raggi nel cono del sole. È COTTO NELLA COMPILAZIONE perché in
+ *  GLSL ES 1.00 il limite di un ciclo dev'essere costante: `uSoleRaggi` decide
+ *  quanti se ne fanno DAVVERO, questo decide quanti il compilatore srotola.
+ *  Sei perché oltre non si distingue: la penombra è già quantizzata a bande. */
+const RAGGI_MAX = 6;
+
 export const GBANDE = BANDE_LUCE.toFixed(1);
 // ⚠ SI ESPORTA perché gli shader di casa che NON stanno in questo file — erba e
 // particelle — devono tagliare a bande con LA STESSA costante. Fino al 27/08
@@ -389,6 +395,8 @@ const uniformi = {
   // come una taratura e non lo è mai stata. Quindi la marcia ha il suo, e parte
   // dal massimo che la griglia consente.
   uMarciaPassi: { value: PASSI_MAX },
+  uSoleRaggi: { value: 1 },          // 1 = taglio netto · 2-6 = penombra del disco solare
+  uSoleCono: { value: 0.045 },       // ampiezza del cono, in radianti-ish
   uTempo: { value: 0 },
   // il vento che piega gli alberi e l'ultimo urto ricevuto (vedi GLSL_VENTO)
   uVentoFurni: { value: new THREE.Vector4(1, 0, 0.10, 0.16) },
@@ -790,6 +798,8 @@ const GLSL_FRAGMENT = /* glsl */`
   uniform vec3 uOmbraFatt;         // per cosa si moltiplica l'ambiente DENTRO l'ombra
   uniform int uSolePassi;          // celle di cammino concesse (0 = spento)
   uniform int uMarciaPassi;        // e QUESTO è il budget della marcia (vedi la uniform)
+  uniform int uSoleRaggi;          // quanti raggi nel cono del sole (1 = netto)
+  uniform float uSoleCono;         // quanto è largo quel cono
   // LA HEIGHTMAP DEL CIELO — quota della superficie per colonna. La usano DUE
   // cose: l'ombra delle nuvole (piu' in basso) e l'ombra del sole (ombraCielo,
   // qui sotto). Sta dichiarata QUI, in alto, e non accanto alle nuvole dov'era:
@@ -896,6 +906,39 @@ const GLSL_FRAGMENT = /* glsl */`
   // questo è un test binario che manda allo STESSO unico livello di scuro di
   // tutto il resto — e il committente l'ha chiarito il 27/08: «mi va bene che le
   // facce siano in ombra».
+  // ⚠ IL CONO DEL SOLE, e perché è la risposta ai «raggi quasi paralleli».
+  //
+  // Committente, 27/08: «ci sono ancora momenti dove si è seghettato, i pixel
+  // diventano triangoli, specialmente quando i raggi del sole sono quasi
+  // paralleli». L'intuizione è giusta e la causa è geometrica: a luce radente
+  // l'ombra di una scaletta di blocchi è una scaletta LUNGA, e la stessa
+  // scaletta stirata su mezzo schermo diventa una fila di triangoli grossi.
+  // Non è un errore di calcolo: è l'ombra esatta di una geometria a gradini.
+  //
+  // LA CURA NON È SFOCARE, è che il SOLE NON È UN PUNTO. Ha un diametro
+  // angolare di mezzo grado, e per questo nel mondo vero l'ombra di un palo è
+  // netta al piede e sfumata in punta: la penombra cresce COL PERCORSO. È
+  // esattamente la grandezza che esplode a luce radente — cioè la sfumatura
+  // arriva da sola dove serve, e resta zero dove il committente vuole il taglio
+  // netto (le ombre di contatto).
+  //
+  // ⚠ E RESTA CEL, perché la media dei raggi si QUANTIZZA alle stesse bande di
+  // tutto il resto. Non è la rampa continua bocciata due volte: è una penombra
+  // a gradini, che è come la disegnerebbe un illustratore.
+  //
+  // ⚠ IL COSTO È LINEARE NEI RAGGI, e per questo è una FASCIA e non un default:
+  // un raggio è l'aspetto di oggi, quattro costano quattro marce. Su Chromebook
+  // resta a uno.
+  vec3 ruotaNelCono(vec3 dir, float ampiezza, int i) {
+    // due assi qualunque perpendicolari a dir; non serve che siano stabili nel
+    // tempo — il cono è simmetrico e i campioni stanno su un cerchio.
+    vec3 su = abs(dir.y) > 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+    vec3 a = normalize(cross(su, dir));
+    vec3 b = cross(dir, a);
+    float ang = float(i) * 2.399963;               // angolo aureo: campioni sparsi
+    return normalize(dir + (a * cos(ang) + b * sin(ang)) * ampiezza);
+  }
+
   bool marciaSole(vec3 da, vec3 dir, int passi) {
     vec3 passo = vec3(dir.x >= 0.0 ? 1.0 : -1.0, dir.y >= 0.0 ? 1.0 : -1.0, dir.z >= 0.0 ? 1.0 : -1.0);
     vec3 inv = 1.0 / max(abs(dir), vec3(1e-8));
@@ -1102,7 +1145,16 @@ const GLSL_FRAGMENT = /* glsl */`
         // si parte mezzo passo FUORI dalla superficie, se no la cella di
         // partenza è la propria e ogni faccia si dichiara in ombra da sola
         vec3 da = vPosMondo + n * 0.02 + uSoleDir * 0.02;
-        return marciaSole(da, uSoleDir, uMarciaPassi) ? 0.0 : _term;
+        // UN RAGGIO: il taglio netto di sempre, e costa uno.
+        if (uSoleRaggi <= 1) return marciaSole(da, uSoleDir, uMarciaPassi) ? 0.0 : _term;
+        // PIÙ RAGGI: la penombra del disco solare, quantizzata alle bande.
+        float aperti = 0.0;
+        for (int i = 0; i < ${RAGGI_MAX}; i++) {
+          if (i >= uSoleRaggi) break;
+          if (!marciaSole(da, ruotaNelCono(uSoleDir, uSoleCono, i), uMarciaPassi)) aperti += 1.0;
+        }
+        float q = aperti / float(uSoleRaggi);
+        return (floor(q * ${GBANDE} + 0.5) / ${GBANDE}) * _term;
       }
     #elif defined(LANTERNA_CONTROLUCE)
       // IL MONDO VISTO DAL SOLE. Un confronto binario contro la profondità della
@@ -2431,6 +2483,20 @@ export function impostaPassiCielo(n) { uniformi.uSolePassi.value = Math.max(0, n
 /** Quante celle cammina la marcia del sole: è la LUNGHEZZA dell'ombra, in
  *  blocchi. Sopra PASSI_MAX il ciclo GLSL non va comunque — il tetto è cotto
  *  nella compilazione, quindi chiedere di più non allunga niente e basta. */
+/** I raggi nel cono del sole: 1 = taglio netto, 2-6 = penombra che cresce col
+ *  percorso. È una FASCIA di qualità, non un default — costa lineare nei raggi. */
+export function raggiSole(n) {
+  if (n !== undefined) uniformi.uSoleRaggi.value = Math.max(1, Math.min(RAGGI_MAX, n | 0));
+  return uniformi.uSoleRaggi.value;
+}
+/** Quanto è largo quel cono. Il sole vero fa ~0,009 rad; qui si esagera perché
+ *  un diorama è piccolo e mezzo grado non si vedrebbe. */
+export function conoSole(a) {
+  if (a !== undefined) uniformi.uSoleCono.value = Math.max(0, +a || 0);
+  return uniformi.uSoleCono.value;
+}
+export const RAGGI_SOLE_MAX = RAGGI_MAX;
+
 export function passiMarcia(n) {
   if (n !== undefined) uniformi.uMarciaPassi.value = Math.max(0, Math.min(PASSI_MAX, n | 0));
   return uniformi.uMarciaPassi.value;
