@@ -30,11 +30,11 @@
 // e passoFrame(ms) a fine frame. Senza, la batteria misura zero fotogrammi e non
 // se ne accorge nessuno.
 
-import { Campioni } from './gpuTimer.js?v=mtbir7zv';
-import { componiDiagnostica } from './diagnostica.js?v=mtbir7zv';
-import { SCENE } from './banco.js?v=mtbir7zv';
-import { serializza, applica } from '../save.js?v=mtbir7zv';
-import { uniformiCondivise, impostaPioggia, impostaOcclusione, impostaParti, PARTI, statLuci, memoriaVoxel, maxOmbre, passiCielo, aggiornaLuci } from '../fx/materials.js?v=mtbir7zv';
+import { Campioni } from './gpuTimer.js?v=mtbj1tmk';
+import { componiDiagnostica } from './diagnostica.js?v=mtbj1tmk';
+import { SCENE } from './banco.js?v=mtbj1tmk';
+import { serializza, applica } from '../save.js?v=mtbj1tmk';
+import { uniformiCondivise, impostaPioggia, impostaOcclusione, impostaParti, PARTI, statLuci, memoriaVoxel, maxOmbre, passiCielo, aggiornaLuci } from '../fx/materials.js?v=mtbj1tmk';
 
 const round2 = (x) => (typeof x === 'number' && isFinite(x) ? Math.round(x * 100) / 100 : null);
 
