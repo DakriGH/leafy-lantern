@@ -515,7 +515,43 @@ export function glslControluce() { return /* glsl */`
     float t = min(sqrt(1.0 - c * c) / c, 4.0);
     vec3 q = p + (uControluceM * vec4(nMondo * (uControluceInfo.z * uControluceNorm * t), 0.0)).xyz;
     if (q.x <= 0.0 || q.x >= 1.0 || q.y <= 0.0 || q.y >= 1.0 || q.z >= 1.0) return 1.0;
-    // Il confronto è BINARIO e resta binario: niente PCF, niente sfumatura.
-    return step(q.z - uControluceInfo.y, texture2D(uControluce, q.xy).r);
+    float z = q.z - uControluceInfo.y;
+    float u = uControluceInfo.x;                     // 1 / lato della mappa
+    if (u <= 0.0) return step(z, texture2D(uControluce, q.xy).r);   // ricambio
+    // ═══ QUATTRO PRESE, PESATE: il bordo smette di essere una scalinata ═══
+    //
+    // ⚠ E QUI CAMBIO IDEA RISPETTO A QUELLO CHE C'ERA SCRITTO, quindi lo dico
+    // per intero. La riga di prima era «il confronto è BINARIO e resta binario:
+    // niente PCF, niente sfumatura», e nasceva da due bocciature vere: le prime
+    // due cure a queste ombre erano «ammorbidire il bordo», e ammorbidire non
+    // era la cura giusta perché il difetto stava nel DATO (un campo interpolato
+    // che non sapeva la forma dell'oggetto), non nel filtro.
+    //
+    // Adesso il dato è giusto — la sagoma è la mesh vera, rasterizzata — e
+    // quello che resta è un problema DIVERSO, che ho fotografato ingrandendo:
+    // una scalinata REGOLARE col passo del texel, ~8 pixel di schermo per
+    // gradino. Non è il bordo che è troppo netto: è il RETICOLO della mappa che
+    // si vede attraverso. E un reticolo che si vede è aliasing, non stile.
+    //
+    // La differenza fra le due cose, che è la ragione per cui questa non è la
+    // terza bocciatura: una PENOMBRA allarga l'ombra di tanti pixel e inventa
+    // una sfumatura che in questo gioco non esiste; qui la transizione è larga
+    // ESATTAMENTE UN TEXEL — la stessa grandezza del gradino che cancella — e
+    // sotto quella scala non c'è informazione, solo il reticolo. Il committente
+    // l'aveva anche chiesto in chiaro: «vorrei anche una opzione più smoothata
+    // ai bordi, non pixellosa».
+    //
+    // Quattro prese ai quattro texel vicini, pesate come farebbe il filtro
+    // bilineare — che sulla profondità non si può usare (interpolare le QUOTE
+    // prima di confrontarle dà bordi sbagliati sui dislivelli: si confronta
+    // prima, si interpola dopo).
+    vec2 g = q.xy / u - 0.5;
+    vec2 f = fract(g);
+    vec2 b = (floor(g) + 0.5) * u;
+    float s00 = step(z, texture2D(uControluce, b).r);
+    float s10 = step(z, texture2D(uControluce, b + vec2(u, 0.0)).r);
+    float s01 = step(z, texture2D(uControluce, b + vec2(0.0, u)).r);
+    float s11 = step(z, texture2D(uControluce, b + vec2(u, u)).r);
+    return mix(mix(s00, s10, f.x), mix(s01, s11, f.x), f.y);
   }
 `; }

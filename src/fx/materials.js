@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbmcpsx';
-import { glslControluce } from './controluce.js?v=mtbmcpsx';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbmcpsx';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbo23oy';
+import { glslControluce } from './controluce.js?v=mtbo23oy';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbo23oy';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -1121,6 +1121,32 @@ const GLSL_FRAGMENT = /* glsl */`
   // per frame. La copia per la VEGETAZIONE vive ancora, per vertice, in
   // GLSL_SCATOLE_VERTICE.)
 
+  /**
+   * IL BORDO LARGO UN PIXEL, e nemmeno uno di più.
+   *
+   * ⚠ IL FILTRO A QUATTRO PRESE (fx/controluce.js) toglie la scalinata del
+   * reticolo, ma in cambio allarga la transizione a UN TEXEL — che a tre pixel
+   * per texel sono tre o quattro pixel di sfumato. A schermo diventa una
+   * penombra, e una penombra questo gioco non ce l'ha: tutto il resto è tagliato
+   * a gradini netti. Sarebbe stata la terza cura «ammorbidiamo il bordo», cioè
+   * la terza bocciatura.
+   *
+   * Qui la rampa si RISTRINGE a un pixel: si guarda quanto cambia il termine da
+   * un pixel al suo vicino («fwidth») e si riscala attorno a metà. Sotto il
+   * pixel non c'è niente da vedere, quindi quello che resta non è morbidezza —
+   * è la copertura parziale del pixel sul bordo, cioè antialiasing. Il bordo
+   * resta netto come prima, senza il reticolo che si vedeva attraverso.
+   *
+   * ⚠ NON SI PUÒ METTERE DENTRO «ombraDelSole»: quella funzione la include
+   * anche il VERTEX shader dell'erba, e nel vertice le derivate non esistono —
+   * lo shader non compilerebbe e il prato sparirebbe.
+   */
+  float affilaOmbra(float s) {
+    float w = fwidth(s);
+    if (w <= 0.0) return s;
+    return clamp((s - 0.5) / (w * 1.2) + 0.5, 0.0, 1.0);
+  }
+
   float ombraCielo() {
     if (uSoleForza <= 0.0) return 1.0;               // opzione spenta o astro sotto
     if (uSoleDir.y <= 0.02) return 1.0;              // astro sull'orizzonte: nessuna ombra
@@ -1209,7 +1235,7 @@ const GLSL_FRAGMENT = /* glsl */`
         // anche il motivo per cui la sua acne sparisce: l'acne nasceva dalle
         // pareti del terreno che competevano con sé stesse, e il terreno lì
         // dentro non c'è più.
-        float mob = ombraDelSole(vLuceP, n, uSoleDir);
+        float mob = affilaOmbra(ombraDelSole(vLuceP, n, uSoleDir));
         if (uSoleRaggi <= 1) return (marciaSole(da, uSoleDir, uMarciaPassi) ? 0.0 : _term) * mob;
         // PIÙ RAGGI: la penombra del disco solare, quantizzata alle bande.
         float aperti = 0.0;
@@ -1230,7 +1256,7 @@ const GLSL_FRAGMENT = /* glsl */`
       // girava SOLO col terminatore acceso, cioè mai. Serve allo scostamento
       // lungo la normale, che è l'unica cura all'acne sugli smussi che non
       // vada ritarata a ogni ora del giorno.
-      return ombraDelSole(vLuceP, normaleGeom(), uSoleDir) * _term;
+      return affilaOmbra(ombraDelSole(vLuceP, normaleGeom(), uSoleDir)) * _term;
     #else
     vec2 uvC = (vPosMondo.xz - uCieloInfo.xy) * uCieloInfo.z;
     float occ = 0.0;
@@ -1621,11 +1647,15 @@ export function patchLuci(materiale, ingombro = false, vento = false) {
  * `attiva` a false NON spegne il ramo: lo fa uscire a 1.0 subito, che è quello
  * che serve mentre la mappa non c'è ancora (primo frame, astro sotto l'orizzonte).
  */
-export function impostaControluce(texture, matrice, { scarto = 0, texel = 0, attiva = false, norm } = {}) {
+export function impostaControluce(texture, matrice, { scarto = 0, texel = 0, attiva = false, norm, invN = 0 } = {}) {
   uniformi.uControluce.value = texture || null;
   if (matrice) uniformi.uControluceM.value.copy(matrice);
   if (norm !== undefined) uniformi.uControluceNorm.value = norm;
-  uniformi.uControluceInfo.value.set(0, scarto, texel, attiva && texture ? 1 : 0);
+  // ⚠ `invN` (= 1/lato della mappa) NON è decorativo: è il passo con cui il
+  // filtro a quattro prese si sposta dentro la mappa. Era fermo a 0 perché
+  // nessuno lo usava; con 0 le quattro prese cadono tutte sullo stesso texel e
+  // il filtro non filtra — cioè si paga e non si vede.
+  uniformi.uControluceInfo.value.set(invN, scarto, texel, attiva && texture ? 1 : 0);
 }
 
 /** Quanti texel ci si scosta lungo la normale prima di leggere la mappa. È la

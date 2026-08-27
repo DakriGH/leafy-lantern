@@ -30,10 +30,10 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=mtbmcpsx';
-import { CHUNK } from '../world/world.js?v=mtbmcpsx';
-import { uniformiOmbraSole, uniformiScatole, uniformiLuci, uniformiControluce, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE, GBANDE } from './materials.js?v=mtbmcpsx';
-import { glslControluce } from './controluce.js?v=mtbmcpsx';
+import { paletteBlocco } from '../world/stagioni.js?v=mtbo23oy';
+import { CHUNK } from '../world/world.js?v=mtbo23oy';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, uniformiControluce, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE, GBANDE } from './materials.js?v=mtbo23oy';
+import { glslControluce } from './controluce.js?v=mtbo23oy';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
