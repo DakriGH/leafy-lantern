@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtblppo3';
-import { glslControluce } from './controluce.js?v=mtblppo3';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtblppo3';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbmcpsx';
+import { glslControluce } from './controluce.js?v=mtbmcpsx';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbmcpsx';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -2671,6 +2671,25 @@ export function materialeMondo() {
     }));
   }
   return _veloAcceso ? _matMondoVelo : _matMondo;
+}
+
+/**
+ * I MATERIALI CHE ESISTONO MA NON SONO ATTACCATI A NIENTE, per chi li deve
+ * scaldare.
+ *
+ * ⚠ PERCHÉ SERVE UN ELENCO ESPLICITO. Chi scalda (main.js, `scaldaScena`)
+ * ripassa la SCENA, e nella scena c'è solo il materiale in uso adesso. Il
+ * gemello velato del mondo esiste dal primo fotogramma e non si disegna mai —
+ * finché l'occhio di bue non si apre, e in quell'istante ogni chunk cambia
+ * materiale tutto insieme: un programma nuovo, linkato dentro la draw.
+ * Misurato il 27/08: **148,7 ms in un fotogramma**, e dalla scena non c'era
+ * modo di prevederlo. Chi aggiunge qui un materiale «di scorta» lo dichiari.
+ */
+export function materialiDiScorta() {
+  materialeMondo();                       // forza la costruzione della coppia
+  const fuori = [];
+  for (const m of [_matMondo, _matMondoVelo, _matAcqua]) if (m) fuori.push(m);
+  return fuori;
 }
 
 let _matAcqua = null;

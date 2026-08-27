@@ -49,8 +49,8 @@
 //   + stessi id → stesse traiettorie, ovunque e a qualunque fps.
 
 import * as THREE from 'three';
-import { patchLuci } from '../fx/materials.js?v=mtblppo3';
-import { Rng } from '../ecs/orologio.js?v=mtblppo3';
+import { patchLuci } from '../fx/materials.js?v=mtbmcpsx';
+import { Rng } from '../ecs/orologio.js?v=mtbmcpsx';
 
 const RAGGIO = 22;                 // entro quanto vivono attorno al gatto
 const TAU = Math.PI * 2;
@@ -63,13 +63,39 @@ const PENSIERO_MIN = 16;
 const PENSIERO_VAR = 24;
 const PRIORITA_PENSIERO = 0;
 
-function meshFarfalla(colore) {
-  const g = new THREE.Group();
-  const mat = patchLuci(new THREE.MeshBasicMaterial({ color: colore, side: THREE.DoubleSide }));
+// ⚠ UN'ALA SOLA E CINQUE MATERIALI, PER TUTTE LE FARFALLE E PER SEMPRE.
+//
+// Prima ogni farfalla che nasceva si portava dietro un `ShapeGeometry` NUOVO
+// (con la sua triangolazione) e un materiale NUOVO. E le farfalle nascono e
+// muoiono di continuo — sono un pool che insegue il gatto, quindi camminare ne
+// crea e ne distrugge senza sosta. Due conti, tutt'e due nascosti:
+//  · la geometria non veniva mai liberata (`distruggi` toglie il mesh dalla
+//    scena e basta): una perdita lenta, un pezzo per farfalla;
+//  · e ogni coppia (geometria, materiale) NUOVA è un PROGRAMMA GPU nuovo,
+//    linkato dentro la draw. Misurato il 27/08 camminando: due farfalle nate
+//    nello stesso fotogramma, **30,6 ms**. Il committente lo vede come uno
+//    scatto mentre esplora, e non c'è modo di collegarlo alle farfalle
+//    guardando.
+// Adesso l'ala è una sola e i materiali sono cinque, nati col modulo: così
+// `scaldaShader` se li trova all'avvio e li scalda dietro il sipario.
+const _ALA = /* @__PURE__ */ (() => {
   const ala = new THREE.Shape();
   ala.moveTo(0, 0); ala.quadraticCurveTo(0.12, 0.12, 0.16, 0); ala.quadraticCurveTo(0.12, -0.1, 0, 0);
-  const geo = new THREE.ShapeGeometry(ala);
-  const sx = new THREE.Mesh(geo, mat), dx = new THREE.Mesh(geo, mat);
+  return new THREE.ShapeGeometry(ala);
+})();
+// ⚠ INDICIZZATI PER COLORE, non per posizione: `creatura.colore` porta il VALORE
+// del colore (sta nel componente e finisce nei salvataggi), non un indice.
+// Passare un indice qui avrebbe dato a tutte le farfalle il primo materiale, e
+// il difetto sarebbe stato «i colori non ci sono più» — molto lontano da qui.
+const _MAT_FARFALLA = /* @__PURE__ */ new Map(COLORI_FARFALLA.map((c) =>
+  [c, patchLuci(new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide }))]));
+
+function meshFarfalla(colore) {
+  const g = new THREE.Group();
+  // un colore sconosciuto (salvataggio vecchio, tavolozza cambiata) non deve
+  // fabbricare un materiale nuovo di nascosto: si ricade sul primo.
+  const mat = _MAT_FARFALLA.get(colore) || _MAT_FARFALLA.get(COLORI_FARFALLA[0]);
+  const sx = new THREE.Mesh(_ALA, mat), dx = new THREE.Mesh(_ALA, mat);
   dx.scale.x = -1;
   g.add(sx, dx);
   g.userData = { sx, dx };

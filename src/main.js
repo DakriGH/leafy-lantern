@@ -1,81 +1,81 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtblppo3';
-import { Rig } from './engine/renderer.js?v=mtblppo3';
-import { Input } from './engine/input.js?v=mtblppo3';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtblppo3';
-import { Cadenza } from './engine/cadenza.js?v=mtblppo3';
-import { GpuProfiler } from './engine/gpuTimer.js?v=mtblppo3';
-import { creaBatteria } from './engine/batteria.js?v=mtblppo3';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtblppo3';
-import { Mondo } from './world/world.js?v=mtblppo3';
-import { SimAcqua } from './world/acqua.js?v=mtblppo3';
-import { Lobby } from './net/lobby.js?v=mtblppo3';
-import { Segnalatore } from './net/segnalatore.js?v=mtblppo3';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtblppo3';
-import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtblppo3';
-import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtblppo3';
-import { PannelloInsieme } from './ui/multiplayer.js?v=mtblppo3';
-import { Targhetta } from './ui/targhetta.js?v=mtblppo3';
-import { Bolla } from './ui/bolla.js?v=mtblppo3';
-import { Scelta } from './ui/scelta.js?v=mtblppo3';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtblppo3';
-import { Zaino } from './ui/zaino.js?v=mtblppo3';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mtblppo3';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtblppo3';
-import { generaMostra } from './world/mostra.js?v=mtblppo3';
-import { generaCollaudo } from './world/collaudo.js?v=mtblppo3';
-import { generaTestLuci } from './world/testLuci.js?v=mtblppo3';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtblppo3';
-import { generaTestMacchine } from './world/testMacchine.js?v=mtblppo3';
-import { generaZoo } from './world/zoo.js?v=mtblppo3';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mtblppo3';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtblppo3';
-import { Meteo } from './fx/meteo.js?v=mtblppo3';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtblppo3';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtblppo3';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=mtblppo3';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtblppo3';
-import { CicloGiorno } from './fx/daynight.js?v=mtblppo3';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, materialeOmbra, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtblppo3';
-import { CampoSole } from './fx/campoSole.js?v=mtblppo3';
-import { Controluce, configuraMappa } from './fx/controluce.js?v=mtblppo3';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtblppo3';
-import { ModalitaAR } from './ar/ar.js?v=mtblppo3';
-import { Nuvole } from './fx/nuvole.js?v=mtblppo3';
-import { SagomaVista } from './fx/sagomaVista.js?v=mtblppo3';
-import { Erba } from './fx/erba.js?v=mtblppo3';
-import { Foglie } from './fx/foglie.js?v=mtblppo3';
-import { SegnaPercorso } from './fx/percorso.js?v=mtblppo3';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mtblppo3';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mtblppo3';
-import { Pioggia } from './fx/pioggia.js?v=mtblppo3';
-import { Particelle } from './fx/particelle.js?v=mtblppo3';
-import { Audio } from './fx/audio.js?v=mtblppo3';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtblppo3';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtblppo3';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtblppo3';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtblppo3';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtblppo3';
-import { Registro } from './ecs/registro.js?v=mtblppo3';
-import { Orologio, Rng } from './ecs/orologio.js?v=mtblppo3';
-import { Sistemi } from './ecs/sistemi.js?v=mtblppo3';
-import { Agenda } from './ecs/agenda.js?v=mtblppo3';
-import { Gatto } from './player/player.js?v=mtblppo3';
-import { ManoStrumento } from './player/mano.js?v=mtblppo3';
-import { dropDi } from './gioco/drop.js?v=mtblppo3';
-import { Controller } from './player/controller.js?v=mtblppo3';
-import { FURNI, centroide } from './furniture/registry.js?v=mtblppo3';
-import { caricaModelli } from './furniture/loader.js?v=mtblppo3';
-import { Arredo } from './furniture/furniture.js?v=mtblppo3';
-import { HUD } from './ui/hud.js?v=mtblppo3';
-import { MenuDebug } from './ui/debug.js?v=mtblppo3';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtblppo3';
-import { ModalitaXR } from './ar/ar-xr.js?v=mtblppo3';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtbmcpsx';
+import { Rig } from './engine/renderer.js?v=mtbmcpsx';
+import { Input } from './engine/input.js?v=mtbmcpsx';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtbmcpsx';
+import { Cadenza } from './engine/cadenza.js?v=mtbmcpsx';
+import { GpuProfiler } from './engine/gpuTimer.js?v=mtbmcpsx';
+import { creaBatteria } from './engine/batteria.js?v=mtbmcpsx';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtbmcpsx';
+import { Mondo } from './world/world.js?v=mtbmcpsx';
+import { SimAcqua } from './world/acqua.js?v=mtbmcpsx';
+import { Lobby } from './net/lobby.js?v=mtbmcpsx';
+import { Segnalatore } from './net/segnalatore.js?v=mtbmcpsx';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtbmcpsx';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtbmcpsx';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtbmcpsx';
+import { PannelloInsieme } from './ui/multiplayer.js?v=mtbmcpsx';
+import { Targhetta } from './ui/targhetta.js?v=mtbmcpsx';
+import { Bolla } from './ui/bolla.js?v=mtbmcpsx';
+import { Scelta } from './ui/scelta.js?v=mtbmcpsx';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtbmcpsx';
+import { Zaino } from './ui/zaino.js?v=mtbmcpsx';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mtbmcpsx';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtbmcpsx';
+import { generaMostra } from './world/mostra.js?v=mtbmcpsx';
+import { generaCollaudo } from './world/collaudo.js?v=mtbmcpsx';
+import { generaTestLuci } from './world/testLuci.js?v=mtbmcpsx';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtbmcpsx';
+import { generaTestMacchine } from './world/testMacchine.js?v=mtbmcpsx';
+import { generaZoo } from './world/zoo.js?v=mtbmcpsx';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mtbmcpsx';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtbmcpsx';
+import { Meteo } from './fx/meteo.js?v=mtbmcpsx';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtbmcpsx';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtbmcpsx';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=mtbmcpsx';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtbmcpsx';
+import { CicloGiorno } from './fx/daynight.js?v=mtbmcpsx';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, materialeOmbra, materialiDiScorta, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtbmcpsx';
+import { CampoSole } from './fx/campoSole.js?v=mtbmcpsx';
+import { Controluce, configuraMappa } from './fx/controluce.js?v=mtbmcpsx';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtbmcpsx';
+import { ModalitaAR } from './ar/ar.js?v=mtbmcpsx';
+import { Nuvole } from './fx/nuvole.js?v=mtbmcpsx';
+import { SagomaVista } from './fx/sagomaVista.js?v=mtbmcpsx';
+import { Erba } from './fx/erba.js?v=mtbmcpsx';
+import { Foglie } from './fx/foglie.js?v=mtbmcpsx';
+import { SegnaPercorso } from './fx/percorso.js?v=mtbmcpsx';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mtbmcpsx';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mtbmcpsx';
+import { Pioggia } from './fx/pioggia.js?v=mtbmcpsx';
+import { Particelle } from './fx/particelle.js?v=mtbmcpsx';
+import { Audio } from './fx/audio.js?v=mtbmcpsx';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtbmcpsx';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtbmcpsx';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtbmcpsx';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtbmcpsx';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtbmcpsx';
+import { Registro } from './ecs/registro.js?v=mtbmcpsx';
+import { Orologio, Rng } from './ecs/orologio.js?v=mtbmcpsx';
+import { Sistemi } from './ecs/sistemi.js?v=mtbmcpsx';
+import { Agenda } from './ecs/agenda.js?v=mtbmcpsx';
+import { Gatto } from './player/player.js?v=mtbmcpsx';
+import { ManoStrumento } from './player/mano.js?v=mtbmcpsx';
+import { dropDi } from './gioco/drop.js?v=mtbmcpsx';
+import { Controller } from './player/controller.js?v=mtbmcpsx';
+import { FURNI, centroide } from './furniture/registry.js?v=mtbmcpsx';
+import { caricaModelli } from './furniture/loader.js?v=mtbmcpsx';
+import { Arredo } from './furniture/furniture.js?v=mtbmcpsx';
+import { HUD } from './ui/hud.js?v=mtbmcpsx';
+import { MenuDebug } from './ui/debug.js?v=mtbmcpsx';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtbmcpsx';
+import { ModalitaXR } from './ar/ar-xr.js?v=mtbmcpsx';
 import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot,
   spingiSnapshot, sbirciaSnapshot, togliSnapshot, livelliSnapshot,
-  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtblppo3';
+  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtbmcpsx';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -4256,6 +4256,9 @@ const _scaldati = new WeakSet();
  *  nuovi. Misurato: un MeshBasicMaterial comparso al fotogramma 74, e ai
  *  fotogrammi 75 e 76 due conti da **86 e 137 ms**. */
 const _scaldatiMat = new WeakSet();
+/** Le scorte si scaldano una volta per mondo: si rimette a false quando il
+ *  mondo cambia (`scaldaShader`, che gira a ogni caricamento). */
+let _scortePagate = false;
 let _bersaglioScalda = null;
 let _camScalda = null;
 /** Il bersaglio da UN PIXEL dove si scalda: il costo è il caricamento in GPU,
@@ -4302,7 +4305,72 @@ const SCALDA_MS = 1.5;
  * bersaglio, e il riflesso disegna in un bersaglio lineare. Scaldarne uno solo
  * avrebbe lasciato l'altro scatto dov'era, solo più difficile da trovare.
  */
+/** Fa indossare a un chunk-provino ogni materiale «di scorta» e lo disegna una
+ *  volta per bersaglio: il programma nasce lì invece che nel fotogramma in cui
+ *  il velo si accende. */
+function scaldaScorte() {
+  const chunks = [...(mesher.chunks ? mesher.chunks.values() : [])];
+  if (!chunks.length) return;
+  const scorte = materialiDiScorta().filter((m) => !_scaldatiMat.has(m));
+  if (!scorte.length) return;
+  // ⚠ SI VESTONO TUTTI I CHUNK, non un provino solo, e la prima versione
+  // sbagliava proprio qui. Il programma non dipende dal materiale soltanto:
+  // dipende dalla COPPIA con la geometria — three ci mette dentro quali
+  // attributi ci sono (colori per vertice, normali, uv…). Con un provino solo
+  // si compilava la variante di QUELLA geometria, e le altre restavano da fare.
+  // Trovato decodificando le maschere di bit della chiave di cache: quella
+  // scaldata aveva acceso `vertexNormals`, quella che serviva `vertexColors`.
+  // Vestire tutti costa un disegno di scena in più (misurato: 3,4 ms) UNA VOLTA.
+  const veriS = chunks.map((e) => e.solidi && e.solidi.material);
+  const veriA = chunks.map((e) => e.acqua && e.acqua.material);
+  try {
+    for (const m of scorte) {
+      for (const e of chunks) {
+        if (e.solidi) e.solidi.material = m;
+        if (e.acqua) e.acqua.material = m;
+      }
+      disegnaScenaScaldata();
+      _scaldatiMat.add(m);
+    }
+  } finally {
+    chunks.forEach((e, i) => {
+      if (e.solidi && veriS[i]) e.solidi.material = veriS[i];
+      if (e.acqua && veriA[i]) e.acqua.material = veriA[i];
+    });
+    // le coppie vere vanno rifatte: i chunk sono stati disegnati con addosso
+    // un materiale che non è il loro.
+    for (const e of chunks) {
+      if (e.solidi && e.solidi.geometry) _scaldati.delete(e.solidi.geometry);
+      if (e.acqua && e.acqua.geometry) _scaldati.delete(e.acqua.geometry);
+    }
+  }
+}
+
+/** La scena INTERA nel bersaglio da un pixel, in tutti i bersagli del gioco.
+ *  ⚠ Si disegna la scena VERA e non le mesh una per una: è l'unico modo di
+ *  avere gli stessi parametri che avrà il fotogramma vero — nebbia compresa,
+ *  spazio colore compreso. */
+function disegnaScenaScaldata() {
+  if (!_bersaglioScalda) creaBersaglioScalda();
+  const r = rig.renderer;
+  // `compile` prende TUTTI i materiali della scena, anche quelli che una draw
+  // non toccherebbe mai; la draw prende quello che `compile` non fa, cioè i
+  // buffer e gli oggetti WebGL. Servono tutt'e due, e nell'ordine.
+  r.compile(rig.scena, rig.camera);
+  r.setRenderTarget(_bersaglioScalda);
+  r.render(rig.scena, _camScalda);
+  // e negli altri bersagli: three tiene programmi distinti per spazio colore,
+  // e riflesso e schiuma disegnano in bersagli lineari.
+  for (const rt of [riflesso && riflesso.rt, schiumaTop && schiumaTop.rt]) {
+    if (!rt) continue;
+    r.setRenderTarget(rt);
+    r.compile(rig.scena, rig.camera);
+    r.render(rig.scena, _camScalda);
+  }
+}
+
 function scaldaShader() {
+  _scortePagate = false;      // mondo nuovo: le scorte vanno riscaldate
   const spenti = [];
   const nonCullati = [];
   rig.scena.traverse((o) => {
@@ -4324,22 +4392,12 @@ function scaldaShader() {
     // i buffer che salgono in GPU, gli oggetti WebGL che nascono, le uniform
     // che si scrivono la prima volta. `compile` non li tocca; una draw sì.
     // È la stessa cura di `scaldaChunk`, allargata a tutta la scena.
-    if (!_bersaglioScalda) creaBersaglioScalda();
-    // `compile` prende TUTTI i materiali della scena, anche quelli che una draw
-    // non toccherebbe mai; la draw prende quello che `compile` non fa, cioè i
-    // buffer e gli oggetti WebGL. Servono tutt'e due, e nell'ordine.
-    rig.renderer.compile(rig.scena, rig.camera);
-    rig.renderer.setRenderTarget(_bersaglioScalda);
-    rig.renderer.render(rig.scena, _camScalda);
-    // e una seconda volta nel bersaglio del RIFLESSO: three tiene programmi
-    // distinti per spazio colore, e il riflesso disegna in uno lineare.
-    // Scaldarne uno solo lascerebbe l'altro scatto dov'è, solo più nascosto.
-    for (const rt of [riflesso && riflesso.rt, schiumaTop && schiumaTop.rt]) {
-      if (!rt) continue;
-      rig.renderer.setRenderTarget(rt);
-      rig.renderer.compile(rig.scena, rig.camera);
-      rig.renderer.render(rig.scena, _camScalda);
-    }
+    disegnaScenaScaldata();
+    // ⚠ E I MATERIALI DI SCORTA, che nella scena non ci sono. Il gemello velato
+    // del mondo esiste dal primo fotogramma e non si disegna mai — finché
+    // l'occhio di bue non si apre, e allora TUTTI i chunk cambiano materiale
+    // insieme: un programma nuovo linkato dentro la draw, **148,7 ms**.
+    scaldaScorte();
   } catch (e) {
     // ⚠ NON SI INGHIOTTE (regola 7): scaldare è un'ottimizzazione e il gioco
     // deve partire lo stesso se fallisce — ma lo si deve sapere.
@@ -4361,6 +4419,26 @@ function scaldaUna(m) {
   const genitore = m.parent;
   const eraCullata = m.frustumCulled;
   m.frustumCulled = false;
+  // ⚠⚠ LA NEBBIA, e senza questa riga tutta la scaldata scaldava IL PROGRAMMA
+  // SBAGLIATO. `renderer.render(oggetto, camera)` tratta l'oggetto passato come
+  // se fosse la scena, e legge `scena.fog` da lì: una mesh non ha `fog`, quindi
+  // three compilava la variante SENZA nebbia — che nel gioco non si usa mai.
+  // Il programma con la nebbia restava da fare, e si faceva dentro la draw.
+  // Trovato confrontando le chiavi di cache campo per campo: stessa chiave
+  // nostra («lanterna-luci-mondo-s-o-a-m»), due parametri di three diversi.
+  // È il difetto più insidioso di tutta la serie: la cura girava, non lanciava,
+  // marcava tutto come «caldo», e scaldava roba che nessuno avrebbe disegnato.
+  const eraNebbia = m.fog;
+  m.fog = rig.scena.fog;
+  // ⚠⚠ E VA ACCESA, se no non si disegna niente e si segna «caldo» il vuoto.
+  // three salta l'oggetto radice se `visible` è false: una mesh spenta passava
+  // di qui, non veniva disegnata, e usciva marcata come scaldata. Poi si
+  // accendeva in partita — la silhouette dietro un muro, un chunk che entra in
+  // vista, il fantasma — e il conto arrivava tutto intero, protetto da un segno
+  // che diceva il contrario. `scaldaShader` questa cosa la faceva già (accende
+  // tutto prima di compilare); qui mancava, ed è metà dei casi.
+  const eraVisibile = m.visible;
+  m.visible = true;
   try {
     r.setRenderTarget(_bersaglioScalda);
     r.render(m, _camScalda);
@@ -4385,6 +4463,8 @@ function scaldaUna(m) {
   finally {
     r.setRenderTarget(rtPrima);
     m.frustumCulled = eraCullata;
+    m.fog = eraNebbia;
+    m.visible = eraVisibile;
     if (genitore && m.parent !== genitore) genitore.add(m);
   }
   if (m.geometry) _scaldati.add(m.geometry);
@@ -4427,6 +4507,21 @@ function scaldaScena(t0) {
     fatti++;
     if (performance.now() - t0 > SCALDA_MS) fatti = -1;     // si riprende al prossimo giro
   });
+  // ⚠ E LE SCORTE, ogni fotogramma finché non sono calde. Chiamarle una volta
+  // sola all'avvio non basta: `scaldaScorte` ha bisogno di un chunk come
+  // provino, e all'avvio i chunk possono non esserci ancora (mondo che arriva
+  // dopo, AR, primo caricamento). Costa tre letture di WeakSet per fotogramma
+  // finché il conto non è pagato, e poi zero.
+  // ⚠ E LE SCORTE, ma UNA VOLTA SOLA per mondo. Il controllo «finché non sono
+  // tutte calde» sembrava più sicuro ed era una trappola: `scaldaScorte`
+  // disegna la scena intera, e se per qualunque ragione una scorta non risulta
+  // calda, quel disegno si ripete a OGNI fotogramma. Misurato mentre ci
+  // cascavo: la mediana della passeggiata da 1,4 a 2,1 ms. Un tentativo, e
+  // basta: se non è bastato si paga uno scatto, non si paga per sempre.
+  if (fatti >= 0 && !_scortePagate && mesher.chunks && mesher.chunks.size) {
+    _scortePagate = true;
+    scaldaScorte();
+  }
   return Math.max(0, fatti);
 }
 
