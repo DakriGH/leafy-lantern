@@ -49,8 +49,8 @@
 //   + stessi id → stesse traiettorie, ovunque e a qualunque fps.
 
 import * as THREE from 'three';
-import { patchLuci } from '../fx/materials.js?v=mtau1x4q';
-import { Rng } from '../ecs/orologio.js?v=mtau1x4q';
+import { patchLuci } from '../fx/materials.js?v=mtaudh1w';
+import { Rng } from '../ecs/orologio.js?v=mtaudh1w';
 
 const RAGGIO = 22;                 // entro quanto vivono attorno al gatto
 const TAU = Math.PI * 2;

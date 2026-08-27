@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtau1x4q';
-import { glslControluce } from './controluce.js?v=mtau1x4q';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtau1x4q';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtaudh1w';
+import { glslControluce } from './controluce.js?v=mtaudh1w';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtaudh1w';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -855,6 +855,52 @@ const GLSL_FRAGMENT = /* glsl */`
   // il passo di un blocco basta.
   bool voxCielo(ivec3 c) { return voxVal(c) > 0.8; }
 
+  // ═══ LA MARCIA DEL SOLE — la terza strada, chiesta dal committente il 27/08.
+  //
+  // PERCHÉ TORNA. Guardando il gioco: «la cosa assurda è che invece il cono di
+  // luce è perfetto con le ombre della luce». È l'osservazione più utile della
+  // giornata, e la diagnosi è questa: le LAMPADE camminano la griglia dei voxel
+  // cella per cella, quindi il bordo della loro ombra cade ESATTAMENTE dove il
+  // raggio entra in un blocco — nessuna interpolazione, nessuna griglia di texel
+  // sul ricevente, nessuno scarto da tarare. Il sole no: il campo di quote
+  // interpola, la mappa d'ombra campiona un reticolo suo.
+  //
+  // ⚠ E QUESTA MARCIA C'ERA GIÀ, prima del campo: il commento lungo qui sotto
+  // (le DUE METÀ DELL'OMBRA) è il suo, ed è rimasto orfano quando la funzione è
+  // stata sostituita. «voxCielo» è ancora qui e non la chiama più nessuno.
+  //
+  // ⚠ E VA DETTO PERCHÉ FU LIMITATA, se no si ripete il giro: «voxCielo» esclude
+  // di proposito la BUCCIA del terreno (soglia 0.8 contro lo 0.31/0.5 delle
+  // lampade) perché con la buccia dentro dava «il seghettato delle terrazze» —
+  // cioè, con altre parole, il difetto per cui siamo qui. Non è una promessa che
+  // stavolta vada: è la ragione per cui va GUARDATA prima di crederci.
+  //
+  // IL COSTO E LA SUA USCITA ANTICIPATA. Il sole tocca ogni pixel, quindi non ha
+  // l'«if (dentro la sfera)» che rende gratis la marcia delle lampade. Ne ha
+  // un'altra, ed è geometrica: una faccia girata dal sole NON lo vede, quindi
+  // esce prima di camminare. Sono grossomodo metà delle facce verticali più
+  // tutte quelle rivolte in giù. ⚠ Non è il chiaroscuro bocciato: quello era un
+  // MOLTIPLICATORE per orientamento (le «sei sfumature sporche» di Minecraft),
+  // questo è un test binario che manda allo STESSO unico livello di scuro di
+  // tutto il resto — e il committente l'ha chiarito il 27/08: «mi va bene che le
+  // facce siano in ombra».
+  bool marciaSole(vec3 da, vec3 dir, int passi) {
+    vec3 passo = vec3(dir.x >= 0.0 ? 1.0 : -1.0, dir.y >= 0.0 ? 1.0 : -1.0, dir.z >= 0.0 ? 1.0 : -1.0);
+    vec3 inv = 1.0 / max(abs(dir), vec3(1e-8));
+    vec3 f = da - floor(da);
+    vec3 prossimo = ((passo * 0.5 + 0.5) - passo * f) * inv;
+    ivec3 c = ivec3(floor(da));
+    ivec3 ipasso = ivec3(passo);
+    for (int k = 0; k < ${PASSI_MAX}; k++) {
+      if (k >= passi) return false;                   // budget finito: si è al sole
+      if (prossimo.x <= prossimo.y && prossimo.x <= prossimo.z) { c.x += ipasso.x; prossimo.x += inv.x; }
+      else if (prossimo.y <= prossimo.z)                        { c.y += ipasso.y; prossimo.y += inv.y; }
+      else                                                      { c.z += ipasso.z; prossimo.z += inv.z; }
+      if (voxCielo(c)) return true;
+    }
+    return false;
+  }
+
   // C'È UN MURO FRA QUESTO FRAMMENTO E LA LAMPADA?
   //
   // SI CAMMINA LA GRIGLIA, CELLA PER CELLA (traversata di voxel alla
@@ -1035,7 +1081,18 @@ const GLSL_FRAGMENT = /* glsl */`
     // committente non lo giustifica. Il ramo si sceglie in COMPILAZIONE, non con
     // un «if»: un ramo saltato con un if costa lo stesso sui registri di una GPU
     // mobile, ed è la lezione già scritta più sotto in questo file.
-    #ifdef LANTERNA_CONTROLUCE
+    #ifdef LANTERNA_MARCIA
+      // LA TERZA STRADA: si cammina la griglia dei voxel, come fanno le lampade.
+      {
+        vec3 n = normaleGeom();
+        // l'uscita anticipata: se il sole non vede la faccia, non si cammina
+        if (dot(n, uSoleDir) <= 0.0) return uOmbraFatt.r > 0.0 ? 0.0 : 0.0;
+        // si parte mezzo passo FUORI dalla superficie, se no la cella di
+        // partenza è la propria e ogni faccia si dichiara in ombra da sola
+        vec3 da = vPosMondo + n * 0.02 + uSoleDir * 0.02;
+        return marciaSole(da, uSoleDir, uSolePassi) ? 0.0 : _term;
+      }
+    #elif defined(LANTERNA_CONTROLUCE)
       // IL MONDO VISTO DAL SOLE. Un confronto binario contro la profondità della
       // GEOMETRIA VERA: niente iso-contorno di un campo continuo, quindi niente
       // archi iperbolici e niente ginocchi ogni texel; e niente inviluppo di
@@ -1313,7 +1370,7 @@ if (uParti != 0) {
 // Con i #define quei blocchi non vengono proprio COMPILATI: a qualità bassa lo
 // shader del mondo è un altro shader, piccolo. Cambiare profilo ricompila —
 // costa un momento, e succede solo quando la scala di qualità si muove.
-let _profilo = { sole: true, ombreLuci: true, acquaRicca: true, controluce: false };
+let _profilo = { sole: true, ombreLuci: true, acquaRicca: true, controluce: false, marcia: false };
 const _patchati = new Set();      // chi va ricompilato quando il profilo cambia
 
 /** Quali blocchi cari deve CONTENERE lo shader del mondo. Lo chiama la scala di
@@ -1323,15 +1380,16 @@ const _patchati = new Set();      // chi va ricompilato quando il profilo cambia
 export function impostaProfiloShader({
   sole = _profilo.sole, ombreLuci = _profilo.ombreLuci,
   acquaRicca = _profilo.acquaRicca, controluce = _profilo.controluce,
+  marcia = _profilo.marcia,
 } = {}) {
   // ⚠ OGNI ASSE HA COME DEFAULT SÉ STESSO, e non è comodità: chi vuole muovere
   // UN asse — l'interruttore di Controluce nel Banco V2 — altrimenti dovrebbe
   // riderivare anche gli altri tre, e riderivarli male è come si spegne per
   // sbaglio l'acqua ricca accendendo un'ombra.
-  const s2 = !!sole, l2 = !!ombreLuci, a2 = !!acquaRicca, c2 = !!controluce;
+  const s2 = !!sole, l2 = !!ombreLuci, a2 = !!acquaRicca, c2 = !!controluce, m2 = !!marcia;
   if (s2 === _profilo.sole && l2 === _profilo.ombreLuci && a2 === _profilo.acquaRicca
-      && c2 === _profilo.controluce) return;
-  _profilo = { sole: s2, ombreLuci: l2, acquaRicca: a2, controluce: c2 };
+      && c2 === _profilo.controluce && m2 === _profilo.marcia) return;
+  _profilo = { sole: s2, ombreLuci: l2, acquaRicca: a2, controluce: c2, marcia: m2 };
   for (const m of _patchati) m.needsUpdate = true;
 }
 
@@ -1385,7 +1443,8 @@ function iniettaLanterna(shader, ingombro, vento) {
   const define = (_profilo.sole ? '#define LANTERNA_SOLE\n' : '')
     + (_profilo.ombreLuci ? '#define LANTERNA_OMBRE_LUCI\n' : '')
     + (_profilo.acquaRicca ? '#define LANTERNA_ACQUA_RICCA\n' : '')
-    + (_profilo.controluce ? '#define LANTERNA_CONTROLUCE\n' : '');
+    + (_profilo.controluce ? '#define LANTERNA_CONTROLUCE\n' : '')
+    + (_profilo.marcia ? '#define LANTERNA_MARCIA\n' : '');
   shader.fragmentShader = define + shader.fragmentShader;
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\n' + GLSL_VERTEX)
@@ -1424,7 +1483,7 @@ export function patchLuci(materiale, ingombro = false, vento = false) {
   materiale.customProgramCacheKey = () =>
     'lanterna-luci-' + (ingombro ? 'furni' : 'mondo') + (vento ? '-vento' : '')
     + (_profilo.sole ? '-s' : '') + (_profilo.ombreLuci ? '-o' : '') + (_profilo.acquaRicca ? '-a' : '')
-    + (_profilo.controluce ? '-c' : '');
+    + (_profilo.controluce ? '-c' : '') + (_profilo.marcia ? '-m' : '');
   _patchati.add(materiale);
   return materiale;
 }
