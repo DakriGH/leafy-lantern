@@ -1,81 +1,81 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtatm933';
-import { Rig } from './engine/renderer.js?v=mtatm933';
-import { Input } from './engine/input.js?v=mtatm933';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtatm933';
-import { Cadenza } from './engine/cadenza.js?v=mtatm933';
-import { GpuProfiler } from './engine/gpuTimer.js?v=mtatm933';
-import { creaBatteria } from './engine/batteria.js?v=mtatm933';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtatm933';
-import { Mondo } from './world/world.js?v=mtatm933';
-import { SimAcqua } from './world/acqua.js?v=mtatm933';
-import { Lobby } from './net/lobby.js?v=mtatm933';
-import { Segnalatore } from './net/segnalatore.js?v=mtatm933';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtatm933';
-import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtatm933';
-import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtatm933';
-import { PannelloInsieme } from './ui/multiplayer.js?v=mtatm933';
-import { Targhetta } from './ui/targhetta.js?v=mtatm933';
-import { Bolla } from './ui/bolla.js?v=mtatm933';
-import { Scelta } from './ui/scelta.js?v=mtatm933';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtatm933';
-import { Zaino } from './ui/zaino.js?v=mtatm933';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mtatm933';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtatm933';
-import { generaMostra } from './world/mostra.js?v=mtatm933';
-import { generaCollaudo } from './world/collaudo.js?v=mtatm933';
-import { generaTestLuci } from './world/testLuci.js?v=mtatm933';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtatm933';
-import { generaTestMacchine } from './world/testMacchine.js?v=mtatm933';
-import { generaZoo } from './world/zoo.js?v=mtatm933';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mtatm933';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtatm933';
-import { Meteo } from './fx/meteo.js?v=mtatm933';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtatm933';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtatm933';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=mtatm933';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtatm933';
-import { CicloGiorno } from './fx/daynight.js?v=mtatm933';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, materialeOmbra, taraScartoOmbra, scostamentoNormale } from './fx/materials.js?v=mtatm933';
-import { CampoSole } from './fx/campoSole.js?v=mtatm933';
-import { Controluce, configuraMappa } from './fx/controluce.js?v=mtatm933';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtatm933';
-import { ModalitaAR } from './ar/ar.js?v=mtatm933';
-import { Nuvole } from './fx/nuvole.js?v=mtatm933';
-import { SagomaVista } from './fx/sagomaVista.js?v=mtatm933';
-import { Erba } from './fx/erba.js?v=mtatm933';
-import { Foglie } from './fx/foglie.js?v=mtatm933';
-import { SegnaPercorso } from './fx/percorso.js?v=mtatm933';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mtatm933';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mtatm933';
-import { Pioggia } from './fx/pioggia.js?v=mtatm933';
-import { Particelle } from './fx/particelle.js?v=mtatm933';
-import { Audio } from './fx/audio.js?v=mtatm933';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtatm933';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtatm933';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtatm933';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtatm933';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtatm933';
-import { Registro } from './ecs/registro.js?v=mtatm933';
-import { Orologio, Rng } from './ecs/orologio.js?v=mtatm933';
-import { Sistemi } from './ecs/sistemi.js?v=mtatm933';
-import { Agenda } from './ecs/agenda.js?v=mtatm933';
-import { Gatto } from './player/player.js?v=mtatm933';
-import { ManoStrumento } from './player/mano.js?v=mtatm933';
-import { dropDi } from './gioco/drop.js?v=mtatm933';
-import { Controller } from './player/controller.js?v=mtatm933';
-import { FURNI, centroide } from './furniture/registry.js?v=mtatm933';
-import { caricaModelli } from './furniture/loader.js?v=mtatm933';
-import { Arredo } from './furniture/furniture.js?v=mtatm933';
-import { HUD } from './ui/hud.js?v=mtatm933';
-import { MenuDebug } from './ui/debug.js?v=mtatm933';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtatm933';
-import { ModalitaXR } from './ar/ar-xr.js?v=mtatm933';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtatt887';
+import { Rig } from './engine/renderer.js?v=mtatt887';
+import { Input } from './engine/input.js?v=mtatt887';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtatt887';
+import { Cadenza } from './engine/cadenza.js?v=mtatt887';
+import { GpuProfiler } from './engine/gpuTimer.js?v=mtatt887';
+import { creaBatteria } from './engine/batteria.js?v=mtatt887';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtatt887';
+import { Mondo } from './world/world.js?v=mtatt887';
+import { SimAcqua } from './world/acqua.js?v=mtatt887';
+import { Lobby } from './net/lobby.js?v=mtatt887';
+import { Segnalatore } from './net/segnalatore.js?v=mtatt887';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtatt887';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtatt887';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtatt887';
+import { PannelloInsieme } from './ui/multiplayer.js?v=mtatt887';
+import { Targhetta } from './ui/targhetta.js?v=mtatt887';
+import { Bolla } from './ui/bolla.js?v=mtatt887';
+import { Scelta } from './ui/scelta.js?v=mtatt887';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtatt887';
+import { Zaino } from './ui/zaino.js?v=mtatt887';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mtatt887';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtatt887';
+import { generaMostra } from './world/mostra.js?v=mtatt887';
+import { generaCollaudo } from './world/collaudo.js?v=mtatt887';
+import { generaTestLuci } from './world/testLuci.js?v=mtatt887';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtatt887';
+import { generaTestMacchine } from './world/testMacchine.js?v=mtatt887';
+import { generaZoo } from './world/zoo.js?v=mtatt887';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mtatt887';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtatt887';
+import { Meteo } from './fx/meteo.js?v=mtatt887';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtatt887';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtatt887';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=mtatt887';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtatt887';
+import { CicloGiorno } from './fx/daynight.js?v=mtatt887';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, materialeOmbra, taraScartoOmbra, scostamentoNormale } from './fx/materials.js?v=mtatt887';
+import { CampoSole } from './fx/campoSole.js?v=mtatt887';
+import { Controluce, configuraMappa } from './fx/controluce.js?v=mtatt887';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtatt887';
+import { ModalitaAR } from './ar/ar.js?v=mtatt887';
+import { Nuvole } from './fx/nuvole.js?v=mtatt887';
+import { SagomaVista } from './fx/sagomaVista.js?v=mtatt887';
+import { Erba } from './fx/erba.js?v=mtatt887';
+import { Foglie } from './fx/foglie.js?v=mtatt887';
+import { SegnaPercorso } from './fx/percorso.js?v=mtatt887';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mtatt887';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mtatt887';
+import { Pioggia } from './fx/pioggia.js?v=mtatt887';
+import { Particelle } from './fx/particelle.js?v=mtatt887';
+import { Audio } from './fx/audio.js?v=mtatt887';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtatt887';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtatt887';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtatt887';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtatt887';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtatt887';
+import { Registro } from './ecs/registro.js?v=mtatt887';
+import { Orologio, Rng } from './ecs/orologio.js?v=mtatt887';
+import { Sistemi } from './ecs/sistemi.js?v=mtatt887';
+import { Agenda } from './ecs/agenda.js?v=mtatt887';
+import { Gatto } from './player/player.js?v=mtatt887';
+import { ManoStrumento } from './player/mano.js?v=mtatt887';
+import { dropDi } from './gioco/drop.js?v=mtatt887';
+import { Controller } from './player/controller.js?v=mtatt887';
+import { FURNI, centroide } from './furniture/registry.js?v=mtatt887';
+import { caricaModelli } from './furniture/loader.js?v=mtatt887';
+import { Arredo } from './furniture/furniture.js?v=mtatt887';
+import { HUD } from './ui/hud.js?v=mtatt887';
+import { MenuDebug } from './ui/debug.js?v=mtatt887';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtatt887';
+import { ModalitaXR } from './ar/ar-xr.js?v=mtatt887';
 import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot,
   spingiSnapshot, sbirciaSnapshot, togliSnapshot, livelliSnapshot,
-  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtatm933';
+  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtatt887';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -2867,6 +2867,8 @@ const menuDebug = new MenuDebug({
     // confronto si prendono SEMPRE da `sguardo`, se no si confrontano due
     // inquadrature e si crede di confrontare uno shader.
     controluce: () => accendiControluce(!_controluceOn),
+    controluceStato: () => _controluceOn,
+    soleBisturiStato: () => (uniformiCondivise().uParti.value & PARTI.sole) !== 0,
     scartoOmbra: (b) => scartoOmbra(b),
     scostaNormale: (n) => scostamentoNormale(n),
     // le manopole del sole non sanno niente della chiave della mappa: dopo una
@@ -4101,7 +4103,16 @@ const _confControluce = configuraMappa({
   fovGradi: CAMERA.fov, pxBersaglio: rig.mobile ? 4 : 2, tetto: rig.mobile ? 1024 : 2048,
 });
 const controluce = new Controluce(rig.renderer, _confControluce.N);
-let _controluceOn = false;
+// ⚠ ACCESO DI FABBRICA, e la regola del cantiere qui è stata applicata male.
+// «Ogni tappa esce SPENTA» protegge da una modifica non provata che raggiunge
+// tutti; ma il 27/08 ho pubblicato proprio la cura che il committente stava
+// aspettando, disattivata, e gli ho detto di andare a guardare — così ha
+// guardato il SISTEMA VECCHIO e ha visto esattamente il difetto di prima
+// («seghettate e a triangolo, senza essere vere come la forma dell'oggetto»).
+// Una tappa spenta è prudenza solo finché non è la cosa che si è chiesto di
+// vedere: da quel momento è un modo di far perdere tempo a tutti e due.
+// Il bottone 🌓 nel Banco V2 resta, e adesso serve a tornare INDIETRO per l'A/B.
+let _controluceOn = true;
 
 /** Il giro della mappa: decide dove va e, SE è cambiato qualcosa, la ridisegna.
  *  ⚠ Le cose che si MUOVONO restano fuori: la mappa è cachata per quanto di
@@ -4171,6 +4182,12 @@ function accendiControluce(on) {
 }
 impostaCampoSole(campoSole.texture);
 campoSole.filtroLineare(!!rig.renderer.extensions.get('OES_texture_float_linear'));
+// ⚠ E IL PROFILO VA SCRITTO DAVVERO, non solo la variabile: `_profilo.controluce`
+// nasce a false dentro materials.js, e senza questa riga il flag qui sopra
+// direbbe «acceso» mentre lo shader compilato non contiene il ramo. È
+// letteralmente il difetto storico del §1.3 — una uniform giusta che non prova
+// niente perché il programma non la legge.
+accendiControluce(_controluceOn);
 
 // La presenza verso il nostro server (spenta finché config.ANALITICA_URL è vuoto)
 globalThis.VERSIONE_CODICE = VERSIONE_CODICE;

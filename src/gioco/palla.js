@@ -24,8 +24,8 @@
 //                            il mesh a lerp(posizionePrec, posizione, alpha).
 
 import * as THREE from 'three';
-import { defDi, livelloAcqua } from '../world/blocks.js?v=mtatm933';
-import { patchLuci } from '../fx/materials.js?v=mtatm933';
+import { defDi, livelloAcqua } from '../world/blocks.js?v=mtatt887';
+import { patchLuci } from '../fx/materials.js?v=mtatt887';
 
 export const RAGGIO = 0.3;
 const GRAVITA = 26;

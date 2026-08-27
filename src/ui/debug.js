@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=mtatm933';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtatm933';
-import { FISICA } from '../config.js?v=mtatm933';
+import { CHUNK } from '../world/world.js?v=mtatt887';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtatt887';
+import { FISICA } from '../config.js?v=mtatt887';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -234,6 +234,17 @@ export class MenuDebug {
   sincronizza() {
     this.btnVolo.classList.toggle('attivo', this.controller.vola);
     this.btnPausa.textContent = this.ciclo.auto ? '⏸' : '▶';
+    // ⚠ I BOTTONI CHE NASCONO ACCESI vanno marcati, se no il pannello mente su
+    // cosa sta guardando l'utente — ed è così che si giudica un sistema per
+    // l'altro. Controluce parte acceso: senza questa riga il bottone sembra
+    // spento e chi lo preme lo SPEGNE credendo di accenderlo.
+    const c = this.el.querySelector('[data-el="btnControluce"]');
+    if (c && this.azioni.controluceStato) c.classList.toggle('attivo', !!this.azioni.controluceStato());
+    const m = this.el.querySelector('[data-el="btnSoleManuale"]');
+    if (m) m.classList.toggle('attivo', !!(this.ciclo.sole && this.ciclo.sole.manuale));
+    const s = this.el.querySelector('[data-el="btnSoleBisturi"]');
+    if (s && this.azioni.soleBisturiStato) s.classList.toggle('attivo', !this.azioni.soleBisturiStato());
+    this.sincronizzaManopole();
   }
 
   /** LE MANOPOLE DEL SOLE E DELL'OMBRA, dal vivo.
