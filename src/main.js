@@ -1,81 +1,81 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtbvpm5v';
-import { Rig } from './engine/renderer.js?v=mtbvpm5v';
-import { Input } from './engine/input.js?v=mtbvpm5v';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtbvpm5v';
-import { Cadenza } from './engine/cadenza.js?v=mtbvpm5v';
-import { GpuProfiler } from './engine/gpuTimer.js?v=mtbvpm5v';
-import { creaBatteria } from './engine/batteria.js?v=mtbvpm5v';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtbvpm5v';
-import { Mondo } from './world/world.js?v=mtbvpm5v';
-import { SimAcqua } from './world/acqua.js?v=mtbvpm5v';
-import { Lobby } from './net/lobby.js?v=mtbvpm5v';
-import { Segnalatore } from './net/segnalatore.js?v=mtbvpm5v';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtbvpm5v';
-import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtbvpm5v';
-import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtbvpm5v';
-import { PannelloInsieme } from './ui/multiplayer.js?v=mtbvpm5v';
-import { Targhetta } from './ui/targhetta.js?v=mtbvpm5v';
-import { Bolla } from './ui/bolla.js?v=mtbvpm5v';
-import { Scelta } from './ui/scelta.js?v=mtbvpm5v';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtbvpm5v';
-import { Zaino } from './ui/zaino.js?v=mtbvpm5v';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mtbvpm5v';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtbvpm5v';
-import { generaMostra } from './world/mostra.js?v=mtbvpm5v';
-import { generaCollaudo } from './world/collaudo.js?v=mtbvpm5v';
-import { generaTestLuci } from './world/testLuci.js?v=mtbvpm5v';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtbvpm5v';
-import { generaTestMacchine } from './world/testMacchine.js?v=mtbvpm5v';
-import { generaZoo } from './world/zoo.js?v=mtbvpm5v';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mtbvpm5v';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtbvpm5v';
-import { Meteo } from './fx/meteo.js?v=mtbvpm5v';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtbvpm5v';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtbvpm5v';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=mtbvpm5v';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtbvpm5v';
-import { CicloGiorno } from './fx/daynight.js?v=mtbvpm5v';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, impostaCorpi, materialeOmbra, materialiDiScorta, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtbvpm5v';
-import { CampoSole } from './fx/campoSole.js?v=mtbvpm5v';
-import { Controluce, configuraMappa } from './fx/controluce.js?v=mtbvpm5v';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtbvpm5v';
-import { ModalitaAR } from './ar/ar.js?v=mtbvpm5v';
-import { Nuvole } from './fx/nuvole.js?v=mtbvpm5v';
-import { SagomaVista } from './fx/sagomaVista.js?v=mtbvpm5v';
-import { Erba } from './fx/erba.js?v=mtbvpm5v';
-import { Foglie } from './fx/foglie.js?v=mtbvpm5v';
-import { SegnaPercorso } from './fx/percorso.js?v=mtbvpm5v';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mtbvpm5v';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mtbvpm5v';
-import { Pioggia } from './fx/pioggia.js?v=mtbvpm5v';
-import { Particelle } from './fx/particelle.js?v=mtbvpm5v';
-import { Audio } from './fx/audio.js?v=mtbvpm5v';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtbvpm5v';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtbvpm5v';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtbvpm5v';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtbvpm5v';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtbvpm5v';
-import { Registro } from './ecs/registro.js?v=mtbvpm5v';
-import { Orologio, Rng } from './ecs/orologio.js?v=mtbvpm5v';
-import { Sistemi } from './ecs/sistemi.js?v=mtbvpm5v';
-import { Agenda } from './ecs/agenda.js?v=mtbvpm5v';
-import { Gatto } from './player/player.js?v=mtbvpm5v';
-import { ManoStrumento } from './player/mano.js?v=mtbvpm5v';
-import { dropDi } from './gioco/drop.js?v=mtbvpm5v';
-import { Controller } from './player/controller.js?v=mtbvpm5v';
-import { FURNI, centroide } from './furniture/registry.js?v=mtbvpm5v';
-import { caricaModelli } from './furniture/loader.js?v=mtbvpm5v';
-import { Arredo } from './furniture/furniture.js?v=mtbvpm5v';
-import { HUD } from './ui/hud.js?v=mtbvpm5v';
-import { MenuDebug } from './ui/debug.js?v=mtbvpm5v';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtbvpm5v';
-import { ModalitaXR } from './ar/ar-xr.js?v=mtbvpm5v';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtbwqugr';
+import { Rig } from './engine/renderer.js?v=mtbwqugr';
+import { Input } from './engine/input.js?v=mtbwqugr';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtbwqugr';
+import { Cadenza } from './engine/cadenza.js?v=mtbwqugr';
+import { GpuProfiler } from './engine/gpuTimer.js?v=mtbwqugr';
+import { creaBatteria } from './engine/batteria.js?v=mtbwqugr';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtbwqugr';
+import { Mondo } from './world/world.js?v=mtbwqugr';
+import { SimAcqua } from './world/acqua.js?v=mtbwqugr';
+import { Lobby } from './net/lobby.js?v=mtbwqugr';
+import { Segnalatore } from './net/segnalatore.js?v=mtbwqugr';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtbwqugr';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtbwqugr';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtbwqugr';
+import { PannelloInsieme } from './ui/multiplayer.js?v=mtbwqugr';
+import { Targhetta } from './ui/targhetta.js?v=mtbwqugr';
+import { Bolla } from './ui/bolla.js?v=mtbwqugr';
+import { Scelta } from './ui/scelta.js?v=mtbwqugr';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtbwqugr';
+import { Zaino } from './ui/zaino.js?v=mtbwqugr';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mtbwqugr';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtbwqugr';
+import { generaMostra } from './world/mostra.js?v=mtbwqugr';
+import { generaCollaudo } from './world/collaudo.js?v=mtbwqugr';
+import { generaTestLuci } from './world/testLuci.js?v=mtbwqugr';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtbwqugr';
+import { generaTestMacchine } from './world/testMacchine.js?v=mtbwqugr';
+import { generaZoo } from './world/zoo.js?v=mtbwqugr';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mtbwqugr';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtbwqugr';
+import { Meteo } from './fx/meteo.js?v=mtbwqugr';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtbwqugr';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtbwqugr';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=mtbwqugr';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtbwqugr';
+import { CicloGiorno } from './fx/daynight.js?v=mtbwqugr';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, impostaCorpi, materialeOmbra, materialiDiScorta, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtbwqugr';
+import { CampoSole } from './fx/campoSole.js?v=mtbwqugr';
+import { Controluce, configuraMappa } from './fx/controluce.js?v=mtbwqugr';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtbwqugr';
+import { ModalitaAR } from './ar/ar.js?v=mtbwqugr';
+import { Nuvole } from './fx/nuvole.js?v=mtbwqugr';
+import { SagomaVista } from './fx/sagomaVista.js?v=mtbwqugr';
+import { Erba } from './fx/erba.js?v=mtbwqugr';
+import { Foglie } from './fx/foglie.js?v=mtbwqugr';
+import { SegnaPercorso } from './fx/percorso.js?v=mtbwqugr';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mtbwqugr';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mtbwqugr';
+import { Pioggia } from './fx/pioggia.js?v=mtbwqugr';
+import { Particelle } from './fx/particelle.js?v=mtbwqugr';
+import { Audio } from './fx/audio.js?v=mtbwqugr';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtbwqugr';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtbwqugr';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtbwqugr';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtbwqugr';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtbwqugr';
+import { Registro } from './ecs/registro.js?v=mtbwqugr';
+import { Orologio, Rng } from './ecs/orologio.js?v=mtbwqugr';
+import { Sistemi } from './ecs/sistemi.js?v=mtbwqugr';
+import { Agenda } from './ecs/agenda.js?v=mtbwqugr';
+import { Gatto } from './player/player.js?v=mtbwqugr';
+import { ManoStrumento } from './player/mano.js?v=mtbwqugr';
+import { dropDi } from './gioco/drop.js?v=mtbwqugr';
+import { Controller } from './player/controller.js?v=mtbwqugr';
+import { FURNI, centroide } from './furniture/registry.js?v=mtbwqugr';
+import { caricaModelli } from './furniture/loader.js?v=mtbwqugr';
+import { Arredo } from './furniture/furniture.js?v=mtbwqugr';
+import { HUD } from './ui/hud.js?v=mtbwqugr';
+import { MenuDebug } from './ui/debug.js?v=mtbwqugr';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtbwqugr';
+import { ModalitaXR } from './ar/ar-xr.js?v=mtbwqugr';
 import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot,
   spingiSnapshot, sbirciaSnapshot, togliSnapshot, livelliSnapshot,
-  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtbvpm5v';
+  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtbwqugr';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -3736,7 +3736,7 @@ const OPZ_CHIAVE = 'lantern.opzioni.v1';
 // che il committente chiede («ombre e luci in cel shading») finalmente esiste
 // anche dove si gioca davvero. Se una diagnostica dal dispositivo dicesse il
 // contrario, la leva è questa: ombraSole nel default e `sole` nella scala.
-const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, autoQ: true, luceCotta: !rig.mobile, cameraFantasma: false, erba: true, foro: true, foroRaggio: 110, sagoma: false, sagomaTutti: false, scala: 1, riflForza: 1, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.toccoPrimario, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale', nitido: true, ombraSole: true, solePassi: 12, soleTerm: false, soleForza: 1, soleRaggi: 1, soleMarcia: MARCIA_PASSI_MAX, bordiMorbidi: !rig.mobile};
+const OPZ_DEFAULT = { fog: 0.55, dist: 700, riflessi: !rig.mobile, autoQ: true, luceCotta: !rig.mobile, cameraFantasma: false, erba: true, foro: true, foroRaggio: 110, sagoma: false, sagomaTutti: false, scala: 1, riflForza: 1, meteoAuto: true, arRot: 0, arScala: 1, arEspo: 0.5, arFuoco: null, comandiTouch: rig.toccoPrimario, fpsMax: 0, vol: 0.6, muto: false, posa: 'davanti', durezza: 'normale', nitido: true, ombraSole: true, solePassi: 12, soleTerm: false, soleForza: 1, soleRaggi: 1, soleMarcia: MARCIA_PASSI_MAX, bordiMorbidi: !rig.mobile, campioni: rig.mobile ? 0 : 4};
 // ⚠ LE OPZIONI SALVATE NON SCAVALCANO PIÙ, DA SOLE, OGNI DEFAULT NUOVO.
 // `Object.assign({}, OPZ_DEFAULT, salvate)` — che è quello che c'era qui — fonde
 // i valori del giocatore SOPRA i valori di fabbrica: chi ha toccato il menu
@@ -3792,27 +3792,27 @@ const PRESET_GRAFICA = {
   minima: {
     scala: 0.5, riflessi: false, luceCotta: false, riflForza: 0.4, dist: 180, fog: 1,
     nitido: false, ombraSole: false, solePassi: 0, soleTerm: false, soleForza: 1, soleRaggi: 1,
-    erba: false, soleMarcia: 0, bordiMorbidi: false, autoQ: true,
+    erba: false, soleMarcia: 0, campioni: 0, bordiMorbidi: false, autoQ: true,
   },
   bassa: {
     scala: 0.66, riflessi: false, luceCotta: false, riflForza: 0.6, dist: 250, fog: 0.9,
     nitido: true, ombraSole: false, solePassi: 0, soleTerm: false, soleForza: 1, soleRaggi: 1,
-    erba: true, soleMarcia: 0, bordiMorbidi: false, autoQ: true,
+    erba: true, soleMarcia: 0, campioni: 0, bordiMorbidi: false, autoQ: true,
   },
   media: {
     scala: 0.85, riflessi: false, luceCotta: true, riflForza: 0.8, dist: 450, fog: 0.7,
     nitido: true, ombraSole: true, solePassi: 8, soleTerm: false, soleForza: 1, soleRaggi: 1,
-    erba: true, soleMarcia: 14, bordiMorbidi: false, autoQ: true,
+    erba: true, soleMarcia: 14, campioni: 2, bordiMorbidi: false, autoQ: true,
   },
   alta: {
     scala: 1, riflessi: true, luceCotta: true, riflForza: 1, dist: 700, fog: 0.55,
     nitido: true, ombraSole: true, solePassi: 12, soleTerm: false, soleForza: 1, soleRaggi: 1,
-    erba: true, soleMarcia: 22, bordiMorbidi: true, autoQ: true,
+    erba: true, soleMarcia: 22, campioni: 4, bordiMorbidi: true, autoQ: true,
   },
   ultra: {
     scala: 1, riflessi: true, luceCotta: true, riflForza: 1.2, dist: 900, fog: 0.4,
     nitido: true, ombraSole: true, solePassi: 13, soleTerm: false, soleForza: 1, soleRaggi: 1,
-    erba: true, soleMarcia: 28, bordiMorbidi: true, autoQ: false,
+    erba: true, soleMarcia: 28, campioni: 4, bordiMorbidi: true, autoQ: false,
   },
 };
 
@@ -3898,7 +3898,20 @@ function applicaQualita() {
   // I BORDI: la scaletta dei poligoni è un'altra cosa dai pixel grandi, e ha la
   // sua manopola. Vedi rig.setCampioni — sotto scala 1 l'antialias del contesto
   // NON arriva al bersaglio interno, quindi va riacceso lì.
-  rig.setCampioni(qManuale ? (opzioni.campioni ?? 0) : (q.campioni ?? 0));
+  // ⚠⚠ IL DIFETTO PIÙ CARO DELLA GIORNATA STAVA IN QUESTO `?? 0`. `campioni` è
+  // l'MSAA — i bordi della GEOMETRIA — e non stava né in OPZ_DEFAULT né nei
+  // profili. Quindi in manuale (che è dove sta «Ultra») `opzioni.campioni` era
+  // `undefined`, il `?? 0` lo leggeva come ZERO, e scegliere il profilo più alto
+  // SPEGNEVA l'antialiasing. Il committente l'ha visto così: «tutto seghettato»
+  // — non le ombre, tutto. È la stessa trappola già trovata due volte
+  // (`erba` nella scala, `soleRaggi` nei preset): un default che rientra dalla
+  // finestra, e che è sempre il valore che costa meno.
+  // ⚠ E I DUE SI COMBINANO COL PIÙ PRUDENTE, come `scala`, `dist` e
+  // `soleMarcia`: con un `qManuale ? … : …` secco il profilo scelto a mano non
+  // morde finché la qualità automatica è accesa — e lo è in quattro profili su
+  // cinque. Misurato: «Minima» chiedeva zero campioni e ne otteneva quattro.
+  rig.setCampioni(Math.min(qManuale ? 4 : (q.campioni ?? 0),
+    opzioni.campioni ?? (rig.mobile ? 0 : 4)));
   erba.densita = qManuale ? 1 : (q.erba ?? 1);
   erba.raggioChunk = qManuale ? 5 : (q.erbaR ?? 5);
   erba.risemina();
@@ -5003,8 +5016,32 @@ let _giu = 0, _su = 0, _ultimoCambio = 0;
  * di 45 fps: su un 144 Hz, 60 fps stabili non sono un problema da curare
  * togliendo qualità.
  */
-function sogliaSu() { return (_refreshHz > 0 ? _refreshHz : 60) * 0.90; }
-function sogliaGiu() { return Math.max(24, Math.min(45, (_refreshHz > 0 ? _refreshHz : 60) * 0.45)); }
+/**
+ * ⚠⚠ IL BERSAGLIO È SESSANTA, NON IL REFRESH — e questa riga è la correzione di
+ * un mio errore che ha peggiorato le cose invece di curarle.
+ *
+ * La prima versione misurava le soglie sul TETTO DELLO SCHERMO: si risaliva al
+ * 90% del tetto. Su un 60 Hz è giusto e cura il Chromebook. Su un 144 Hz vuol
+ * dire **risalire solo sopra i 130 fps**, mentre prima bastavano 58: ho reso
+ * la salita MOLTO più difficile proprio dove prima funzionava. E insieme ho
+ * abbassato la soglia di discesa a 45 (era 28), cioè l'ho resa più facile.
+ * Giù in fretta e mai più su.
+ *
+ * Il conto di cosa costa: sotto il QUARTO gradino della scala desktop
+ * `campioni` va a 0, cioè si spegne l'MSAA. Il committente l'ha visto così:
+ * «tutto seghettato» — non le ombre, TUTTO, perché sono i bordi della
+ * geometria. Più la scala di resa che scende a 0,62.
+ *
+ * La verità è che il tetto dello schermo NON è il bersaglio: è solo un
+ * COPERCHIO. Il bersaglio è avere sessanta fotogrammi stabili — sopra quelli, i
+ * fotogrammi in più valgono meno della qualità. Quindi si punta a
+ * `min(tetto, 60)`: su un 60 Hz è il tetto (e la soglia di salita a 55 evita la
+ * trappola del «58 che con la sincronia verticale non arriva mai»), su un
+ * 144 Hz è 60 — e a 100 fps si RISALE, invece di restare inchiodati in fondo.
+ */
+function bersaglioFps() { return Math.min(_refreshHz > 0 ? _refreshHz : 60, 60); }
+function sogliaSu() { return bersaglioFps() * 0.92; }
+function sogliaGiu() { return Math.max(24, bersaglioFps() * 0.5); }
 
 function adattaQualita(fps) {
   if (qManuale) return;
