@@ -20,6 +20,31 @@ export const BLOCCHI = {
   lanaBlu:    { nome: 'Lana blu',    cima: 0x4a7fd4, lato: 0x3f6ec0, fondo: 0x3760ab, solido: true, nav: 10, fam: 'scavo' },
   lanaGialla: { nome: 'Lana gialla', cima: 0xf2c94c, lato: 0xe0b83e, fondo: 0xcda634, solido: true, nav: 10, fam: 'scavo' },
   lanaVerde:  { nome: 'Lana verde',  cima: 0x58b368, lato: 0x4aa05a, fondo: 0x3f8f4e, solido: true, nav: 10, fam: 'scavo' },
+  // ---- LE MATERIE (§13 del piano): metallo, fango, ghiaccio, acceso, specchio.
+  //
+  // `def.materia` è una RIGA DI TABELLA (world/materie.js), non una texture e
+  // non una BRDF. Il mesher ne cava un colore e lo cuoce nel `color` per
+  // vertice che già scrive: **costo per pixel ZERO**, e il programma del mondo
+  // non guadagna un'istruzione. Chi legge questi cinque blocchi capisce cosa fa
+  // una materia in venti secondi, che è il motivo per cui esistono.
+  //
+  // ⚠⚠ MAI INSIEME A `cappello`: il mesher marca i vertici d'erba dal COLORE, e
+  // una tinta di materia li smarca — la stagione smette di ridipingerli e il
+  // cappello resta verde d'inverno, mesi dopo, senza un errore.
+  // `test/materie.test.mjs` lo pretende su tutto il registro.
+  ferro:    { nome: 'Ferro',    cima: 0xb9c2cc, lato: 0xa4adb8, fondo: 0x8f98a3, solido: true, nav: 10, fam: 'scavo', materia: 'metallo' },
+  // ⚠ LA BASE DEL FANGO È CHIARA APPOSTA. La materia `fango` moltiplica per
+  // 0,72: partendo da un marrone già scuro il risultato va a NERO, e in ombra
+  // ci va del tutto — visto a schermo il 27/08. Il colore del blocco è la
+  // MATERIA PRIMA, non il risultato: chi lo sceglie deve immaginarselo già
+  // bagnato. Vale per tutte e cinque, ed è la trappola di un sistema che
+  // moltiplica invece di sostituire.
+  fanghiglia: { nome: 'Fanghiglia', cima: 0xb08a5c, lato: 0xa07d52, fondo: 0x8d6d47, solido: true, nav: 10, fam: 'scavo', materia: 'fango' },
+  ghiaccio: { nome: 'Ghiaccio',  cima: 0xbfe6f2, lato: 0xa9d8ea, fondo: 0x93c9e0, solido: true, nav: 10, fam: 'scavo', materia: 'ghiaccio' },
+  cristallo: { nome: 'Cristallo', cima: 0xffe9a8, lato: 0xf7dc8b, fondo: 0xe8cb75, solido: true, nav: 10, fam: 'mina', salute: 100,
+               materia: 'accesa', luce: { colore: 0xffd98a, raggio: 6, intensita: 1.0, ombra: true } },
+  ottone:   { nome: 'Ottone',   cima: 0xd9b45a, lato: 0xc3a04c, fondo: 0xa8883f, solido: true, nav: 10, fam: 'scavo', materia: 'specchio' },
+
   // LUCE DINAMICA per-blocco: def.luce = {colore, raggio, intensita, ombra}
   // accende una sfera fake-pointlight al centro della cella (gestita da main).
   //

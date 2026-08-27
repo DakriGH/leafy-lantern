@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtavryo3';
-import { glslControluce } from './controluce.js?v=mtavryo3';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtavryo3';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbg4x74';
+import { glslControluce } from './controluce.js?v=mtbg4x74';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbg4x74';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -184,8 +184,38 @@ export function statImpatti() { return _statImpatti; }
 /** Anelli di schiuma degli impatti di cascata: `impatti` = [{x, y, z, r}] in
  *  coordinate mondo, dove y è la quota del PELO su cui la colonna sbatte (non
  *  quella da cui parte). `fuoco` sceglie i più vicini quando sono troppi. */
+/** Oltre questa distanza dal fuoco un anello non si manda proprio.
+ *
+ * ⚠ PERCHÉ SERVE, e l'ho scoperto misurando: gli «impatti» NON sono gocce di
+ * pioggia — sono i punti dove le colonne d'acqua del fiume sbattono sul pelo,
+ * cioè roba FISSA del terreno. In un open world ce ne sono sempre più di 32,
+ * quindi `uImpattiNum` resta inchiodato al TETTO anche a cielo sereno, e
+ * l'uscita anticipata «a zero impatti» dentro lo shader non scatta MAI.
+ * Misurato il 27/08 (freno a 210 MHz, macchina assestata, spread 0,06):
+ * l'acqua intera costa 0,95 ms su 29,75 e **0,81 sono questi anelli** — l'85%
+ * del costo dell'acqua, speso su cascate che magari stanno dietro le spalle.
+ * Un anello è largo ~1 unità: a quaranta blocchi è già un dettaglio che nessuno
+ * cerca, e a ottanta è dentro la nebbia. Tagliare per distanza libera slot per
+ * quelli VICINI (che è anche più bello) e abbassa il conto del ciclo.
+ */
+const IMPATTI_PORTATA = 48;
+
 export function impostaSchiumaAcqua(impatti, fuoco = null) {
   let lista = impatti;
+  // IL TAGLIO PER DISTANZA VIENE PRIMA DELL'ORDINAMENTO: ordinare 200 anelli per
+  // buttarne 170 è lavoro sprecato, e il taglio è un confronto per elemento.
+  if (fuoco && lista.length > IMPATTI_MAX) {
+    const r2 = IMPATTI_PORTATA * IMPATTI_PORTATA;
+    const vicini = lista.filter((i) => {
+      const dx = i.x - fuoco.x, dz = i.z - fuoco.z;
+      return dx * dx + dz * dz <= r2;
+    });
+    // ⚠ SE IL TAGLIO SVUOTA TUTTO SI TIENE LA LISTA INTERA. Un fiume lontano e
+    // nessun anello vicino darebbe zero, e zero anelli è giusto — ma il
+    // committente guarda anche da lontano col volo, e lì un pelo d'acqua senza
+    // nessuna schiuma si legge come «l'acqua è rotta» invece che «è distante».
+    if (vicini.length) lista = vicini;
+  }
   if (lista.length > IMPATTI_MAX) {
     // SI ORDINA SEMPRE. Il taglio era condizionato a `fuoco`: senza, restavano
     // i primi otto NELL'ORDINE DI ITERAZIONE DEI CHUNK — un sottoinsieme
@@ -207,6 +237,9 @@ export function impostaSchiumaAcqua(impatti, fuoco = null) {
   uniformi.uImpattiNum.value = n;
   _statImpatti.mostrati = n;
   _statImpatti.totali = impatti.length;
+  // quanti ne ha tolti la PORTATA: senza questo numero il taglio è muto, e un
+  // taglio muto è indistinguibile da un guasto quando la schiuma non c'è.
+  _statImpatti.vicini = lista.length;
 }
 
 // ---- OCCUPAZIONE DEI SOLIDI: la griglia dei muri, in GPU --------------------

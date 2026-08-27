@@ -9,13 +9,14 @@
 // Il mondo è a chunk: si ricostruiscono solo i chunk sporchi.
 
 import * as THREE from 'three';
-import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=mtavryo3';
-import { paletteBlocco, coloreFaccia } from './stagioni.js?v=mtavryo3';
-import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=mtavryo3';
-import { tintaPalette } from './motivi.js?v=mtavryo3';
-import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=mtavryo3';
-import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel, mondoVelato } from '../fx/materials.js?v=mtavryo3';
-import { CHUNK } from './world.js?v=mtavryo3';
+import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=mtbg4x74';
+import { paletteBlocco, coloreFaccia } from './stagioni.js?v=mtbg4x74';
+import { materiaDi, tingiMateria } from './materie.js?v=mtbg4x74';
+import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=mtbg4x74';
+import { tintaPalette } from './motivi.js?v=mtbg4x74';
+import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=mtbg4x74';
+import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel, mondoVelato } from '../fx/materials.js?v=mtbg4x74';
+import { CHUNK } from './world.js?v=mtbg4x74';
 
 const U = 1 / 16;                 // 1 pixel in unità mondo
 const COPPIE_SMUSSO = [[0, 1], [0, 2], [1, 2]];
@@ -140,7 +141,24 @@ function vec(cx, cy, cz, a, va, b, vb, c, vc) {
 
 // ---- supercubo classico (26 pezzi) -----------------------------------------
 
-export function supercubo(b, cx, cy, cz, pal, vicino) {
+/**
+ * @param orlo quanto SCHIARIRE i venti pezzi smussati (0 = come le facce).
+ *
+ * ⚠ L'ORLO SOSTITUISCE UNA DISTINZIONE CHE C'ERA GIÀ, e questo è l'argomento
+ * che lo separa dal chiaroscuro cotto che il committente ha bocciato. Oggi lo
+ * smusso sceglie il colore con `cima ? pal.cima : (fondo ? pal.fondo : pal.lato)`,
+ * cioè TRE classi per orientamento. L'orlo le rimpiazza con UNA voce sola per
+ * tutti e venti i pezzi: dopo l'orlo gli smussi sono PIÙ isotropi di adesso,
+ * non meno. Resta un argomento, e va guardato a schermo prima di crederci.
+ */
+/** ⚠ L'ORLO SCHIARISCE E BASTA: la tinta e la saturazione della materia sono
+ *  GIÀ dentro `pal` (le ha applicate `costruisciBlocco`). Ripassarci la materia
+ *  vera le applicherebbe DUE VOLTE — un metallo grigio-ferro diventerebbe
+ *  carbone, e solo sugli smussi. Questa riga finta ha tinta e saturazione
+ *  neutre apposta: fa solo lo `schiarisci`. */
+const ORLO_PIATTO = { tinta: 1, satura: 1 };
+
+export function supercubo(b, cx, cy, cz, pal, vicino, orlo = 0) {
   const F = 8 * U, H = 9 * U;
   const N = (asse, s) => vicino(asse === 0 ? s : 0, asse === 1 ? s : 0, asse === 2 ? s : 0);
 
@@ -166,7 +184,8 @@ export function supercubo(b, cx, cy, cz, pal, vicino) {
       if (N(a, sa) || N(bAsse, sb)) continue;
       const cima = (a === 1 && sa > 0) || (bAsse === 1 && sb > 0);
       const fondo = (a === 1 && sa < 0) || (bAsse === 1 && sb < 0);
-      const colore = cima ? pal.cima : (fondo ? pal.fondo : pal.lato);
+      const base = cima ? pal.cima : (fondo ? pal.fondo : pal.lato);
+      const colore = orlo ? tingiMateria(base, ORLO_PIATTO, orlo) : base;
       const fuori = [0, 0, 0]; fuori[a] = sa; fuori[bAsse] = sb;
       b.quad(
         vec(cx, cy, cz, a, sa * H, bAsse, sb * F, t, -F),
@@ -183,7 +202,8 @@ export function supercubo(b, cx, cy, cz, pal, vicino) {
       [cx + sx * H, cy + sy * F, cz + sz * F],
       [cx + sx * F, cy + sy * H, cz + sz * F],
       [cx + sx * F, cy + sy * F, cz + sz * H],
-      sy > 0 ? pal.cima : pal.fondo, [sx, sy, sz],
+      orlo ? tingiMateria(sy > 0 ? pal.cima : pal.fondo, ORLO_PIATTO, orlo)
+           : (sy > 0 ? pal.cima : pal.fondo), [sx, sy, sz],
     );
   }
 }
@@ -438,6 +458,22 @@ function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo) {
   let pal = paletteBlocco(tipoBase(tipo), y);   // stagione + rampa d'altezza
   // MOTIVO: variazione deterministica cella per cella (la "texture" qui)
   if (def.motivo) pal = tintaPalette(pal, def.motivo, def.motivoForza ?? 1, x, y, z);
+  // LA MATERIA SI CUOCE QUI, una volta per blocco e non per vertice: da questo
+  // punto in giù nessuno sa più che esistono i materiali, e il pixel meno che mai.
+  // È il livello a COSTO ZERO del §13: tinta e saturazione entrano nel `color`
+  // per vertice che il mesher già scrive, e il programma del mondo non guadagna
+  // un'istruzione. Vedi world/materie.js.
+  const materia = materiaDi(def);
+  if (materia) {
+    pal = { ...pal,
+      cima: tingiMateria(pal.cima, materia),
+      lato: tingiMateria(pal.lato, materia),
+      fondo: tingiMateria(pal.fondo, materia),
+    };
+    if (pal.facce) {
+      pal.facce = pal.facce.map((c) => (c === null || c === undefined ? c : tingiMateria(c, materia)));
+    }
+  }
   const cx = x + 0.5, cy = y + 0.5, cz = z + 0.5;
   if (def.acqua) {
     const sopraT = mondo.tipo(x, y + 1, z);
@@ -550,7 +586,7 @@ function costruisciBlocco(bSolidi, bAcqua, mondo, x, y, z, tipo) {
       const t = mondo.tipo(x + dx, y, z + dz);
       return !defDi(t).cappello || vicinoSolido(dx, 1, dz);
     };
-    supercubo(bSolidi, cx, cy, cz, pal, vicinoTuttaAltezza);
+    supercubo(bSolidi, cx, cy, cz, pal, vicinoTuttaAltezza, materia ? materia.orlo : 0);
   }
 }
 

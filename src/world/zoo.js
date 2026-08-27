@@ -78,7 +78,7 @@
 //  │ (il CORRIDOIO x −6..−3 corre da nord a sud e unisce le tre passeggiate)   │
 //  └───────────────────────────────────────────────────────────────────────────┘
 
-import { registraBlocco, BLOCCHI, CATEGORIA_PROVE } from './blocks.js?v=mtavryo3';
+import { registraBlocco, BLOCCHI, CATEGORIA_PROVE } from './blocks.js?v=mtbg4x74';
 
 const SUOLO = 0, SUPERFICIE = 1, PIEDI = 2;
 
@@ -198,12 +198,23 @@ for (const v of MATRICE) CLASSE_LUCE[v.id] = v.luce.ombra;
 const MATERIALI_FACCE = ['erba', 'terra', 'sabbia', 'ghiaia', 'roccia', 'pietra', 'mattoni', 'legno', 'tronco', 'asse'];
 
 /** Le piazzole della stazione 8, ancora vuote. */
+// ⚠ LE PIAZZOLE NON SONO PIÙ VUOTE: il livello a costo zero dei materiali
+// (§13.2) è arrivato, e ognuna ha il suo blocco. `stato` dice fin dove: 'colore'
+// = tinta, saturazione e orlo sugli smussi, cotti nel vertice, ZERO ALU per
+// pixel; 'in arrivo' = ancora niente. Chi guarda deve poter distinguere «non è
+// stato fatto» da «è fatto e non si vede», che è la confusione che fa perdere
+// le giornate.
+//
+// E accanto a ogni materia c'è la sua CONTROPROVA: lo stesso blocco SENZA
+// materia. Senza il termine di paragone a fianco, «più scuro» e «più saturo»
+// sono opinioni — con quello a due passi sono un fatto che si vede in un colpo
+// d'occhio, anche dal telefono.
 const PIAZZOLE = [
-  { id: 'metallo',  nome: 'Metallo (riflesso speculare)' },
-  { id: 'fango',    nome: 'Fango (opaco, sporco)' },
-  { id: 'bagnato',  nome: 'Bagnato (velo d\'acqua sopra un solido)' },
-  { id: 'specchio', nome: 'Specchio (riflesso pieno)' },
-  { id: 'emissivo', nome: 'Emissivo (brilla senza illuminare)' },
+  { id: 'metallo',  nome: 'Metallo (scuro, desaturato, orlo sugli smussi)', blocco: 'ferro',      nudo: 'roccia',    stato: 'colore' },
+  { id: 'fango',    nome: 'Fango (scuro ma PIÙ saturo, nessun orlo)',        blocco: 'fanghiglia', nudo: 'terra',     stato: 'colore' },
+  { id: 'ghiaccio', nome: 'Ghiaccio (chiaro, spento, orlo leggero)',         blocco: 'ghiaccio',   nudo: 'lanaBianca', stato: 'colore' },
+  { id: 'specchio', nome: 'Ottone/specchio (desaturato, orlo)',              blocco: 'ottone',     nudo: 'lanaGialla', stato: 'colore' },
+  { id: 'emissivo', nome: 'Cristallo acceso (emissiva: in arrivo)',          blocco: 'cristallo',  nudo: 'lanaGialla', stato: 'in arrivo' },
 ];
 
 /**
@@ -615,7 +626,15 @@ export function generaZoo(mondo) {
         }
       }
       scatola(cx, cx, PIEDI, PIEDI + 1, cz - 4, cz - 4, 'lanaGialla');    // il cippo
-      piazzole.push({ id: p.id, nome: p.nome, stato: 'in arrivo', cella: [cx, PIEDI, cz], sguardo: [cx, PIEDI, cz - 8] });
+      // IL CAMPIONE e la sua CONTROPROVA, fianco a fianco: due torri gemelle
+      // alte tre, una con la materia e una senza. La differenza si legge in un
+      // colpo d'occhio invece che a memoria fra due schermate.
+      if (p.blocco) {
+        scatola(cx - 1, cx - 1, PIEDI, PIEDI + 2, cz, cz, p.blocco);
+        if (p.nudo) scatola(cx + 1, cx + 1, PIEDI, PIEDI + 2, cz, cz, p.nudo);
+      }
+      piazzole.push({ id: p.id, nome: p.nome, stato: p.stato, blocco: p.blocco || null,
+        cella: [cx, PIEDI, cz], sguardo: [cx, PIEDI, cz - 8] });
     });
   }
 
@@ -712,8 +731,8 @@ const STAZIONI = [
     dislivelli: [76, PIEDI, 108], boschetto: [75, PIEDI, 130],
   },
   {
-    numero: 8, id: 'materiali', nome: '8. Materiali (in arrivo)', riquadro: RIQUADRI.materiali,
-    cartello: 'Cinque piazzole vuote: metallo, fango, bagnato, specchio, emissivo',
+    numero: 8, id: 'materiali', nome: '8. Materiali', riquadro: RIQUADRI.materiali,
+    cartello: 'Cinque coppie: metallo, fango, ghiaccio, ottone, cristallo — a sinistra CON la materia, a destra senza',
     sguardo: [130, PIEDI, 104], piedi: [130, PIEDI, 114],
   },
 ];
