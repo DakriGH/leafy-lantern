@@ -466,7 +466,16 @@ export function creaBersaglio(N) {
  * inquadratura: se lo si vede, la scatola è stretta — non è una soglia da
  * tarare qui.
  */
+/** Quanto lo scarto cresce con la pendenza della superficie rispetto alla luce.
+ *  ⚠ NON È UNA TARATURA A OCCHIO: 0 vuol dire soglia costante (l'acne sugli
+ *  smussi torna), e ogni unità qui è «una volta lo scarto base» in più a
+ *  radenza massima. A 1,5 lo scarto passa da 0,15 blocchi a 0,9 sui vertici più
+ *  radenti — che sull'asse della luce, a sole basso, sono centimetri di ombra
+ *  in meno e non si vedono. Sopra si comincia a staccare l'ombra dalla base. */
+export const PENDENZA_SCARTO = 1.5;
+
 export function glslControluce() { return /* glsl */`
+  const float PENDENZA_SCARTO = ${PENDENZA_SCARTO.toFixed(2)};
   uniform highp sampler2D uControluce;
   uniform vec4 uControluceInfo;      // (1/N, scarto, texel in unità, attiva)
   uniform mat4 uControluceM;
@@ -515,7 +524,25 @@ export function glslControluce() { return /* glsl */`
     float t = min(sqrt(1.0 - c * c) / c, 4.0);
     vec3 q = p + (uControluceM * vec4(nMondo * (uControluceInfo.z * uControluceNorm * t), 0.0)).xyz;
     if (q.x <= 0.0 || q.x >= 1.0 || q.y <= 0.0 || q.y >= 1.0 || q.z >= 1.0) return 1.0;
-    float z = q.z - uControluceInfo.y;
+    // ═══ LO SCARTO CRESCE CON LA PENDENZA, e non è lo scostamento normale ═══
+    //
+    // ⚠ SONO DUE CURE DIVERSE E VANNO TENUTE DISTINTE, se no si ripete il giro
+    // già fatto. Lo SCOSTAMENTO NORMALE (uControluceNorm, qui sopra) muove il
+    // PUNTO DI LETTURA dentro la mappa: misurato, a sole radente peggiora di
+    // quattro volte (0,045 → 0,189) perché sposta la lettura tanto da leggere
+    // l'ombra del vicino. Per questo è a zero di fabbrica.
+    // Questo invece muove la SOGLIA, non il punto: non si legge da nessun'altra
+    // parte, si chiede solo un po' più di margine dove il margine serve.
+    //
+    // E serve dove la superficie è INCLINATA rispetto alla luce, che è la
+    // diagonale degli smussi del supercubo: dentro un solo texel la profondità
+    // del ricevente cambia di «texel · tangente», e con una soglia costante
+    // metà del texel si dichiara in ombra da solo — i «denti» lungo il bordo
+    // smussato di una terrazza. Il fattore è già calcolato qui sopra («t»): vale
+    // 0 quando la luce arriva in faccia (dove l'acne non c'è) e cresce quando
+    // rade. Col filtro a quattro prese conta il doppio, perché le prese vicine
+    // stanno un texel più in là — cioè proprio dove la profondità è cambiata.
+    float z = q.z - uControluceInfo.y * (1.0 + PENDENZA_SCARTO * t);
     float u = uControluceInfo.x;                     // 1 / lato della mappa
     if (u <= 0.0) return step(z, texture2D(uControluce, q.xy).r);   // ricambio
     // ═══ QUATTRO PRESE, PESATE: il bordo smette di essere una scalinata ═══

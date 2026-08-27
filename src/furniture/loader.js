@@ -5,8 +5,8 @@
 
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { MEZZO_SUPER } from '../config.js?v=mtbo23oy';
-import { convertiUnlit, materialiConMappa, patchLuci } from '../fx/materials.js?v=mtbo23oy';
+import { MEZZO_SUPER } from '../config.js?v=mtbqffyn';
+import { convertiUnlit, materialiConMappa, patchLuci } from '../fx/materials.js?v=mtbqffyn';
 
 const fbx = new FBXLoader();
 

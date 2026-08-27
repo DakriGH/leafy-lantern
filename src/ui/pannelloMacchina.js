@@ -38,7 +38,7 @@
 // La scoperta del tocco lungo non si lascia al caso: la prima volta che tocchi
 // una macchina che ha SIA azione SIA manopole, main mostra un toast che lo dice.
 
-import { opzioniDi, riepilogoDi, impostaConfig } from '../gioco/macchine.js?v=mtbo23oy';
+import { opzioniDi, riepilogoDi, impostaConfig } from '../gioco/macchine.js?v=mtbqffyn';
 
 export class PannelloMacchina {
   /** ctx = { servizi, onAziona(m), onCambio(m, chiave), toast } */
