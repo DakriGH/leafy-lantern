@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { CAMERA } from '../config.js?v=mtbqx52f';
+import { CAMERA } from '../config.js?v=mtbs03je';
 
 /**
  * Il browser sta disegnando via SOFTWARE (niente GPU)?
@@ -65,10 +65,37 @@ const ShaderUscita = {
 
 export class Rig {
   constructor(contenitore) {
-    // mobile = touch primario: i telefoni hanno DPR 2.5–3.5 → un canvas full-screen
-    // WebGL costa 6–12× i pixel di un desktop. Il cap del pixel ratio è il singolo
-    // fattore che pesa di più sui fps (niente antialias MSAA su mobile).
-    this.mobile = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    // ⚠ «MOBILE» E «SI TOCCA» SONO DUE COSE DIVERSE, e confonderle è costato un
+    // dispositivo intero. Prima bastava `(pointer: coarse)` per dichiarare un
+    // apparecchio «mobile», e un CHROMEBOOK CON LO SCHERMO TOCCABILE — che è un
+    // portatile con una GPU integrata — finiva sul ramo dei telefoni: riflessi
+    // spenti per sempre, ombre delle lampade spente per sempre, scala fino a
+    // 0,45, budget della marcia dimezzato, niente antialias, pixel ratio a 1,5.
+    // Il committente l'ha detto così: «su Chromebook è tutto loccato e basso».
+    //
+    // La distinzione giusta è il pointer FINE: se in giro c'è un trackpad o un
+    // mouse, quello è un computer con un touchscreen, non un telefono. Un
+    // telefono ha solo il dito. `any-pointer` guarda TUTTI i dispositivi di
+    // puntamento, non solo il primario — che su un convertibile in modalità
+    // tablet è il dito anche quando la tastiera è attaccata.
+    // ⚠ TRE COSE, NON DUE, e servono tutte e tre distinte:
+    //  · `tocco`          = lo schermo si può toccare (anche un desktop);
+    //  · `toccoPrimario`  = il DITO è il puntatore principale — è questo che
+    //                       decide se i comandi a schermo servono di fabbrica.
+    //                       Un desktop con un monitor toccabile ha il mouse come
+    //                       primario e non li vuole; un convertibile aperto a
+    //                       tablet ha il dito e li vuole.
+    //  · `mobile`         = la classe GRAFICA (vedi sotto).
+    this.tocco = matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0;
+    this.toccoPrimario = matchMedia('(pointer: coarse)').matches;
+    const finePresente = matchMedia('(any-pointer: fine)').matches;
+    // i telefoni e i tablet veri restano riconosciuti per nome: un tablet con un
+    // mouse bluetooth non deve diventare un desktop.
+    const perNome = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    // mobile = tocco E NIENTE puntatore fine: i telefoni hanno DPR 2.5–3.5 → un
+    // canvas full-screen WebGL costa 6–12× i pixel di un desktop. Il cap del
+    // pixel ratio è il singolo fattore che pesa di più sui fps.
+    this.mobile = perNome || (this.toccoPrimario && !finePresente);
     this.renderer = new THREE.WebGLRenderer({ antialias: !this.mobile, stencil: false, powerPreference: 'high-performance' });
     this.dprMax = this.mobile ? 1.5 : 2;
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.dprMax));
