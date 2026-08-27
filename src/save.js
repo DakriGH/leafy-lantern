@@ -1,7 +1,7 @@
 // Salvataggio del diorama: localStorage + export/import JSON (SPEC §5).
 
-import { CHIAVE_SALVATAGGIO } from './config.js?v=mtatt887';
-import { stagioneCorrente, impostaStagione } from './world/stagioni.js?v=mtatt887';
+import { CHIAVE_SALVATAGGIO } from './config.js?v=mtau1x4q';
+import { stagioneCorrente, impostaStagione } from './world/stagioni.js?v=mtau1x4q';
 
 // ---- LA VERSIONE DEL FORMATO, E CHI LA LEGGE --------------------------------
 // ⚠ `serializza` NON è solo il formato di salvataggio: è ANCHE il carico utile
