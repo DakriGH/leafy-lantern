@@ -30,10 +30,10 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=mtbwqugr';
-import { CHUNK } from '../world/world.js?v=mtbwqugr';
-import { uniformiOmbraSole, uniformiScatole, uniformiLuci, uniformiControluce, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE, GBANDE } from './materials.js?v=mtbwqugr';
-import { glslControluce } from './controluce.js?v=mtbwqugr';
+import { paletteBlocco, coloreRampaChiaro } from '../world/stagioni.js?v=mtbytwog';
+import { CHUNK } from '../world/world.js?v=mtbytwog';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, uniformiControluce, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE, GBANDE } from './materials.js?v=mtbytwog';
+import { glslControluce } from './controluce.js?v=mtbytwog';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -69,6 +69,52 @@ const SENZA_CIMA = -32768;
 // arrivano dalla cache. Meglio seminare piu' piano che rubare tempo al frame.
 const BUDGET_MS = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) ? 0.25 : 0.5;
 
+/** Il tipo di ciuffo di una cella. Deterministico come tutto il resto.
+ *  Esportato per le prove: senza, la continuità del manto si può solo guardare. */
+export function tipoDi(x, z) { return TIPI[(hash(x, z, 3) * TIPI.length) | 0]; }
+
+/**
+ * IL MANTO È UN CAMPO CONTINUO, NON UNA COSTANTE PER CELLA.
+ *
+ * Committente: «ok che sono zolle, ma non si deve notare troppo lo stacco tra
+ * una cella di erba e l'altra, deve essere smooth la transizione». Aveva
+ * ragione, e la causa era una riga sola: l'altezza della lamella veniva da
+ * «tipo.alto», cioè dal tipo di ciuffo scelto PER CELLA. I quattro tipi vanno da
+ * 0,28 a 0,50 — quasi il doppio — quindi due celle vicine potevano stare una a
+ * mezzo blocco e l'altra a un quarto, con il salto ESATTAMENTE sul confine.
+ * A prato rado non si vedeva: i ciuffi erano isolati e il confine non c'era. A
+ * prato chiuso il confine c'è dappertutto, e si legge come una GRIGLIA.
+ *
+ * Qui il valore si interpola fra i CENTRI delle quattro celle che circondano la
+ * lamella, con la curva liscia di smoothstep. I quattro tipi restano — sono
+ * ancora loro a decidere quali altezze esistono — ma fra un centro e l'altro il
+ * manto sale e scende invece di gradinare. Costa quattro hash PER CELLA (non
+ * per lamella: i quattro vicini sono gli stessi per tutto il ciuffo) e due
+ * interpolazioni per lamella.
+ */
+const VICINI = new Array(9);   // il 3×3 attorno alla cella, riusato: la semina è sincrona
+
+/** Riempie VICINI col 3×3 di tipi attorno a (x,z). Indice: (dx+1)*3 + (dz+1). */
+function scriviVicini(x, z) {
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) VICINI[(dx + 1) * 3 + (dz + 1)] = tipoDi(x + dx, z + dz);
+  }
+}
+
+function fraCelle(px, pz, campo, cx, cz) {
+  const gx = px - 0.5, gz = pz - 0.5;          // i centri delle celle stanno a +0.5
+  const x0 = Math.floor(gx), z0 = Math.floor(gz);
+  const fx = gx - x0, fz = gz - z0;
+  const sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz);
+  // la lamella può sbordare dalla sua cella, quindi il quadrato dei centri che
+  // la contiene è uno dei quattro del 3×3 — mai fuori.
+  const i = (x0 - cx + 1) * 3 + (z0 - cz + 1);
+  const a = VICINI[i][campo], b = VICINI[i + 3][campo];
+  const c = VICINI[i + 1][campo], d = VICINI[i + 4][campo];
+  const su = a + (b - a) * sx;
+  return su + ((c + (d - c) * sx) - su) * sz;
+}
+
 /** Chiave numerica di cella, con offset per le coordinate NEGATIVE. */
 function chiaveCella(x, z) { return (x + 2048) * 4096 + (z + 2048); }
 
@@ -83,11 +129,13 @@ const GLSL_VERTEX = /* glsl */`
   attribute vec4 iPos;      // base della lamella (xyz) e LIVELLO di diradamento (w: 0/1/2)
   attribute vec4 iDati;     // (rotazione, altezza, larghezza, fase personale)
   attribute vec3 iCol;      // colore preso dalla palette della cella sotto
+  attribute vec3 iColCima;  // e quello della PUNTA: la stessa rampa, due gradini più chiara
   uniform float uTempo;
   uniform vec4 uVento;      // (dir.x, dir.z, forza di fondo, raffica)
   uniform vec4 uMobili[4];  // chi si muove: (x, y, z, raggio). w=0 = slot spento
   varying float vAlt;
   varying vec3 vCol;
+  varying vec3 vColCima;
   varying float vLontano;
   varying float vSole;
   varying vec3 vLuce;
@@ -96,6 +144,7 @@ const GLSL_VERTEX = /* glsl */`
   uniform vec2 uSfuma;      // (dove comincia a spegnersi, dove è spenta)
   uniform vec3 uCentro;     // centro del campo seminato: il GIOCATORE
   uniform vec2 uBordo;      // (dove comincia il bordo del campo, dove finisce)
+  uniform float uApparso;   // 0 = prato appena seminato, 1 = a regime (vedi _scambia)
   // le due fasce di congedo per LIVELLO di diradamento: (liv2 da, liv2 a, liv1 da, liv1 a)
   uniform vec4 uLiv;
   // l'ombra del sole, LE STESSE uniform del mondo (fx/materials.js)
@@ -162,6 +211,7 @@ ${GLSL_LUCI_VERTICE}
     float alt = position.y;
     vAlt = alt;
     vCol = iCol;
+    vColCima = iColCima;
     vTinta = fract(iDati.w * 0.2749);
 
     // ⚠ QUI C'ERA LA CRESCITA: la lamella nasceva a scala zero e si allungava in
@@ -253,7 +303,14 @@ ${GLSL_LUCI_VERTICE}
     float v2 = clamp((dalPg - uLiv.x) / max(uLiv.y - uLiv.x, 0.001), 0.0, 1.0);
     float v1 = clamp((dalPg - uLiv.z) / max(uLiv.w - uLiv.z, 0.001), 0.0, 1.0);
     float viaLiv = step(0.5, iPos.w) * mix(v1, v2, step(1.5, iPos.w));
-    vLontano = max(max(viaCam, viaBordo), viaLiv);
+    // ⚠ E LA COMPARSA DEL CAMPO ENTRA DA QUI, non da una dissolvenza sua. Il
+    // prato nasce TUTTO INSIEME — la semina riempie un buffer di scorta e lo
+    // scambia in un fotogramma — e a mondo nuovo si vedeva duecentomila fili
+    // materializzarsi in un frame («si notano troppo durante la generazione»).
+    // Riusare «vLontano» vuol dire riusare l'unica cura già approvata: il filo
+    // sta al colore ESATTO del blocco sotto e ci si stacca in mezzo secondo.
+    // Niente scale che crescono, niente trasparenza da ordinare.
+    vLontano = max(max(max(viaCam, viaBordo), viaLiv), 1.0 - uApparso);
     // ---- IL CONGEDO, STOCASTICO ---------------------------------------------
     // La lamella si accorcia (per fondersi nel manto) E, oltre la sua soglia
     // personale, sparisce del tutto. La soglia viene da iDati.w, che è la fase
@@ -330,6 +387,7 @@ ${GLSL_LUCI_VERTICE}
 const GLSL_FRAGMENT = /* glsl */`
   varying float vAlt;
   varying vec3 vCol;
+  varying vec3 vColCima;
   varying float vLontano;
   varying float vSole;
   varying vec3 vLuce;          // quanto ci arriva dalle lampade (per filo)
@@ -352,24 +410,36 @@ const GLSL_FRAGMENT = /* glsl */`
     // chiara — e il prato diventa una macchia pallida sopra un terreno scuro.
     // Con la cubica la schiarita vive nell'ultimo terzo: il colore MEDIO della
     // lamella resta quello del blocco a qualsiasi risoluzione.
-    // ⚠ LA SCHIARITA È PIÙ FORTE DI PRIMA (1.22 → 1.60), e non è un ritocco di
-    // gusto: è la conseguenza di aver aggiustato lo spazio colore. Finché i
-    // materiali scritti a mano finivano sul canvas SENZA la curva sRGB, l'erba
-    // usciva più scura del dovuto e per puro caso si staccava dal terreno. Messa
-    // a posto la curva, il filo e il blocco sono diventati lo stesso identico
-    // verde — cioè il prato è sparito, correttamente. Il contrasto che prima
-    // arrivava da un errore adesso deve arrivare da qui.
-    // ⚠ LA BASE RESTA ESATTAMENTE IL COLORE DEL BLOCCO, e il committente l'ha
-    // ribadito quando ho provato a scurirla per dare contrasto: «voglio che
-    // l'erba abbia alla base il colore del blocco sotto, è voluto che si confonda
-    // un pochino, tanto c'è la sfumatura che dopo aiuta a distinguere». Cioè il
-    // filo deve NASCERE dal terreno, non essere appoggiato sopra: a quota zero i
-    // due colori coincidono al bit e l'attacco non esiste. Il contrasto lo fa
-    // tutto la salita verso la punta, ed è per questo che quella è forte.
-    vec3 col = mix(vCol, vCol * 1.70 + vec3(0.06), pow(vAlt, 1.6));
+    // ⚠ LA PUNTA È UN COLORE DELLA RAMPA, NON UN VERDE MOLTIPLICATO. Per mesi
+    // qui c'era «vCol · 1.70 + 0.06»: un colore inventato, quasi il doppio del
+    // terreno e con un fondo additivo. Da vicino passava per sfumatura; da
+    // lontano no, e il committente l'ha detto esatto — «a distanza sembra quasi
+    // emissiva e non va bene, si nota troppo durante la generazione». Aveva
+    // ragione: un prato più chiaro del 70% del terreno su cui sta È una luce.
+    //
+    // Adesso la punta è «coloreRampaChiaro(tipo, y, 2)», cioè il verde che la
+    // rampa stagionale userebbe DUE GRADINI più in alto — la stessa scala di
+    // tonalità con cui le terrazze si distinguono fra loro («gli strati di erba
+    // cambiano leggermente tonalità a seconda dell'altezza»). Quindi la
+    // sfumatura è LEGGERA per costruzione, e in inverno o in autunno si sposta
+    // da sola invece di restare un verde schiarito a caso.
+    //
+    // La base resta il colore ESATTO del blocco, e questo non si tocca: «voglio
+    // che l'erba abbia alla base il colore del blocco sotto, è voluto che si
+    // confonda un pochino, tanto c'è la sfumatura che dopo aiuta a distinguere».
+    //
+    // L'esponente sta a 1.4 e non più a 1.6: con due gradini di rampa la
+    // differenza è piccola, e tenerla tutta nell'ultimo quinto la rendeva
+    // invisibile. Il colore MEDIO della lamella resta comunque dalla parte del
+    // blocco, che era il motivo per cui l'esponente esiste (a due pixel di
+    // larghezza si vede solo la media).
+    vec3 col = mix(vCol, vColCima, pow(vAlt, 1.4));
     // e ogni ciuffo ha la SUA sfumatura: un prato di fili identici si legge come
-    // una texture ripetuta, che è il difetto numero uno di questo effetto
-    col *= 0.94 + vTinta * 0.13;
+    // una texture ripetuta, che è il difetto numero uno di questo effetto.
+    // ⚠ PIÙ STRETTA DI PRIMA (±6% → ±4%): con il prato fitto le lamelle per
+    // pixel sono tante, e una variazione larga si legge come RUMORE che
+    // brulica invece che come varietà. È l'altra metà del «sembra emissiva».
+    col *= 0.96 + vTinta * 0.085;
     // e in lontananza si torna al colore esatto del blocco: vedi il vertex.
     // ⚠ LA CURVA È FINITA A 0.50, non a 1.0, e il numero non è arbitrario: la
     // lamella che muore prima se ne va a 0.55 (vedi il vertex), quindi a quel
@@ -458,12 +528,15 @@ export class Erba {
     this.iPos = new Float32Array(max * 4);
     this.iDati = new Float32Array(max * 4);
     this.iCol = new Float32Array(max * 3);
+    this.iColCima = new Float32Array(max * 3);
     this.sPos = new Float32Array(max * 4);
     this.sDati = new Float32Array(max * 4);
     this.sCol = new Float32Array(max * 3);
+    this.sColCima = new Float32Array(max * 3);
     g.setAttribute('iPos', new THREE.InstancedBufferAttribute(this.iPos, 4));
     g.setAttribute('iDati', new THREE.InstancedBufferAttribute(this.iDati, 4));
     g.setAttribute('iCol', new THREE.InstancedBufferAttribute(this.iCol, 3));
+    g.setAttribute('iColCima', new THREE.InstancedBufferAttribute(this.iColCima, 3));
     g.instanceCount = 0;
     // i ciuffi si spostano nel vertex shader: il culling automatico li farebbe
     // sparire a blocchi guardando di lato
@@ -483,6 +556,7 @@ export class Erba {
         uCentro: { value: new THREE.Vector3() },
         uBordo: { value: new THREE.Vector2(40, 64) },
         uLiv: { value: new THREE.Vector4(22, 32, 48, 64) },
+        uApparso: { value: 1 },
         // per RIFERIMENTO: restano agganciate al ciclo del giorno da sole
         ...uniformiOmbraSole(),
         ...uniformiScatole(),
@@ -495,6 +569,7 @@ export class Erba {
     this.mesh.renderOrder = 2;
     scena.add(this.mesh);
 
+    this._apparso = 1;        // vedi _scambia: 0 = campo appena nato, si stacca dal terreno
     this.forzaMeteo = 0;      // 0 sereno, 1 rovescio: la muove main
     this._forza = 0;
     this.fili = 0;
@@ -556,13 +631,17 @@ export class Erba {
    */
   _seminaChunk(mondo, kc, dc) {
     const passo = passoPerDistanza(dc);
-    const ck = kc + '|' + passo + '|' + this._verPosati + '|' + (mondo.revisione ? mondo.revisione(kc) : 0);
+    // ⚠ LA DENSITÀ STA NELLA CHIAVE. Decide quante lamelle per ciuffo E quante
+    // celle restano scoperte: un chunk seminato a densità 1 non vale a densità 8,
+    // e senza questo pezzo la scala di qualità lasciava in giro il prato vecchio.
+    const ck = kc + '|' + passo + '|' + this.densita + '|' + this._verPosati + '|' + (mondo.revisione ? mondo.revisione(kc) : 0);
     const pronto = this._cache.get(ck);
     if (pronto) {
       if (this._n + pronto.n > this.max) return 0;
       this.sPos.set(pronto.pos, this._n * 4);
       this.sDati.set(pronto.dati, this._n * 4);
       this.sCol.set(pronto.col, this._n * 3);
+      this.sColCima.set(pronto.colCima, this._n * 3);
       this._n += pronto.n;
       return pronto.n;
     }
@@ -581,6 +660,7 @@ export class Erba {
       pos: this.sPos.slice(i0 * 4, (i0 + n) * 4),
       dati: this.sDati.slice(i0 * 4, (i0 + n) * 4),
       col: this.sCol.slice(i0 * 3, (i0 + n) * 3),
+      colCima: this.sColCima.slice(i0 * 3, (i0 + n) * 3),
     });
     while (this._cache.size > CACHE_CHUNK) {
       this._cache.delete(this._cache.keys().next().value);
@@ -589,9 +669,13 @@ export class Erba {
 
   _seminaVero(mondo, kc, passo) {
     const { qy, qt, ox, oz } = this._quoteChunk(mondo, kc);
-    const { sPos, sDati, sCol } = this;
+    const { sPos, sDati, sCol, sColCima } = this;
     let n = this._n;
-    const col = new THREE.Color();
+    const col = new THREE.Color(), colCima = new THREE.Color();
+    // QUANTO SI CHIUDE IL PRATO. Vedi le chiazze più sotto: a densità 1 vale 0 e
+    // il prato è quello di sempre, da 4 in su vale 1 e nessuna cella d'erba
+    // resta scoperta. Sta qui e non nel ciclo perché dipende solo dalla densità.
+    const copertura = Math.min(1, Math.max(0, (this.densita - 1) / 3));
     for (let i = 0; i < qy.length; i++) {
       if (n >= this.max - LAMELLE_MAX) break;
       const x = ox + ((i / CHUNK) | 0), z = oz + (i % CHUNK);
@@ -611,18 +695,36 @@ export class Erba {
 
         // LE CHIAZZE: una macchia larga decide le radure, un rumore fine dirada
         // dentro la macchia. Senza, il prato è una moquette stesa uguale ovunque.
+        //
+        // ⚠ SALENDO DI DENSITÀ SI CHIUDONO, non si infittiscono i ciuffi che
+        // sopravvivono. È il punto che avevo sbagliato: «più erba» non vuol dire
+        // ciuffi più fitti dentro le stesse radure, vuol dire che le radure
+        // spariscono e il verde copre il blocco. `copertura` è quanto si è
+        // chiuso il prato: 0 a densità 1 (prato di sempre, non cambia un pixel),
+        // 1 da densità 4 in su (nessuna cella d'erba resta scoperta).
         const macchia = hash(Math.floor(x / CHIAZZA_LARGA), Math.floor(z / CHIAZZA_LARGA), 91);
-        if (macchia < 0.16) continue;                     // radura
+        if (macchia < 0.16 * (1 - copertura)) continue;   // radura
         const fitto = 0.55 + 0.45 * macchia;              // quanto è fitta QUESTA macchia
-        if (hash(x, z, 57) > fitto) continue;
+        if (hash(x, z, 57) > fitto + (1 - fitto) * copertura) continue;
       }
-      const h0 = hash(x, z, 3);
-      const tipo = TIPI[(h0 * TIPI.length) | 0];
-      const quante = Math.max(1, Math.round(tipo.n * this.densita));
+      const tipo = tipoDi(x, z);
+      scriviVicini(x, z);       // il 3×3 che serve al campo continuo, una volta per cella
+      // ⚠ E ANCHE IL NUMERO DI LAMELLE SI AMMORBIDISCE. I tipi vanno da 3 a 7
+      // lamelle: a densità 8 sono 24 contro 56 nella cella accanto, cioè più del
+      // doppio di roba a un blocco di distanza — l'altra metà della griglia che
+      // si vedeva. La media coi quattro vicini in croce (la cella pesa doppio, se
+      // no il tipo non conta più niente) dimezza il salto senza appiattire il
+      // prato.
+      const nMedio = (tipo.n * 2 + VICINI[1].n + VICINI[3].n + VICINI[5].n + VICINI[7].n) / 6;
+      const quante = Math.max(1, Math.round(nMedio * this.densita));
       // IL COLORE DEL BLOCCO SOTTO: paletteBlocco conosce la rampa per quota e
       // la stagione, quindi il ciuffo è intonato senza saperne niente
       const p = paletteBlocco(cima.tipo, cima.y);
       col.setHex(p.cima);
+      // LA PUNTA: la stessa rampa stagionale, due gradini più chiara. Non un
+      // verde moltiplicato — vedi il fragment shader, era quello che si vedeva
+      // «quasi emissivo» a distanza.
+      colCima.setHex(coloreRampaChiaro(cima.tipo, cima.y, 2));
       const y = cima.y + 1;
       // 0 = c'e' a qualunque passo, 1 = sparisce a passo 4, 2 = solo a passo 1.
       // I ciuffi POSATI a mano sono sempre 0: chi li mette vuole vederli sempre.
@@ -636,9 +738,23 @@ export class Erba {
         // GRIGLIA — file regolari a un blocco di passo, che in un mondo di cubi
         // è la cosa che si nota per prima. Qui la lamella può stare ovunque
         // nella cella, e il reticolo sparisce.
-        sPos[j] = x + 0.5 + (h1 - 0.5) * (0.42 + tipo.apri);
+        // ⚠ E LA DISPERSIONE ARRIVA AL BORDO. Era 0,42+apri, cioè mezza
+        // larghezza fra 0,36 e 0,44: le lamelle si fermavano PRIMA del confine
+        // della cella, e restava una riga più rada ogni blocco — cioè un
+        // reticolo di righe rade, che è metà dello «stacco fra una cella e
+        // l'altra». Adesso arrivano a 0,49 dal centro, cioè al confine.
+        //
+        // ⚠ MA NON OLTRE. Sbordare sembrava più naturale (l'erba vera pende dal
+        // ciglio) e invece è un bug: la lamella nasce alla quota della SUA cella,
+        // quindi una che sborda su una cella più bassa, sull'acqua o sul vuoto
+        // resta appesa in aria. `test/sagome-ombra.test.mjs` lo ha beccato in
+        // -9,21 al primo giro. Il tetto a 0,98 tiene il centro dentro la cella.
+        const disp = Math.min(0.98, 0.66 + tipo.apri);
+        const px = x + 0.5 + (h1 - 0.5) * disp;
+        const pz = z + 0.5 + (h2 - 0.5) * disp;
+        sPos[j] = px;
 sPos[j + 1] = y;
-        sPos[j + 2] = z + 0.5 + (h2 - 0.5) * (0.42 + tipo.apri);
+        sPos[j + 2] = pz;
         // IL LIVELLO DI DIRADAMENTO, e non l'istante di nascita: la nascita non
         // si anima piu' (il committente l'aveva bocciata) e quello slot serviva
         // a questo. E' posizionale come il diradamento stesso — una cella che
@@ -646,14 +762,15 @@ sPos[j + 1] = y;
         // chunk resta valida senza toccarla.
         sPos[j + 3] = liv;
         sDati[d] = h3 * Math.PI;
-        sDati[d + 1] = tipo.alto * (0.8 + 0.45 * h1);
-        sDati[d + 2] = tipo.largo * (0.85 + 0.3 * h2);
+        sDati[d + 1] = fraCelle(px, pz, 'alto', x, z) * (0.8 + 0.45 * h1);
+        sDati[d + 2] = fraCelle(px, pz, 'largo', x, z) * (0.85 + 0.3 * h2);
         sDati[d + 3] = (h1 + h3) * 6.283;
         // ogni lamella un filo più chiara o più scura: senza, un ciuffo è una
         // macchia piatta
         const v = 0.94 + 0.12 * h2;
         const jc = n * 3;
         sCol[jc] = col.r * v; sCol[jc + 1] = col.g * v; sCol[jc + 2] = col.b * v;
+        sColCima[jc] = colCima.r * v; sColCima[jc + 1] = colCima.g * v; sColCima[jc + 2] = colCima.b * v;
         n++;
       }
     }
@@ -677,16 +794,41 @@ sPos[j + 1] = y;
     this._n = 0;
   }
 
+  /**
+   * IL BUFFER DI SCORTA DIVENTA QUELLO VIVO.
+   *
+   * ⚠ E SI CARICA SOLO LA PARTE USATA. Senza `addUpdateRange` three fa un
+   * `bufferSubData` dell'INTERO array — cioè del tetto, non delle lamelle
+   * scritte. Col tetto a 900 000 volevano dire 14,4 MB per iPos, altrettanti
+   * per iDati e 10,8 per ciascun colore: una cinquantina di megabyte spediti
+   * alla GPU ogni volta che si attraversa il confine di un chunk, per duecento
+   * mila lamelle che ne occupano un quinto. Era una parte grossa del «si
+   * notano durante la generazione»: non l'erba che appare, il fotogramma che
+   * si ferma mentre appare.
+   *
+   * Le liste di intervalli si azzerano PRIMA di aggiungere: si accumulano, e
+   * un intervallo vecchio più largo rimetterebbe in piedi il carico intero.
+   */
   _scambia() {
-    this.iPos.set(this.sPos.subarray(0, this._n * 4));
-    this.iDati.set(this.sDati.subarray(0, this._n * 4));
-    this.iCol.set(this.sCol.subarray(0, this._n * 3));
+    const n = this._n;
+    this.iPos.set(this.sPos.subarray(0, n * 4));
+    this.iDati.set(this.sDati.subarray(0, n * 4));
+    this.iCol.set(this.sCol.subarray(0, n * 3));
+    this.iColCima.set(this.sColCima.subarray(0, n * 3));
     const g = this.mesh.geometry;
-    g.instanceCount = this._n;
-    g.getAttribute('iPos').needsUpdate = true;
-    g.getAttribute('iDati').needsUpdate = true;
-    g.getAttribute('iCol').needsUpdate = true;
-    this.fili = this._n;
+    g.instanceCount = n;
+    for (const [nome, comp] of [['iPos', 4], ['iDati', 4], ['iCol', 3], ['iColCima', 3]]) {
+      const a = g.getAttribute(nome);
+      a.clearUpdateRanges();
+      a.addUpdateRange(0, n * comp);
+      a.needsUpdate = true;
+    }
+    // LA COMPARSA. Il campo che nasce da zero (mondo nuovo, erba riaccesa, primo
+    // avvio) si stacca dal terreno in mezzo secondo invece di apparire in un
+    // fotogramma; una riseminata normale — quella di quando cammini — non la
+    // fa partire, perché lì il prato c'era già e i fili vicini sono identici.
+    if (this.fili === 0 && n > 0) this._apparso = 0;
+    this.fili = n;
   }
 
   /**
@@ -699,6 +841,9 @@ sPos[j + 1] = y;
     this._t += dt;
     const u = this.materiale.uniforms;
     u.uTempo.value = this._t;
+    // la comparsa del campo: mezzo secondo dal colore del blocco a quello pieno
+    if (this._apparso < 1) this._apparso = Math.min(1, this._apparso + dt * 2);
+    u.uApparso.value = this._apparso;
 
     // IL VENTO SEGUE IL METEO, ed è la richiesta: con il rovescio si devono
     // VEDERE le raffiche. La forza insegue invece di saltare (il temporale

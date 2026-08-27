@@ -495,6 +495,7 @@ export function glslControluce({ pre = 'uControluce', nome = 'ombraDelSole', cos
   uniform vec4 ${pre}Info;      // (1/N, scarto, texel in unità, attiva)
   uniform mat4 ${pre}M;
   uniform float ${pre}Norm;     // quanti texel si scosta lungo la normale
+  uniform float ${pre}Raggio;   // raggio del filtro, in texel (0 = una presa sola)
 
   // «p» È GIÀ IN SPAZIO MAPPA, [0,1]³: la matrice l'ha applicata CHI CHIAMA —
   // il VERTICE per la mappa del sole (una volta per vertice invece che per
@@ -563,40 +564,54 @@ export function glslControluce({ pre = 'uControluce', nome = 'ombraDelSole', cos
     float z = q.z - ${pre}Info.y * (1.0 + PENDENZA_SCARTO * t);
     float u = ${pre}Info.x;                     // 1 / lato della mappa
     if (u <= 0.0) return step(z, texture2D(${pre}, q.xy).r);   // ricambio
-    // ═══ QUATTRO PRESE, PESATE: il bordo smette di essere una scalinata ═══
+    // ═══ IL FILTRO: prese bilineari su un RAGGIO, non su un texel ═══
     //
-    // ⚠ E QUI CAMBIO IDEA RISPETTO A QUELLO CHE C'ERA SCRITTO, quindi lo dico
-    // per intero. La riga di prima era «il confronto è BINARIO e resta binario:
-    // niente PCF, niente sfumatura», e nasceva da due bocciature vere: le prime
-    // due cure a queste ombre erano «ammorbidire il bordo», e ammorbidire non
-    // era la cura giusta perché il difetto stava nel DATO (un campo interpolato
-    // che non sapeva la forma dell'oggetto), non nel filtro.
+    // ⚠ LA STORIA IN TRE RIGHE, perché è cambiata idea due volte e la terza va
+    // capita bene.
+    //  1. Una presa e un confronto secco: il bordo è la SCALINATA del reticolo,
+    //     ~8 pixel per gradino. È il «pixelloso».
+    //  2. Quattro prese pesate (bilineare sul RISULTATO, mai sulle quote): la
+    //     scalinata sparisce, la transizione è larga UN texel.
+    //  3. Ma un texel non basta se il texel vale due o tre pixel: la iso-linea
+    //     dentro un texel è un ARCO, e archi adiacenti combaciano in posizione
+    //     ma non in tangente — un ginocchio ogni texel. Con la rampa larga un
+    //     solo texel quei ginocchi si vedono ancora, ed è quello che il
+    //     committente chiama «seghettato».
     //
-    // Adesso il dato è giusto — la sagoma è la mesh vera, rasterizzata — e
-    // quello che resta è un problema DIVERSO, che ho fotografato ingrandendo:
-    // una scalinata REGOLARE col passo del texel, ~8 pixel di schermo per
-    // gradino. Non è il bordo che è troppo netto: è il RETICOLO della mappa che
-    // si vede attraverso. E un reticolo che si vede è aliasing, non stile.
+    // La cura è ALLARGARE il supporto: si prende una griglia di prese su un
+    // RAGGIO di più texel, e ognuna è bilineare. I ginocchi non spariscono —
+    // si mediano fra loro, e sotto la media non si vedono più. Il prezzo è una
+    // penombra vera di due o tre texel, e stavolta è quello che è stato
+    // chiesto: «non voglio vedere né pixel né triangoli, solo ombre smooth
+    // perfette».
     //
-    // La differenza fra le due cose, che è la ragione per cui questa non è la
-    // terza bocciatura: una PENOMBRA allarga l'ombra di tanti pixel e inventa
-    // una sfumatura che in questo gioco non esiste; qui la transizione è larga
-    // ESATTAMENTE UN TEXEL — la stessa grandezza del gradino che cancella — e
-    // sotto quella scala non c'è informazione, solo il reticolo. Il committente
-    // l'aveva anche chiesto in chiaro: «vorrei anche una opzione più smoothata
-    // ai bordi, non pixellosa».
+    // ⚠ SI CONFRONTA PRIMA E SI INTERPOLA DOPO, sempre: interpolare le QUOTE e
+    // poi confrontarle dà bordi che non stanno da nessuna parte sui dislivelli.
     //
-    // Quattro prese ai quattro texel vicini, pesate come farebbe il filtro
-    // bilineare — che sulla profondità non si può usare (interpolare le QUOTE
-    // prima di confrontarle dà bordi sbagliati sui dislivelli: si confronta
-    // prima, si interpola dopo).
-    vec2 g = q.xy / u - 0.5;
-    vec2 f = fract(g);
-    vec2 b = (floor(g) + 0.5) * u;
-    float s00 = step(z, texture2D(${pre}, b).r);
-    float s10 = step(z, texture2D(${pre}, b + vec2(u, 0.0)).r);
-    float s01 = step(z, texture2D(${pre}, b + vec2(0.0, u)).r);
-    float s11 = step(z, texture2D(${pre}, b + vec2(u, u)).r);
-    return mix(mix(s00, s10, f.x), mix(s01, s11, f.x), f.y);
+    // «raggio» in texel arriva dalla uniform omonima: 0 = una presa (il ricambio dei
+    // dispositivi deboli), 1 = quattro prese su un texel, 2+ = la griglia larga.
+    float raggio = ${pre}Raggio;
+    if (raggio <= 0.0) return step(z, texture2D(${pre}, q.xy).r);
+
+    float somma = 0.0, peso = 0.0;
+    // griglia 3×3 di prese bilineari, distanziate mezzo raggio: nove punti
+    // coprono un disco di raggio «raggio» texel senza lasciare buchi, e il peso
+    // gaussiano evita che il bordo del kernel si veda come un secondo bordo.
+    for (int iy = -1; iy <= 1; iy++) {
+      for (int ix = -1; ix <= 1; ix++) {
+        vec2 off = vec2(float(ix), float(iy)) * raggio * 0.5 * u;
+        vec2 g = (q.xy + off) / u - 0.5;
+        vec2 f = fract(g);
+        vec2 b = (floor(g) + 0.5) * u;
+        float s00 = step(z, texture2D(${pre}, b).r);
+        float s10 = step(z, texture2D(${pre}, b + vec2(u, 0.0)).r);
+        float s01 = step(z, texture2D(${pre}, b + vec2(0.0, u)).r);
+        float s11 = step(z, texture2D(${pre}, b + vec2(u, u)).r);
+        float v = mix(mix(s00, s10, f.x), mix(s01, s11, f.x), f.y);
+        float w = exp(-0.5 * float(ix * ix + iy * iy));
+        somma += v * w; peso += w;
+      }
+    }
+    return somma / peso;
   }
 `; }

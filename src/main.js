@@ -1,81 +1,81 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtbwqugr';
-import { Rig } from './engine/renderer.js?v=mtbwqugr';
-import { Input } from './engine/input.js?v=mtbwqugr';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtbwqugr';
-import { Cadenza } from './engine/cadenza.js?v=mtbwqugr';
-import { GpuProfiler } from './engine/gpuTimer.js?v=mtbwqugr';
-import { creaBatteria } from './engine/batteria.js?v=mtbwqugr';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtbwqugr';
-import { Mondo } from './world/world.js?v=mtbwqugr';
-import { SimAcqua } from './world/acqua.js?v=mtbwqugr';
-import { Lobby } from './net/lobby.js?v=mtbwqugr';
-import { Segnalatore } from './net/segnalatore.js?v=mtbwqugr';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtbwqugr';
-import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtbwqugr';
-import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtbwqugr';
-import { PannelloInsieme } from './ui/multiplayer.js?v=mtbwqugr';
-import { Targhetta } from './ui/targhetta.js?v=mtbwqugr';
-import { Bolla } from './ui/bolla.js?v=mtbwqugr';
-import { Scelta } from './ui/scelta.js?v=mtbwqugr';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtbwqugr';
-import { Zaino } from './ui/zaino.js?v=mtbwqugr';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mtbwqugr';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtbwqugr';
-import { generaMostra } from './world/mostra.js?v=mtbwqugr';
-import { generaCollaudo } from './world/collaudo.js?v=mtbwqugr';
-import { generaTestLuci } from './world/testLuci.js?v=mtbwqugr';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtbwqugr';
-import { generaTestMacchine } from './world/testMacchine.js?v=mtbwqugr';
-import { generaZoo } from './world/zoo.js?v=mtbwqugr';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mtbwqugr';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtbwqugr';
-import { Meteo } from './fx/meteo.js?v=mtbwqugr';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtbwqugr';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtbwqugr';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=mtbwqugr';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtbwqugr';
-import { CicloGiorno } from './fx/daynight.js?v=mtbwqugr';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, impostaCorpi, materialeOmbra, materialiDiScorta, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtbwqugr';
-import { CampoSole } from './fx/campoSole.js?v=mtbwqugr';
-import { Controluce, configuraMappa } from './fx/controluce.js?v=mtbwqugr';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtbwqugr';
-import { ModalitaAR } from './ar/ar.js?v=mtbwqugr';
-import { Nuvole } from './fx/nuvole.js?v=mtbwqugr';
-import { SagomaVista } from './fx/sagomaVista.js?v=mtbwqugr';
-import { Erba } from './fx/erba.js?v=mtbwqugr';
-import { Foglie } from './fx/foglie.js?v=mtbwqugr';
-import { SegnaPercorso } from './fx/percorso.js?v=mtbwqugr';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mtbwqugr';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mtbwqugr';
-import { Pioggia } from './fx/pioggia.js?v=mtbwqugr';
-import { Particelle } from './fx/particelle.js?v=mtbwqugr';
-import { Audio } from './fx/audio.js?v=mtbwqugr';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtbwqugr';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtbwqugr';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtbwqugr';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtbwqugr';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtbwqugr';
-import { Registro } from './ecs/registro.js?v=mtbwqugr';
-import { Orologio, Rng } from './ecs/orologio.js?v=mtbwqugr';
-import { Sistemi } from './ecs/sistemi.js?v=mtbwqugr';
-import { Agenda } from './ecs/agenda.js?v=mtbwqugr';
-import { Gatto } from './player/player.js?v=mtbwqugr';
-import { ManoStrumento } from './player/mano.js?v=mtbwqugr';
-import { dropDi } from './gioco/drop.js?v=mtbwqugr';
-import { Controller } from './player/controller.js?v=mtbwqugr';
-import { FURNI, centroide } from './furniture/registry.js?v=mtbwqugr';
-import { caricaModelli } from './furniture/loader.js?v=mtbwqugr';
-import { Arredo } from './furniture/furniture.js?v=mtbwqugr';
-import { HUD } from './ui/hud.js?v=mtbwqugr';
-import { MenuDebug } from './ui/debug.js?v=mtbwqugr';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtbwqugr';
-import { ModalitaXR } from './ar/ar-xr.js?v=mtbwqugr';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtbytwog';
+import { Rig } from './engine/renderer.js?v=mtbytwog';
+import { Input } from './engine/input.js?v=mtbytwog';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtbytwog';
+import { Cadenza } from './engine/cadenza.js?v=mtbytwog';
+import { GpuProfiler } from './engine/gpuTimer.js?v=mtbytwog';
+import { creaBatteria } from './engine/batteria.js?v=mtbytwog';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtbytwog';
+import { Mondo } from './world/world.js?v=mtbytwog';
+import { SimAcqua } from './world/acqua.js?v=mtbytwog';
+import { Lobby } from './net/lobby.js?v=mtbytwog';
+import { Segnalatore } from './net/segnalatore.js?v=mtbytwog';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtbytwog';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtbytwog';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtbytwog';
+import { PannelloInsieme } from './ui/multiplayer.js?v=mtbytwog';
+import { Targhetta } from './ui/targhetta.js?v=mtbytwog';
+import { Bolla } from './ui/bolla.js?v=mtbytwog';
+import { Scelta } from './ui/scelta.js?v=mtbytwog';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtbytwog';
+import { Zaino } from './ui/zaino.js?v=mtbytwog';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mtbytwog';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtbytwog';
+import { generaMostra } from './world/mostra.js?v=mtbytwog';
+import { generaCollaudo } from './world/collaudo.js?v=mtbytwog';
+import { generaTestLuci } from './world/testLuci.js?v=mtbytwog';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtbytwog';
+import { generaTestMacchine } from './world/testMacchine.js?v=mtbytwog';
+import { generaZoo } from './world/zoo.js?v=mtbytwog';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mtbytwog';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtbytwog';
+import { Meteo } from './fx/meteo.js?v=mtbytwog';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtbytwog';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtbytwog';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=mtbytwog';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtbytwog';
+import { CicloGiorno } from './fx/daynight.js?v=mtbytwog';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, impostaCorpi, materialeOmbra, materialiDiScorta, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtbytwog';
+import { CampoSole } from './fx/campoSole.js?v=mtbytwog';
+import { Controluce, configuraMappa } from './fx/controluce.js?v=mtbytwog';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtbytwog';
+import { ModalitaAR } from './ar/ar.js?v=mtbytwog';
+import { Nuvole } from './fx/nuvole.js?v=mtbytwog';
+import { SagomaVista } from './fx/sagomaVista.js?v=mtbytwog';
+import { Erba } from './fx/erba.js?v=mtbytwog';
+import { Foglie } from './fx/foglie.js?v=mtbytwog';
+import { SegnaPercorso } from './fx/percorso.js?v=mtbytwog';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mtbytwog';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mtbytwog';
+import { Pioggia } from './fx/pioggia.js?v=mtbytwog';
+import { Particelle } from './fx/particelle.js?v=mtbytwog';
+import { Audio } from './fx/audio.js?v=mtbytwog';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtbytwog';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtbytwog';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtbytwog';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtbytwog';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtbytwog';
+import { Registro } from './ecs/registro.js?v=mtbytwog';
+import { Orologio, Rng } from './ecs/orologio.js?v=mtbytwog';
+import { Sistemi } from './ecs/sistemi.js?v=mtbytwog';
+import { Agenda } from './ecs/agenda.js?v=mtbytwog';
+import { Gatto } from './player/player.js?v=mtbytwog';
+import { ManoStrumento } from './player/mano.js?v=mtbytwog';
+import { dropDi } from './gioco/drop.js?v=mtbytwog';
+import { Controller } from './player/controller.js?v=mtbytwog';
+import { FURNI, centroide } from './furniture/registry.js?v=mtbytwog';
+import { caricaModelli } from './furniture/loader.js?v=mtbytwog';
+import { Arredo } from './furniture/furniture.js?v=mtbytwog';
+import { HUD } from './ui/hud.js?v=mtbytwog';
+import { MenuDebug } from './ui/debug.js?v=mtbytwog';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtbytwog';
+import { ModalitaXR } from './ar/ar-xr.js?v=mtbytwog';
 import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot,
   spingiSnapshot, sbirciaSnapshot, togliSnapshot, livelliSnapshot,
-  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtbwqugr';
+  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtbytwog';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -2133,7 +2133,35 @@ function aggiornaSagome() {
 }
 
 // L'ERBA nel vento: un solo oggetto, l'animazione tutta nel vertex shader.
-const erba = new Erba(rig.scena);
+/**
+ * IL TETTO DELLE LAMELLE, ed è il numero che decide se il prato è un TAPPETO o
+ * una spolverata.
+ *
+ * ⚠ ERA 30.000 E MORDEVA SEMPRE: nel mondo gigante il conto stava a 29.998, cioè
+ * il prato non era «quanto ne serve», era «quanto ce ne sta». Alzare la densità
+ * non cambiava niente — il tetto tagliava comunque, e a tagliare erano le
+ * lamelle più lontane, cioè quelle in dissolvenza. Committente: «modifichiamo
+ * l'erba in modo che sia trenta volte la quantità attuale, deve essere super
+ * ottimizzata, un tappetino morbido dove presente».
+ *
+ * ⚠ E IL TETTO NON BASTA DA SOLO: senza il diradamento per distanza
+ * (`passoPerDistanza`) le lamelle finirebbero per metà oltre l'orizzonte utile.
+ * Il tappeto si fa fitto DOVE SI GUARDA e rado in fondo.
+ *
+ * ⚠ IL TETTO NON È «IL PIÙ ALTO CHE REGGE», È QUELLO CHE SERVE — ed è la
+ * correzione di un mio eccesso. Ero salito a 900.000 per essere sicuro che non
+ * mordesse mai; poi ho misurato il caso peggiore vero (anello a passo pieno
+ * 5×5 chunk tutti a erba, densità 8: ~243k, più i due anelli diradati, ~190k)
+ * e sta sotto i 450.000. Il resto era buffer allocato per niente — e non è
+ * memoria e basta: `_scambia` senza intervalli di aggiornamento spedisce alla
+ * GPU l'INTERO array, non le lamelle scritte. Cinquecentomila con gli
+ * intervalli costano meno di trecentomila senza. Il conto misurato sul mondo
+ * gigante con la densità al massimo è 203.447 lamelle: il tetto non morde.
+ */
+const ERBA_MAX = rig.mobile ? 120000 : 500000;
+/** La densità a qualità piena (manuale). La scala di qualità scende da qui. */
+const ERBA_DENSITA_MAX = 8;
+const erba = new Erba(rig.scena, { max: ERBA_MAX });
 // LE FOGLIE: mucchi tondi sparsi sul prato, e si spazzano via camminandoci
 // dentro. Stessa architettura dell'erba (istanze + semina a chunk), ma la
 // distribuzione è a mucchi e il calpestio LEVA le foglie invece di piegarle.
@@ -2948,6 +2976,11 @@ const menuDebug = new MenuDebug({
       if (v !== undefined) u.value = Math.max(0, v);
       return u.value;
     },
+    morbidezzaOmbra: (v) => {
+      const u = uniformiCondivise();
+      if (v !== undefined) { u.uControluceRaggio.value = v; u.uCorpiRaggio.value = v; }
+      return u.uControluceRaggio.value;
+    },
     raggiSole: (n) => raggiSole(n),
     conoSole: (a) => conoSole(a),
     passiMarciaMax: () => MARCIA_PASSI_MAX,
@@ -3655,18 +3688,18 @@ const LIVELLI_Q = rig.mobile ? [
   // CPU di qualche ms ogni due secondi (a fette da 3 ms, fattore 1 su mobile).
   // Resta accesa fino al terzultimo gradino; gli ultimi due sono la corsia di
   // emergenza dei chip che non reggono nemmeno i pixel, e lì si spegne TUTTO.
-  { rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 10, scala: 1, dist: 700, erba: 1, erbaR: 5, raggi: 1, marcia: 12, bordiMorbidi: false, campioni: 0 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 6, scala: 0.9, dist: 500, erba: 0.7, erbaR: 4, raggi: 1, marcia: 8, bordiMorbidi: false, campioni: 0 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 3, sole: 6, scala: 0.82, dist: 500, erba: 0.5, erbaR: 3, raggi: 1, marcia: 6, bordiMorbidi: false, campioni: 0 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 6, scala: 0.66, dist: 360, erba: 0.35, erbaR: 2, raggi: 1, marcia: 4, bordiMorbidi: false, campioni: 0 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scala: 0.55, dist: 280, erba: 0.2, erbaR: 2, raggi: 1, marcia: 0, bordiMorbidi: false, campioni: 0 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.45, dist: 220, erba: 0.15, erbaR: 1, raggi: 1, marcia: 0, bordiMorbidi: false, campioni: 0 },
+  { rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 10, scala: 1, dist: 700, erba: 6, erbaR: 5, raggi: 1, marcia: 12, bordiMorbidi: false, campioni: 0 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 6, scala: 0.9, dist: 500, erba: 4.2, erbaR: 4, raggi: 1, marcia: 8, bordiMorbidi: false, campioni: 0 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 3, sole: 6, scala: 0.82, dist: 500, erba: 3, erbaR: 3, raggi: 1, marcia: 6, bordiMorbidi: false, campioni: 0 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 6, scala: 0.66, dist: 360, erba: 2.1, erbaR: 2, raggi: 1, marcia: 4, bordiMorbidi: false, campioni: 0 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scala: 0.55, dist: 280, erba: 1.2, erbaR: 2, raggi: 1, marcia: 0, bordiMorbidi: false, campioni: 0 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.45, dist: 220, erba: 0.9, erbaR: 1, raggi: 1, marcia: 0, bordiMorbidi: false, campioni: 0 },
 ] : [
   // `sole` = l'ombra del cielo: 0 = spenta, qualunque altro numero = accesa.
   // (Era una portata in blocchi ai tempi del cammino per-pixel; il campo del
   // sole non ha passi da contare e le ombre lunghe arrivano fin dove devono.)
-  { rifl: true, ombre: true, schiuma: true, acquaRicca: true, maxOmbre: 8, sole: 13, scala: 1, dist: 900, erba: 1.3, erbaR: 6, raggi: 1, marcia: 28, bordiMorbidi: true, campioni: 4 },
-  { rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 12, scala: 0.9, dist: 700, erba: 1, erbaR: 5, raggi: 1, marcia: 20, bordiMorbidi: true, campioni: 4 },
+  { rifl: true, ombre: true, schiuma: true, acquaRicca: true, maxOmbre: 8, sole: 13, scala: 1, dist: 900, erba: 7.8, erbaR: 6, raggi: 1, marcia: 28, bordiMorbidi: true, campioni: 4 },
+  { rifl: false, ombre: false, schiuma: true, acquaRicca: true, maxOmbre: 6, sole: 12, scala: 0.9, dist: 700, erba: 6, erbaR: 5, raggi: 1, marcia: 20, bordiMorbidi: true, campioni: 4 },
   // ⚠ IL TILT-SHIFT NON SI SPEGNE PIU' QUI, e lo dicono le misure del
   // committente: sul suo Chromebook, in DUE giri diversi e con la voce misurata
   // alternata, spento costa il 6% di GPU IN PIU' (28,95 ms contro 27,26; e prima
@@ -3674,9 +3707,9 @@ const LIVELLI_Q = rig.mobile ? [
   // appena la scala scende sotto 1 — spegnerlo non risparmia niente e toglie
   // meta' dell'aspetto del diorama. Restava in scala per un'ipotesi mia mai
   // verificata: «e' un post-process, quindi costa». Non su quel chip.
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 8, scala: 0.8, dist: 500, erba: 0.6, erbaR: 3, raggi: 1, marcia: 14, bordiMorbidi: false, campioni: 2 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 6, scala: 0.72, dist: 500, erba: 0.45, erbaR: 3, raggi: 1, marcia: 10, bordiMorbidi: false, campioni: 2 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scala: 0.62, dist: 360, erba: 0.3, erbaR: 2, raggi: 1, marcia: 6, bordiMorbidi: false, campioni: 0 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 4, sole: 8, scala: 0.8, dist: 500, erba: 3.6, erbaR: 3, raggi: 1, marcia: 14, bordiMorbidi: false, campioni: 2 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 2, sole: 6, scala: 0.72, dist: 500, erba: 2.7, erbaR: 3, raggi: 1, marcia: 10, bordiMorbidi: false, campioni: 2 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 1, sole: 0, scala: 0.62, dist: 360, erba: 1.8, erbaR: 2, raggi: 1, marcia: 6, bordiMorbidi: false, campioni: 0 },
   // ⚠ GLI ULTIMI DUE SCALINI SONO NUOVI, e li ha chiesti una misura precisa: sul
   // Chromebook del committente (Intel HD 400) il pass principale costa 69,8 ms a
   // scala 1 e 24,1 ms a scala 0,50 — cioè la RISOLUZIONE è la leva, e la scala
@@ -3684,8 +3717,8 @@ const LIVELLI_Q = rig.mobile ? [
   // «desktop» era tarato su un portatile lento, non su un chip integrato del
   // 2015: per quello serve arrivare dove arriva la scala mobile. Brutto, ma
   // giocabile — e sopra c'è tutta la scala per chi non ne ha bisogno.
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.53, dist: 300, erba: 0.2, erbaR: 2, raggi: 1, marcia: 0, bordiMorbidi: false, campioni: 0 },
-  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.45, dist: 240, erba: 0.15, erbaR: 1, raggi: 1, marcia: 0, bordiMorbidi: false, campioni: 0 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.53, dist: 300, erba: 1.2, erbaR: 2, raggi: 1, marcia: 0, bordiMorbidi: false, campioni: 0 },
+  { rifl: false, ombre: false, schiuma: false, acquaRicca: false, maxOmbre: 0, sole: 0, scala: 0.45, dist: 240, erba: 0.9, erbaR: 1, raggi: 1, marcia: 0, bordiMorbidi: false, campioni: 0 },
 ];
 // ⚠️ IL FOTOGRAMMA È PROPORZIONALE AI PIXEL, E BASTA — misurato il 27/08 con il
 // freno a 210 MHz, open world, macchina assestata (spread 0,03-0,08 ms):
@@ -3912,12 +3945,14 @@ function applicaQualita() {
   // cinque. Misurato: «Minima» chiedeva zero campioni e ne otteneva quattro.
   rig.setCampioni(Math.min(qManuale ? 4 : (q.campioni ?? 0),
     opzioni.campioni ?? (rig.mobile ? 0 : 4)));
-  erba.densita = qManuale ? 1 : (q.erba ?? 1);
+  erba.densita = qManuale ? ERBA_DENSITA_MAX : (q.erba ?? 1);
   erba.raggioChunk = qManuale ? 5 : (q.erbaR ?? 5);
   erba.risemina();
   // le foglie seguono la stessa manopola: sono meno dell'erba, quindi il raggio
   // resta più corto anche al massimo — un mucchio si guarda da vicino
-  foglie.densita = qManuale ? 1 : (q.erba ?? 1);
+  // ⚠ LE FOGLIE NON SEGUONO L'ERBA nel moltiplicatore: sono MUCCHI, e un mucchio
+  // trenta volte più fitto è una macchia piatta. Restano al loro valore.
+  foglie.densita = qManuale ? 1 : Math.min(1.3, q.erba ?? 1);
   foglie.raggioChunk = Math.min(4, qManuale ? 4 : (q.erbaR ?? 4));
   foglie.risemina();
   _partiQ = (qManuale || q.acquaRicca !== false)
@@ -4286,6 +4321,23 @@ function _confDaSchermo(h) {
 /** I bordi morbidi della mappa d'ombra (filtro a quattro prese). Lo decide la
  *  scala di qualità: costa +0,23 ms su 2,52 a 1080p, misurato — poco, ma non
  *  zero, e sulle macchine deboli i pixel valgono più dei bordi. */
+/** ⚠ IL RAGGIO DEL FILTRO D'OMBRA, IN TEXEL, e i due valori sono scelti così:
+ *  · MINIMO = 1 → quattro prese su un texel. Toglie la SCALINATA del reticolo,
+ *    che è il difetto che non deve tornare mai — ma lascia vedere i «ginocchi»
+ *    (la iso-linea è un arco per texel, e archi vicini non combaciano in
+ *    tangente). È il gradino dei dispositivi deboli.
+ *  · MORBIDO = 2 → griglia 3×3 di prese bilineari su due texel. I ginocchi si
+ *    mediano fra loro e sotto la media non si vedono. È la penombra vera che il
+ *    committente ha chiesto: «solo ombre smooth perfette».
+ *  Sotto 1 c'è solo la scalinata, e non è un'opzione. */
+// ⚠ E TUTT'E DUE SONO ≥ 2, cioè tutt'e due SMOOTH. Misurato col freno GPU a
+// 210 MHz a 1080p sul mondo gigante: raggio 0 → 6,69 ms · 1 → 6,43 · 2 → 6,63 ·
+// 3 → 6,43. Il filtro largo NON SI PAGA — trentasei letture per pixel stanno
+// tutte nella cache di una texture piccola. Quindi non c'è nessuna ragione di
+// dare la versione a gradini a nessun dispositivo: il gradino basso è «morbido»
+// e quello alto è «più morbido».
+const RAGGIO_OMBRA_MINIMO = 2;
+const RAGGIO_OMBRA_MORBIDO = 3;
 let _bordiMorbidi = true;
 let _hControluce = _altezzaResa();
 const _confControluce = _confDaSchermo(_hControluce);
@@ -4379,7 +4431,7 @@ function giraCorpi() {
   const prof = Math.max(1, corpi.camera.far - corpi.camera.near);
   impostaCorpi(corpi.texture, corpi.matrice, {
     scarto: Math.max(1e-4, _scartoBlocchi / prof), texel: corpi.texel, attiva: true,
-    invN: _bordiMorbidi ? 1 / corpi.N : 0,
+    invN: 1 / corpi.N, raggio: _bordiMorbidi ? RAGGIO_OMBRA_MORBIDO : RAGGIO_OMBRA_MINIMO,
   });
 }
 
@@ -4851,7 +4903,14 @@ function giraControluce() {
     // Un interruttore che passa da un numero, invece che da un ramo in più nello
     // shader — il ramo costerebbe sui registri anche da spento (è la lezione già
     // scritta per il profilo).
-    { scarto, texel: controluce.texel, attiva: true, invN: _bordiMorbidi ? 1 / controluce.N : 0 });
+    // ⚠ `invN` ADESSO C'È SEMPRE, e la manopola è il RAGGIO. Prima l'interruttore
+    // dei bordi morbidi passava da `invN = 0`, cioè spegneva il filtro e
+    // rimetteva la SCALINATA — che è il difetto che il committente non vuole
+    // vedere a nessun costo («né pixel né triangoli»). Adesso il gradino più
+    // basso è quattro prese su un texel, non una presa sola: la scalinata non
+    // torna mai, cambia solo quanto è morbido.
+    { scarto, texel: controluce.texel, attiva: true, invN: 1 / controluce.N,
+      raggio: _bordiMorbidi ? RAGGIO_OMBRA_MORBIDO : RAGGIO_OMBRA_MINIMO });
 }
 
 /** Cicla i tre sistemi, o ne impone uno. Rende il nome di quello attivo. */

@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbwqugr';
-import { glslControluce } from './controluce.js?v=mtbwqugr';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbwqugr';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbytwog';
+import { glslControluce } from './controluce.js?v=mtbytwog';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbytwog';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -416,7 +416,12 @@ const uniformi = {
   // la mappa — e si legge l'ombra del vicino. Nemmeno scalando col coseno
   // (provato: peggio ancora, il fattore esplode proprio dove non serve).
   // Resta come manopola perché il committente possa provarla, ma parte da zero.
-  uControluceNorm: { value: 0 },     // texel di scostamento lungo la normale
+  uControluceNorm: { value: 0 },
+  /** ⚠ RAGGIO DEL FILTRO IN TEXEL, ed è la manopola del «morbido». 0 = una
+   *  presa (scalinata), 1 = quattro prese su un texel (i ginocchi si vedono
+   *  ancora), 2+ = griglia larga, i ginocchi si mediano fra loro. Committente:
+   *  «non voglio vedere né pixel né triangoli, solo ombre smooth perfette». */
+  uControluceRaggio: { value: 2 },     // texel di scostamento lungo la normale
   // ═══ LA MAPPA DEI CORPI IN MOVIMENTO (§14.23) ═══
   // Piccola e rifatta a ogni fotogramma: ci stanno gatto, ospiti, palle e
   // creature. Non può stare nella mappa del sole perché quella è CACHATA per
@@ -438,6 +443,7 @@ const uniformi = {
   uCorpiInfo: { value: new THREE.Vector4(0, 0, 0, 0) },
   uCorpiM: { value: new THREE.Matrix4() },
   uCorpiNorm: { value: 0 },
+  uCorpiRaggio: { value: 2 },
   // ⚠ LA MARCIA HA UN BUDGET SUO, e non è un doppione di `uSolePassi`.
   // `solePassi` vale 0/8/12/13 nei preset ed è documentato come interruttore
   // MORTO — per il mondo era testato solo per `== 0`, quindi 8, 12 e 13 sono lo
@@ -1701,14 +1707,15 @@ export function patchLuci(materiale, ingombro = false, vento = false) {
  * `impostaControluce`, mappa diversa: piccola, attorno al giocatore, rifatta a
  * ogni fotogramma. `attiva` a false la fa uscire a 1.0 subito.
  */
-export function impostaCorpi(texture, matrice, { scarto = 0, texel = 0, attiva = false, norm, invN = 0 } = {}) {
+export function impostaCorpi(texture, matrice, { scarto = 0, texel = 0, attiva = false, norm, invN = 0, raggio } = {}) {
   uniformi.uCorpi.value = texture || null;
   if (matrice) uniformi.uCorpiM.value.copy(matrice);
   if (norm !== undefined) uniformi.uCorpiNorm.value = norm;
   uniformi.uCorpiInfo.value.set(invN, scarto, texel, attiva && texture ? 1 : 0);
+  if (raggio !== undefined) uniformi.uCorpiRaggio.value = raggio;
 }
 
-export function impostaControluce(texture, matrice, { scarto = 0, texel = 0, attiva = false, norm, invN = 0 } = {}) {
+export function impostaControluce(texture, matrice, { scarto = 0, texel = 0, attiva = false, norm, invN = 0, raggio } = {}) {
   uniformi.uControluce.value = texture || null;
   if (matrice) uniformi.uControluceM.value.copy(matrice);
   if (norm !== undefined) uniformi.uControluceNorm.value = norm;
@@ -1717,6 +1724,7 @@ export function impostaControluce(texture, matrice, { scarto = 0, texel = 0, att
   // nessuno lo usava; con 0 le quattro prese cadono tutte sullo stesso texel e
   // il filtro non filtra — cioè si paga e non si vede.
   uniformi.uControluceInfo.value.set(invN, scarto, texel, attiva && texture ? 1 : 0);
+  if (raggio !== undefined) uniformi.uControluceRaggio.value = raggio;
 }
 
 /** Quanti texel ci si scosta lungo la normale prima di leggere la mappa. È la

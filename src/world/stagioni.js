@@ -9,8 +9,8 @@
 // il punto unico di risoluzione: basterà passargli l'override della cella.
 
 import * as THREE from 'three';
-import { BLOCCHI, defDi } from './blocks.js?v=mtbwqugr';
-import { materialiConMappa } from '../fx/materials.js?v=mtbwqugr';
+import { BLOCCHI, defDi } from './blocks.js?v=mtbytwog';
+import { materialiConMappa } from '../fx/materials.js?v=mtbytwog';
 
 export const STAGIONI = {
   primavera: {
@@ -111,6 +111,33 @@ export function indiceRampa(y, n = 8) {
   let i = ((Math.round(y) % ciclo) + ciclo) % ciclo;
   if (i >= n) i = ciclo - i;
   return i;
+}
+
+/**
+ * IL COLORE DELLA RAMPA, MA PIÙ CHIARO DI QUALCHE GRADINO.
+ *
+ * Serve alla punta dei fili d'erba, e la richiesta è precisa: «una sfumatura
+ * leggera dal blocco di partenza a un livello o 2 più chiaro — gli strati di
+ * erba cambiano leggermente tonalità a seconda dell'altezza». Cioè la punta non
+ * è un verde inventato: è il verde che il TERRENO stesso avrebbe uno o due
+ * gradini più su nella rampa stagionale.
+ *
+ * ⚠ NON BASTA GUARDARE `y + 2`. La rampa è a PING-PONG (indiceRampa): salendo
+ * di quota l'indice sale fino a 7 e poi RITORNA indietro, quindi due blocchi
+ * più in alto a volte è più chiaro e a volte è più scuro. Qui si sposta
+ * l'INDICE, non la quota: `gradini` verso lo 0, che è l'estremo chiaro della
+ * rampa. Così la punta è più chiara sempre, a qualunque quota.
+ *
+ * Per i blocchi senza cappello d'erba (non ne crescono ciuffi, ma i posati a
+ * mano sì) si torna al colore della cima: meglio nessuna sfumatura che una
+ * inventata.
+ */
+export function coloreRampaChiaro(tipo, y, gradini = 2) {
+  const def = defDi(tipo);
+  const st = STAGIONI[corrente];
+  if (!(def.cappello && st.erba && !def.override)) return paletteBlocco(tipo, y).cima;
+  const i = indiceRampa(y, st.erba.length);
+  return st.erba[Math.max(0, i - gradini)];
 }
 
 /** Cambia stagione (ritinge anche il fogliame). Ritorna true se qualcosa è cambiato. */
