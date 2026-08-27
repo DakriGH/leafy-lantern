@@ -27,7 +27,7 @@
 // giocatore), e un ping ogni trenta secondi — il server considera «vivo» chi si
 // è fatto sentire negli ultimi novanta, quindi due ping persi sono tollerati.
 
-import { ANALITICA_URL } from '../config.js?v=mtbj1tmk';
+import { ANALITICA_URL } from '../config.js?v=mtbj9tmp';
 
 const OGNI_MS = 30_000;
 // ⚠ A SCHEDA NASCOSTA SI RALLENTA DI DIECI VOLTE. Il committente ha descritto il

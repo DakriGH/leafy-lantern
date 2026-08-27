@@ -30,9 +30,10 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=mtbj1tmk';
-import { CHUNK } from '../world/world.js?v=mtbj1tmk';
-import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE, GBANDE } from './materials.js?v=mtbj1tmk';
+import { paletteBlocco } from '../world/stagioni.js?v=mtbj9tmp';
+import { CHUNK } from '../world/world.js?v=mtbj9tmp';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, uniformiControluce, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE, GBANDE } from './materials.js?v=mtbj9tmp';
+import { glslControluce } from './controluce.js?v=mtbj9tmp';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -108,6 +109,16 @@ const GLSL_VERTEX = /* glsl */`
   // le sagome dei mobili (alberi in testa): dichiara uDinPos/uDinMez/uDinDiag e
   // la funzione sagomeAlSole. Vuole uSoleDir già dichiarata — è qui sopra.
 ${GLSL_SCATOLE_VERTICE}
+  // ⚠ E LA LEGGE D'OMBRA CONDIVISA, che è la cura al «pixelloso» sotto gli
+  // alberi. Fino al 27/08 l'erba prendeva l'ombra dei MOBILI da otto scatole
+  // analitiche (GLSL_SCATOLE_VERTICE qui sopra): un albero diventava un CUBO, e
+  // per FILO — quindi sotto una chioma il prato si riempiva di quadrati scuri.
+  // Il terreno sotto intanto usava la mappa e aveva la silhouette vera: due
+  // sorgenti diverse per la stessa ombra, ed è il difetto che il committente
+  // vede come «per le furniture è pixellosa».
+  // Adesso i mobili li chiede alla STESSA mappa del mondo: una lettura, la
+  // forma vera. Le scatole restano dichiarate perché le usano le particelle.
+${glslControluce()}
   // le lampade: dichiara uLuciPosRaggio/uLuciColore/uLuciNum e la funzione luciIn
 ${GLSL_LUCI_VERTICE}
 
@@ -189,7 +200,10 @@ ${GLSL_LUCI_VERTICE}
     // stavano su due leggi diverse. Si taglia QUI, nel vertice, perché una
     // lamella è alta mezzo blocco: l'ombra al piede e quella alla punta sono la
     // stessa, e per pixel si pagherebbe la stessa cosa mille volte.
-    float _s = min(erbaAlSole(iPos.xyz), sagomeAlSole(iPos.xyz + vec3(0.0, 0.12, 0.0)));
+    // il TERRENO dalla heightmap come prima, i MOBILI dalla mappa condivisa.
+    vec3 _p = iPos.xyz + vec3(0.0, 0.12, 0.0);
+    vec3 _pl = (uControluceM * vec4(_p, 1.0)).xyz;
+    float _s = min(erbaAlSole(iPos.xyz), ombraDelSole(_pl, vec3(0.0, 1.0, 0.0), uSoleDir));
     vSole = floor(_s * ${GBANDE} + 0.5) / ${GBANDE};
     // LE LAMPADE ILLUMINANO ANCHE L'ERBA. Si misura a mezza altezza del ciuffo:
     // una volta per filo, non per pixel, e la pozza di un lampione è larga metri
@@ -464,6 +478,7 @@ export class Erba {
         // per RIFERIMENTO: restano agganciate al ciclo del giorno da sole
         ...uniformiOmbraSole(),
         ...uniformiScatole(),
+        ...uniformiControluce(),
         ...uniformiLuci(),
       },
     });

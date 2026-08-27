@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbj1tmk';
-import { glslControluce } from './controluce.js?v=mtbj1tmk';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbj1tmk';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbj9tmp';
+import { glslControluce } from './controluce.js?v=mtbj9tmp';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbj9tmp';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -2279,6 +2279,18 @@ const uniformiQ = {
   uQNum: { value: 0 },
 };
 export function uniformiScatole() { return uniformiQ; }
+
+/** LA LEGGE D'OMBRA CONDIVISA, per chi ha uno shader suo (erba, foglie,
+ *  particelle). Va con `glslControluce()` — le uniform senza la funzione non
+ *  servono a niente, e la funzione senza le uniform non compila. */
+export function uniformiControluce() {
+  return {
+    uControluce: uniformi.uControluce,
+    uControluceM: uniformi.uControluceM,
+    uControluceInfo: uniformi.uControluceInfo,
+    uControluceNorm: uniformi.uControluceNorm,
+  };
+}
 /**
  * LE LUCI-SFERA PER CHI HA UNO SHADER SUO (erba, foglie, particelle).
  *
