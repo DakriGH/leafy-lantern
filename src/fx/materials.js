@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbv5pya';
-import { glslControluce } from './controluce.js?v=mtbv5pya';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbv5pya';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbvpm5v';
+import { glslControluce } from './controluce.js?v=mtbvpm5v';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbvpm5v';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -428,6 +428,11 @@ const uniformi = {
    *  vorrebbe dire sommare due ombre dello stesso terreno — il prato più scuro
    *  del blocco che ha sotto, con due bordi diversi. È il difetto «non
    *  corrispondenti» in una forma nuova. 1 = usa anche la heightmap. */
+  /** LARGHEZZA IN PIXEL della transizione del bordo d'ombra. 0 = non si affila
+   *  (il bordo resta largo un TEXEL, che è quanto dice il dato). ⚠ Vedi
+   *  `affilaOmbra`: stringerlo sotto il texel non aggiunge informazione, la
+   *  INVENTA — e quello che inventa sono i ginocchi. */
+  uAffilaOmbra: { value: 0 },
   uErbaCampo: { value: 1 },
   uCorpi: { value: null },
   uCorpiInfo: { value: new THREE.Vector4(0, 0, 0, 0) },
@@ -864,6 +869,7 @@ const GLSL_FRAGMENT = /* glsl */`
   // PORTATA invece è locale e vuole dire qualcosa, quindi resta piena.
   // Due livelli sono ancora cel shading (i toon shader classici ne hanno due o
   // tre): quello che lo stile non vuole è la RAMPA, e qui di rampa non ce n'è.
+  uniform float uAffilaOmbra;      // larghezza in pixel del bordo (0 = non affilare)
   uniform float uSoleTerm;         // 0 = niente chiaroscuro; se no quanto resta illuminato
   // IL CAMPO DEL SOLE (fx/campoSole.js): per ogni colonna, la quota sotto cui si
   // sta in ombra. R = solo terreno (lo leggono i mobili), G = terreno + sagome
@@ -1158,9 +1164,10 @@ const GLSL_FRAGMENT = /* glsl */`
    * lo shader non compilerebbe e il prato sparirebbe.
    */
   float affilaOmbra(float s) {
+    if (uAffilaOmbra <= 0.0) return s;
     float w = fwidth(s);
     if (w <= 0.0) return s;
-    return clamp((s - 0.5) / (w * 1.2) + 0.5, 0.0, 1.0);
+    return clamp((s - 0.5) / (w * uAffilaOmbra) + 0.5, 0.0, 1.0);
   }
 
   /**

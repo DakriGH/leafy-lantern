@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=mtbv5pya';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtbv5pya';
-import { FISICA } from '../config.js?v=mtbv5pya';
+import { CHUNK } from '../world/world.js?v=mtbvpm5v';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtbvpm5v';
+import { FISICA } from '../config.js?v=mtbvpm5v';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -289,6 +289,10 @@ export class MenuDebug {
         aiuto: 'quante celle cammina la MARCIA prima di arrendersi: è letteralmente quanto lontano arriva l\'ombra. A zero il sole non proietta più.',
         leggi: () => (this.azioni.passiMarcia ? this.azioni.passiMarcia() : 0),
         scrivi: (v) => { if (this.azioni.passiMarcia) this.azioni.passiMarcia(v); } },
+      { id: 'affila', nome: '✂️ Nitidezza del bordo', min: 0, max: 30, passo: 1, unita: '/10 px',
+        aiuto: 'quanto stretta si fa la transizione del bordo. A ZERO il bordo è largo un texel della mappa (~3 px): è quanto dice il DATO, ed è l\'unica versione senza difetti. Stringendolo si torna netti, ma si vedono i GINOCCHI del reticolo — il bordo a lobi. Sopra il texel non c\'è informazione da affilare: c\'è solo da inventarla.',
+        leggi: () => Math.round((this.azioni.affilaOmbra ? this.azioni.affilaOmbra() : 0) * 10),
+        scrivi: (v) => { if (this.azioni.affilaOmbra) this.azioni.affilaOmbra(v / 10); } },
       { id: 'raggi', nome: '🌤 Morbidezza (raggi)', min: 1, max: 6, passo: 1, unita: ' raggi',
         aiuto: 'IL SOLE NON È UN PUNTO: con più raggi l\'ombra è netta al piede e sfumata in punta, come quella vera. È la cura ai triangoli con il sole radente — e resta cel, perché la penombra si taglia alle stesse bande. Costa lineare: 1 raggio = com\'è adesso.',
         leggi: () => (this.azioni.raggiSole ? this.azioni.raggiSole() : 1),
