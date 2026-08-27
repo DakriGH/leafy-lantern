@@ -449,4 +449,25 @@ export class CampoSole {
     while (this._lavoro) this._lavora();
     return true;
   }
+
+  /** C'è un ricalcolo a metà strada? */
+  inLavorazione() { return this._lavoro !== null; }
+
+  /**
+   * Finisce SUBITO il ricalcolo già avviato, senza bilancio d'orologio.
+   *
+   * ⚠ SERVE AL BANCO A PIXEL, e la ragione è costata una misura falsa il
+   * 27/08/2026. Il campo avanza a fette dentro `BILANCIO_MS`, e la texture si
+   * aggiorna solo alla fine: nei frame subito dopo un cambio d'ora — o dopo aver
+   * generato un mondo — lo shader legge un campo **a metà**. Un confronto A/B
+   * preso lì misura lo stato di avanzamento del ricalcolo e lo scambia per
+   * l'effetto della modifica. Misurato: lo stesso identico stato dava indice di
+   * frastagliatura 0,028-0,034 col campo a metà e 0,140-0,149 a campo finito —
+   * un fattore CINQUE, e nel verso che fa sembrare riuscita una cura qualunque.
+   * Nessun messaggio, nessun errore: solo un numero bellissimo e sbagliato.
+   */
+  finisci() {
+    while (this._lavoro) this._lavora();
+    return true;
+  }
 }

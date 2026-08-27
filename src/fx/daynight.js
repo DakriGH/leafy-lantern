@@ -2,9 +2,9 @@
 // t ∈ [0,1): 0 mezzanotte · 0.25 alba · 0.5 mezzogiorno · 0.75 tramonto.
 
 import * as THREE from 'three';
-import { TEMPO } from '../config.js?v=mtaobft4';
-import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=mtaobft4';
-import { Cielo } from './cielo.js?v=mtaobft4';
+import { TEMPO } from '../config.js?v=mtatdt9r';
+import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=mtatdt9r';
+import { Cielo } from './cielo.js?v=mtatdt9r';
 
 // `ambiente` È IL GIORNO E LA NOTTE, e non serve altro: lo shader moltiplica
 // l'albedo per questo colore e ci somma sopra le luci-sfera. Un tentativo aveva
@@ -82,6 +82,22 @@ export class CicloGiorno {
     this.zoomComp = 1;             // compensa lo zoom: dezoomando la nebbia si apre
     this.sottacqua = false;        // camera immersa: nebbia fitta e blu
     this.forzaOmbra = 1;           // manopola Impostazioni: quanto scurisce l'ombra del cielo
+    /**
+     * IL SOLE A MANO (committente, 27/08: «voglio completo controllo del sole e
+     * la sua inclinazione»). Quattro manopole, e la differenza fra le prime due
+     * e le seconde due conta:
+     *  · `manuale` + `azimut`/`elevazione` scavalcano l'arco: il sole sta FERMO
+     *    dove lo si mette. È il modo giusto per giudicare un'ombra — un A/B con
+     *    l'astro che cammina misura il tempo che passa, non la modifica.
+     *  · `asse` e `inclina` NON scavalcano niente: sagomano l'arco AUTOMATICO,
+     *    cioè decidono da dove sorge e quanto il culmine sta di lato. Sono le
+     *    due costanti che stavano cablate qui sotto, e cambiarle cambia il
+     *    carattere di tutta la giornata.
+     * ⚠ In manuale l'elevazione può scendere sotto il pavimento dell'arco
+     *  automatico (0,12): è voluto — le ombre lunghe stanno lì — ma sotto ~0,02
+     *  lo shader esce e l'ombra sparisce, quindi il minimo è dichiarato.
+     */
+    this.sole = { manuale: false, azimut: 40, elevazione: 45, asse: 40, inclina: 21 };
     this.onFase = null;            // callback(eNotte) sul cambio giorno/notte
     this._eraNotte = null;
     this.cielo = new Cielo(scena); // cupola: gradiente, astro, bagliore, stelle
@@ -187,16 +203,35 @@ export class CicloGiorno {
     // l'ombra di mezzogiorno cadrebbe parallela agli spigoli dei blocchi e il
     // mondo sembrerebbe di carta. La LUNA usa l'asse opposto: di notte le ombre
     // cadono dall'altra parte, e si vede subito.
-    const arco = Math.PI * g;                      // 0 = leva, π = tramonta
-    const INCLINA = 0.36;                          // quanto il culmine sta di lato
-    const A = (notte ? Math.PI + 0.70 : 0.70);     // azimut dell'asse di levata
-    const ex = Math.cos(A), ez = Math.sin(A);      // versore «da dove sorge»
-    const nx = -ez, nz = ex;                       // il perpendicolare, in pianta
-    const lungo = Math.cos(arco);                  // +1 all'alba, −1 al tramonto
-    const lato = Math.sin(arco) * Math.sin(INCLINA);
-    const alt = Math.sin(arco) * Math.cos(INCLINA); // 0 all'orizzonte, ~0.94 al culmine
-    _sole.set(ex * lungo + nx * lato, Math.max(0.12, alt), ez * lungo + nz * lato)
-      .normalize();
+    const GRADI = Math.PI / 180;
+    // ⚠ IL SOLE A MANO SCAVALCA L'ARCO, e basta questo blocco: tutto il resto
+    // della funzione (colore, k, cielo) continua a lavorare sul `_sole` che esce
+    // di qui, quindi mettere il sole a mano tinge anche l'ombra e il cielo nel
+    // modo giusto senza una riga in più.
+    if (this.sole.manuale) {
+      const az = this.sole.azimut * GRADI;
+      const el = Math.max(0.02, Math.min(Math.PI / 2, this.sole.elevazione * GRADI));
+      const c = Math.cos(el);
+      _sole.set(Math.cos(az) * c, Math.sin(el), Math.sin(az) * c).normalize();
+    }
+    // `alt` è l'altezza dell'astro, e da qui in giù comanda tutto il resto —
+    // quanto scurisce l'ombra, la tinta, il cielo. In manuale viene dalla
+    // manopola, in automatico dall'arco: una riga sola, due strade.
+    let alt;
+    if (this.sole.manuale) {
+      alt = _sole.y;
+    } else {
+      const arco = Math.PI * g;                      // 0 = leva, π = tramonta
+      const INCLINA = this.sole.inclina * GRADI;     // quanto il culmine sta di lato
+      const A = (notte ? Math.PI : 0) + this.sole.asse * GRADI;  // azimut dell'asse di levata
+      const ex = Math.cos(A), ez = Math.sin(A);      // versore «da dove sorge»
+      const nx = -ez, nz = ex;                       // il perpendicolare, in pianta
+      const lungo = Math.cos(arco);                  // +1 all'alba, −1 al tramonto
+      const lato = Math.sin(arco) * Math.sin(INCLINA);
+      alt = Math.sin(arco) * Math.cos(INCLINA);      // 0 all'orizzonte, ~0.94 al culmine
+      _sole.set(ex * lungo + nx * lato, Math.max(0.12, alt), ez * lungo + nz * lato)
+        .normalize();
+    }
 
     // QUANTO SCURISCE. La rampa sull'altezza serve a non far comparire la lama
     // radente dell'alba, ma ogni volta che l'ho ammorbidita per quel motivo ho

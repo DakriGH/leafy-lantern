@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=mtaobft4';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtaobft4';
-import { FISICA } from '../config.js?v=mtaobft4';
+import { CHUNK } from '../world/world.js?v=mtatdt9r';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtatdt9r';
+import { FISICA } from '../config.js?v=mtatdt9r';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -58,6 +58,17 @@ const HTML = /* html */`
   </div>
 
   <div class="dbg-sez"><pre class="dbg-stat" data-el="stat">…</pre></div>
+
+  <div class="dbg-sez">
+    <div class="dbg-tit">☀️ Sole e ombre <span style="font-size:11px;opacity:.55">tutto dal vivo</span></div>
+    <div class="dbg-riga">
+      <button data-az="controluce" data-el="btnControluce" title="Il mondo visto dal sole in una texture di profondità: la sagoma è la geometria VERA, il bordo è un confronto binario. Spento = il campo di quote per colonna di prima.">🌓 Controluce</button>
+      <button data-az="soleManuale" data-el="btnSoleManuale" title="Ferma l'astro e lo comanda a mano con le due manopole qui sotto. Per un A/B è OBBLIGATORIO: con l'astro che cammina si misura il tempo che passa, non la modifica.">🎯 Sole a mano</button>
+      <button data-az="soleBisturi" data-el="btnSoleBisturi" title="Spegne l'ombra del sole con una UNIFORM, a programma identico. È il bisturi che prima non c'era, e senza il quale ogni misura A/B del sole misurava anche la ricompilazione.">☀️ ombra on</button>
+    </div>
+    <div class="dbg-riga dbg-colonna" data-el="manopoleSole"></div>
+    <div style="font-size:11px;opacity:.55;margin-top:4px">Guarda dalla <b>stazione 3</b> dello zoo. <b>Scarto</b> troppo basso = acne sugli smussi; troppo alto = l'ombra si stacca dalla base.</div>
+  </div>
 
   <div class="dbg-sez">
     <div class="dbg-tit">👁 Overlay</div>
@@ -181,6 +192,7 @@ export class MenuDebug {
     this.btnPausa = this.el.querySelector('[data-el="btnPausa"]');
     this.elNetStato = this.el.querySelector('[data-el="netStato"]');
     this.elZone = this.el.querySelector('[data-el="zone"]');
+    this._costruisciManopole();
 
     // overlay three
     this.gruppi = {
@@ -224,6 +236,75 @@ export class MenuDebug {
     this.btnPausa.textContent = this.ciclo.auto ? '⏸' : '▶';
   }
 
+  /** LE MANOPOLE DEL SOLE E DELL'OMBRA, dal vivo.
+   *
+   *  Committente, 27/08: «voglio completo controllo del sole e la sua
+   *  inclinazione». Sono una TABELLA e non dieci righe di HTML apposta: una
+   *  manopola nuova è una riga, e il valore si scrive accanto sempre — una
+   *  manopola senza numero si tara a memoria, e a memoria si sbaglia.
+   *
+   *  ⚠ `azione` riceve il valore GIÀ nell'unità giusta e rende cosa scrivere
+   *  accanto: così l'etichetta non può divergere da quello che è successo
+   *  davvero (il difetto classico di ogni pannello di taratura). */
+  _costruisciManopole() {
+    const box = this.el.querySelector('[data-el="manopoleSole"]');
+    if (!box) return;
+    this._manopole = [
+      { id: 'azimut', nome: '🧭 Da dove viene', min: 0, max: 360, passo: 1, unita: '°',
+        leggi: () => this.ciclo.sole.azimut, scrivi: (v) => { this.ciclo.sole.azimut = v; } },
+      { id: 'elev', nome: '📐 Quanto è alto', min: 2, max: 89, passo: 1, unita: '°',
+        leggi: () => this.ciclo.sole.elevazione, scrivi: (v) => { this.ciclo.sole.elevazione = v; } },
+      { id: 'asse', nome: '🌅 Asse di levata', min: 0, max: 180, passo: 1, unita: '°',
+        aiuto: 'da che parte sorge, nell\'arco AUTOMATICO', 
+        leggi: () => this.ciclo.sole.asse, scrivi: (v) => { this.ciclo.sole.asse = v; } },
+      { id: 'inclina', nome: '↗️ Inclinazione dell\'arco', min: 0, max: 60, passo: 1, unita: '°',
+        aiuto: 'quanto il culmine sta di lato: a zero passa per lo zenit e a mezzogiorno le ombre spariscono sotto gli oggetti',
+        leggi: () => this.ciclo.sole.inclina, scrivi: (v) => { this.ciclo.sole.inclina = v; } },
+      { id: 'contrasto', nome: '🌗 Contrasto dell\'ombra', min: 0, max: 200, passo: 5, unita: '%',
+        leggi: () => Math.round(this.ciclo.forzaOmbra * 100),
+        scrivi: (v) => { this.ciclo.forzaOmbra = v / 100; } },
+      { id: 'norm', nome: '🪚 Scostamento sugli smussi', min: 0, max: 60, passo: 1, unita: '/10 texel',
+        aiuto: 'è la cura ai denti sugli smussi del supercubo: si sposta il punto di lettura lungo la normale, così lo scostamento è giusto a QUALUNQUE ora invece che a una sola',
+        leggi: () => Math.round((this.azioni.scostaNormale ? this.azioni.scostaNormale() : 1.6) * 10),
+        scrivi: (v) => { if (this.azioni.scostaNormale) this.azioni.scostaNormale(v / 10); } },
+      { id: 'scarto', nome: '📏 Scarto in profondità', min: 0, max: 200, passo: 5, unita: '/100 blocchi',
+        aiuto: 'troppo poco = acne sugli smussi, troppo = ombra staccata da terra',
+        leggi: () => Math.round((this.azioni.scartoOmbra ? this.azioni.scartoOmbra() : 0.15) * 100),
+        scrivi: (v) => { if (this.azioni.scartoOmbra) this.azioni.scartoOmbra(v / 100); } },
+    ];
+    for (const m of this._manopole) {
+      const riga = document.createElement('label');
+      riga.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;width:100%';
+      riga.title = m.aiuto || '';
+      const nome = document.createElement('span');
+      nome.textContent = m.nome; nome.style.cssText = 'flex:0 0 46%;opacity:.85';
+      const cur = document.createElement('input');
+      cur.type = 'range'; cur.min = m.min; cur.max = m.max; cur.step = m.passo;
+      cur.style.cssText = 'flex:1 1 auto;min-width:60px';
+      const val = document.createElement('span');
+      val.style.cssText = 'flex:0 0 76px;text-align:right;font-variant-numeric:tabular-nums;opacity:.7';
+      const mostra = () => { const v = m.leggi(); cur.value = v; val.textContent = v + m.unita; };
+      cur.addEventListener('input', () => { m.scrivi(Number(cur.value)); mostra(); this._suManopola(m.id); });
+      m._mostra = mostra; mostra();
+      riga.append(nome, cur, val);
+      box.appendChild(riga);
+    }
+  }
+
+  /** Dopo una manopola: l'ora va FERMATA (se no il valore appena messo scorre
+   *  via) e la mappa d'ombra va rifatta, perché la sua chiave non sa niente
+   *  delle manopole. */
+  _suManopola(id) {
+    if (['azimut', 'elev', 'asse', 'inclina'].includes(id)) {
+      this.ciclo.aggiorna(0);
+      if (this.azioni.rifaiOmbra) this.azioni.rifaiOmbra();
+    } else if ((id === 'scarto' || id === 'norm') && this.azioni.rifaiOmbra) this.azioni.rifaiOmbra();
+  }
+
+  /** Rilegge tutte le manopole dal mondo: da chiamare quando qualcosa le muove
+   *  da fuori (un preset, un caricamento). */
+  sincronizzaManopole() { for (const m of this._manopole || []) m._mostra(); }
+
   /** Bottoni di teletrasporto per le zone della scena di collaudo. Compaiono
    *  appena la scena esiste e restano finché non se ne genera un'altra: senza,
    *  l'unico modo di raggiungere la cascata o il fondo della grotta era scrivere
@@ -261,6 +342,15 @@ export class MenuDebug {
     else if (az === 'isola') this.azioni.isolaDemo();
     else if (az === 'arcipelago') this.azioni.arcipelago(Number(this.elSeme.value) || 0, Number(this.elEst.value));
     else if (az === 'open') this.azioni.openWorld(Number(this.elSeme.value) || 0, Number(this.elEst.value));
+    else if (az === 'controluce') b.classList.toggle('attivo', this.azioni.controluce());
+    else if (az === 'soleManuale') {
+      this.ciclo.sole.manuale = !this.ciclo.sole.manuale;
+      if (this.ciclo.sole.manuale) this.ciclo.auto = false;   // a mano l'ora non scorre
+      b.classList.toggle('attivo', this.ciclo.sole.manuale);
+      this.ciclo.aggiorna(0); this.sincronizza();
+      if (this.azioni.rifaiOmbra) this.azioni.rifaiOmbra();
+    }
+    else if (az === 'soleBisturi') b.classList.toggle('attivo', !this.azioni.soleBisturi());
     else if (az === 'zoo') this.azioni.zoo();
     else if (az === 'mostra') this.azioni.salaProve();
     else if (az === 'collaudo') this.azioni.collaudo();

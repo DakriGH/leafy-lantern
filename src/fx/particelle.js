@@ -5,7 +5,7 @@
 // Un solo THREE.Points, buffer riciclato: costo CPU e GPU irrisorio.
 
 import * as THREE from 'three';
-import { ambienteAttuale, uniformiOmbraSole, uniformiScatole, GLSL_SCATOLE_VERTICE } from './materials.js?v=mtaobft4';
+import { ambienteAttuale, uniformiOmbraSole, uniformiScatole, GLSL_SCATOLE_VERTICE, GBANDE } from './materials.js?v=mtatdt9r';
 
 const MAX = 180;
 
@@ -102,7 +102,11 @@ ${GLSL_SCATOLE_VERTICE}
           vCol = aColore;
           vForma = aForma;
           // il terreno E le sagome: la più scura delle due (vedi fx/erba.js)
-          vSole = min(particellaAlSole(position), sagomeAlSole(position));
+          // a bande come tutto il resto: vedi la nota gemella in fx/erba.js.
+          // Una foglia che vola dentro l'ombra deve scurirsi dello stesso
+          // gradino del terreno che sta sorvolando, non di una frazione.
+          float _s = min(particellaAlSole(position), sagomeAlSole(position));
+          vSole = floor(_s * ${GBANDE} + 0.5) / ${GBANDE};
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_PointSize = aScala * 130.0 / max(1.0, -mv.z);
           gl_Position = projectionMatrix * mv;

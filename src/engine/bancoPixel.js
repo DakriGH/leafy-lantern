@@ -26,7 +26,18 @@
 
 import * as THREE from 'three';
 
-/** Le otto cose che devono stare ferme perché due scatti siano confrontabili. */
+/** Le NOVE cose che devono stare ferme perché due scatti siano confrontabili.
+ *
+ *  ⚠ LA NONA È ARRIVATA DOPO, E LA SUA ASSENZA HA PRODOTTO UNA MISURA FALSA che
+ *  sembrava un trionfo. `fx/campoSole.js` ricalcola A FETTE dentro un bilancio
+ *  di 2 ms e pubblica la texture solo alla fine: nei frame subito dopo un cambio
+ *  d'ora — o dopo aver generato un mondo — lo shader legge un campo A METÀ.
+ *  Il 27/08/2026 ho misurato l'indice di frastagliatura in quella finestra e mi
+ *  è uscito 0,028; a campo finito, stesso identico stato, 0,140. Cinque volte
+ *  meglio, e nel verso che fa credere riuscita qualunque cura si sia appena
+ *  scritta. L'ho preso solo perché ho rifatto il controllo con e senza erba.
+ *  Da qui la riga in fondo: si dà UN giro di loop (che porta al campo la
+ *  direzione nuova del sole) e poi si DRENA. */
 export function congela(L, { ora = 0.33, tempo = 12.0 } = {}) {
   const prima = {
     auto: L.ciclo.auto, t: L.ciclo.t,
@@ -40,6 +51,13 @@ export function congela(L, { ora = 0.33, tempo = 12.0 } = {}) {
   if (L.aggiornaTempo) L.aggiornaTempo(tempo);          // 4. l'orologio degli shader
   if (L.erba && L.erba.forzaMeteo !== undefined) L.erba.forzaMeteo = 0;  // 5. vento fermo
   L.rig.scalaInterna = 1;               // 6. niente scala di resa
+  // 9. IL CAMPO DEL SOLE DEVE AVER FINITO. Un giro di loop perché `aggiorna`
+  // veda la direzione nuova e avvii il ricalcolo, poi si drena senza bilancio.
+  // Senza queste due righe si fotografa un'ombra a metà costruzione.
+  if (L.campoSole && L.passo) {
+    L.passo(performance.now());
+    if (L.campoSole.finisci) L.campoSole.finisci();
+  }
   return prima;                         // 7-8. camera e dpr li fissa chi chiama
 }
 
@@ -170,6 +188,125 @@ export function confronta(a, b) {
              spostamento: istoA.map((v, i) => (istoB[i] - v) / n) },
     bordi: { a: bordi(a.px, a.larghezza, a.altezza),
              b: bordi(b.px, b.larghezza, b.altezza) },
+  };
+}
+
+// ------------------------------------------------------- «SEGHETTATO», in numero
+//
+// PERCHÉ SERVE. Il 27/08/2026 il committente ha bocciato le ombre per la TERZA
+// volta con le stesse parole — «seghettate e non corrispondenti, tanti triangoli
+// storti». Le prime due volte la cura è stata giudicata a occhio, e le prime due
+// volte il difetto è tornato. Un difetto che si giudica a occhio non si chiude:
+// si rimanda.
+//
+// I tre metri di sopra NON bastano per questo. ΔE dice quanto è cambiato il
+// colore, l'istogramma dice se le bande si sono spostate, e `bordi` conta i
+// pixel-bordo di TUTTA l'immagine — dove il contorno di un cubo pesa quanto il
+// contorno di un'ombra. Nessuno dei tre sa rispondere alla domanda vera: **il
+// bordo di QUESTA ombra è una linea o è un pettine?**
+//
+// L'IDEA, e regge su una proprietà sola: un dente largo un pixel non sopravvive
+// a un voto di maggioranza 3×3, una linea dritta sì. Quindi si passa la macchia
+// al voto e si contano i pixel che CAMBIANO IDEA, per pixel di bordo.
+// Zero = il bordo era già una linea. Verso uno = ogni pixel di bordo era un dente.
+//
+// ⚠ NON si misura di quanto CALA il perimetro, che era il primo tentativo e non
+// funziona: il perimetro conta PIXEL, e un pettine di denti da un pixel ne ha
+// quasi quanti una linea dritta — uno per riga, solo spostato. Misurato: 0,128
+// su un pettine che a occhio è un pettine, contro lo 0,03 di una linea. Il
+// segnale c'era ma non separava. I pixel che cambiano idea separano di dieci
+// volte, perché una linea è un PUNTO FISSO del voto e un pettine no.
+//
+// ⚠ E LA DIAGONALE A 45° DEVE RESTARE FERMA, se no il metro boccia la geometria
+// invece del difetto: in questo gioco le ombre cadono quasi sempre in
+// diagonale. Il voto è costruito apposta perché lo sia — un pixel appena dentro
+// una diagonale perfetta ha 6 vicini su 9 dentro e ci resta, uno appena fuori ne
+// ha 3 e resta fuori. Alla PARITÀ si tiene il valore di prima, che è la riga che
+// rende la diagonale un punto fisso. C'è una prova che lo pretende.
+
+/** I pixel in cui due immagini differiscono: è la MACCHIA da misurare (di
+ *  solito «lo stesso fotogramma con e senza l'ombra del sole»). */
+export function maschera(a, b, soglia = 0.004) {
+  if (a.larghezza !== b.larghezza || a.altezza !== b.altezza) {
+    throw new Error(`misure diverse: ${a.larghezza}x${a.altezza} contro ${b.larghezza}x${b.altezza}`);
+  }
+  const n = a.larghezza * a.altezza;
+  const m = new Uint8Array(n);
+  for (let p = 0; p < n; p++) {
+    const i = p * 4;
+    const A = oklab(a.px[i], a.px[i + 1], a.px[i + 2]);
+    const B = oklab(b.px[i], b.px[i + 1], b.px[i + 2]);
+    if (Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]) > soglia) m[p] = 1;
+  }
+  return m;
+}
+
+/** Quanti pixel della macchia toccano il fuori (vicinato a 4).
+ *
+ *  ⚠ IL BORDO DELLO SCHERMO NON CONTA, ed è una riga che cambia il numero di
+ *  molto: un'ombra tagliata dall'inquadratura non ha lì un bordo VERO, e
+ *  contarlo gonfia il denominatore con pixel che non hanno niente da dire sulla
+ *  frastagliatura. Misurato sul pettine di prova: contando lo schermo l'indice
+ *  usciva 0,268, senza esce 0,67 — e il difetto è lo stesso. Un'ombra che tocca
+ *  il fondo dell'inquadratura è la norma, non l'eccezione. */
+function perimetro(m, larghezza, altezza) {
+  let n = 0;
+  for (let y = 0; y < altezza; y++) {
+    for (let x = 0; x < larghezza; x++) {
+      const i = y * larghezza + x;
+      if (!m[i]) continue;
+      const sx = x > 0 ? m[i - 1] : 1, dx = x < larghezza - 1 ? m[i + 1] : 1;
+      const su = y > 0 ? m[i - larghezza] : 1, giu = y < altezza - 1 ? m[i + larghezza] : 1;
+      if (!sx || !dx || !su || !giu) n++;
+    }
+  }
+  return n;
+}
+
+/** Voto di maggioranza 3×3. Alla parità si tiene il valore di prima: è la riga
+ *  che rende la diagonale a 45° un punto fisso (vedi il ⚠ qui sopra). */
+function maggioranza(m, larghezza, altezza) {
+  const out = new Uint8Array(m.length);
+  for (let y = 0; y < altezza; y++) {
+    for (let x = 0; x < larghezza; x++) {
+      const i = y * larghezza + x;
+      let dentro = 0, contati = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = y + dy; if (yy < 0 || yy >= altezza) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx; if (xx < 0 || xx >= larghezza) continue;
+          contati++; dentro += m[yy * larghezza + xx];
+        }
+      }
+      const fuori = contati - dentro;
+      out[i] = dentro > fuori ? 1 : (fuori > dentro ? 0 : m[i]);
+    }
+  }
+  return out;
+}
+
+/**
+ * L'INDICE DI FRASTAGLIATURA della macchia in cui `a` e `b` differiscono.
+ * 0 = il bordo è già una linea (o una diagonale). Verso 1 = un pettine.
+ *
+ * Si rendono anche `area`, `perimetro` e `cambiati` grezzi, perché l'indice da
+ * solo mente su una macchia minuscola: dieci pixel d'ombra hanno un indice
+ * qualunque, e va visto che la macchia esista prima di credere al rapporto.
+ */
+export function frastagliatura(a, b, { soglia = 0.004 } = {}) {
+  const m = maschera(a, b, soglia);
+  const L = a.larghezza, A = a.altezza;
+  let area = 0;
+  for (let i = 0; i < m.length; i++) area += m[i];
+  const votata = maggioranza(m, L, A);
+  let cambiati = 0;
+  for (let i = 0; i < m.length; i++) if (m[i] !== votata[i]) cambiati++;
+  const p = perimetro(m, L, A);
+  return {
+    area, frazioneArea: area / (L * A),
+    perimetro: p, perimetroLiscio: perimetro(votata, L, A),
+    cambiati,
+    indice: p > 0 ? cambiati / p : 0,
   };
 }
 

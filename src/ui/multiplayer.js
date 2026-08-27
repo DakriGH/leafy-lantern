@@ -22,8 +22,8 @@
 // interroga il server ogni cinque secondi è, su cento giocatori, un migliaio di
 // richieste al minuto per disegnare qualcosa che nessuno sta guardando.
 
-import { RUOLI, DESCRIZIONE } from '../net/permessi.js?v=mtaobft4';
-import { leggiProfilo, salvaProfilo, COLORI } from '../net/profilo.js?v=mtaobft4';
+import { RUOLI, DESCRIZIONE } from '../net/permessi.js?v=mtatdt9r';
+import { leggiProfilo, salvaProfilo, COLORI } from '../net/profilo.js?v=mtatdt9r';
 
 const OGNI_STANZE_MS = 6000;
 

@@ -30,9 +30,9 @@
 // uniform. Muovere ventimila ciuffi costa quanto muoverne uno.
 
 import * as THREE from 'three';
-import { paletteBlocco } from '../world/stagioni.js?v=mtaobft4';
-import { CHUNK } from '../world/world.js?v=mtaobft4';
-import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE } from './materials.js?v=mtaobft4';
+import { paletteBlocco } from '../world/stagioni.js?v=mtatdt9r';
+import { CHUNK } from '../world/world.js?v=mtatdt9r';
+import { uniformiOmbraSole, uniformiScatole, uniformiLuci, GLSL_SCATOLE_VERTICE, GLSL_LUCI_VERTICE, GBANDE } from './materials.js?v=mtatdt9r';
 
 // I QUATTRO TIPI DI CIUFFO: (quante lamelle, larghezza, altezza, apertura).
 // Non è varietà per la varietà — un prato di cloni si legge come una texture
@@ -180,7 +180,17 @@ ${GLSL_LUCI_VERTICE}
     // sta sopra). Gli alberi nella heightmap non ci sono — sono mobili, non
     // blocchi — quindi il prato sotto una chioma restava in pieno sole mentre il
     // terreno lì accanto era in ombra. Si prende la più scura delle due.
-    vSole = min(erbaAlSole(iPos.xyz), sagomeAlSole(iPos.xyz + vec3(0.0, 0.12, 0.0)));
+    // ⚠ E POI SI TAGLIA A BANDE, con la stessa costante del mondo. Fino al
+    // 27/08/2026 questa riga finiva qui e vSole restava CONTINUO: l'erba aveva
+    // una rampa d'ombra morbida mentre il terreno sotto aveva tre gradini
+    // netti. Era la cura bocciata due volte (ammorbidire il bordo) viva e
+    // pubblicata dentro il sistema che si affaccia sopra tutto — ed è metà del
+    // «non corrispondenti»: sul confine dell'ombra il filo e il blocco sotto
+    // stavano su due leggi diverse. Si taglia QUI, nel vertice, perché una
+    // lamella è alta mezzo blocco: l'ombra al piede e quella alla punta sono la
+    // stessa, e per pixel si pagherebbe la stessa cosa mille volte.
+    float _s = min(erbaAlSole(iPos.xyz), sagomeAlSole(iPos.xyz + vec3(0.0, 0.12, 0.0)));
+    vSole = floor(_s * ${GBANDE} + 0.5) / ${GBANDE};
     // LE LAMPADE ILLUMINANO ANCHE L'ERBA. Si misura a mezza altezza del ciuffo:
     // una volta per filo, non per pixel, e la pozza di un lampione è larga metri
     // — la differenza fra la base e la punta non la vede nessuno.

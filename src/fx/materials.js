@@ -3,8 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtaobft4';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtaobft4';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtatdt9r';
+import { glslControluce } from './controluce.js?v=mtatdt9r';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtatdt9r';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -13,7 +14,12 @@ import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtaobft4';
 // Serve un valore JS e non una `const float` GLSL perché le bande servono in DUE
 // stringhe iniettate (quella comune e quella dell'acqua) e l'ordine con cui
 // finiscono nel sorgente non garantisce che la dichiarazione preceda l'uso.
-const GBANDE = BANDE_LUCE.toFixed(1);
+export const GBANDE = BANDE_LUCE.toFixed(1);
+// ⚠ SI ESPORTA perché gli shader di casa che NON stanno in questo file — erba e
+// particelle — devono tagliare a bande con LA STESSA costante. Fino al 27/08
+// non lo facevano affatto: rendevano un valore d'ombra CONTINUO, cioè la rampa
+// che lo stile vieta, viva e pubblicata. Chi scrive un `3.0` a mano si scollega
+// da BANDE_LUCE al primo ritocco, ed è il difetto che questa riga chiude.
 
 // LO SCARTO D'OMBRA COME LETTERALE GLSL, e passa da toFixed per la STESSA
 // ragione di GBANDE, solo con un tranello peggiore: 1e-3 scritto tale e quale da
@@ -353,6 +359,25 @@ const uniformi = {
   // coordinate: la uv la fa già uCieloInfo. Null finché main non lo aggancia —
   // e uSolePassi resta 0 finché è null, quindi non si legge mai a vuoto.
   uCampoSole: { value: null },
+  // CONTROLUCE (fx/controluce.js): il mondo visto dal sole in una texture di
+  // PROFONDITÀ. Rimpiazza il campo di quote per colonna — vedi §14 del piano.
+  uControluce: { value: null },
+  uControluceM: { value: new THREE.Matrix4() },
+  uControluceInfo: { value: new THREE.Vector4(0, 0, 0, 0) },   // (1/N, scarto, texel, attiva)
+  // ⚠ ZERO DI FABBRICA, E LA MISURA DICE PERCHÉ. Lo scostamento lungo la normale
+  // è la cura da manuale all'acne sulle superfici inclinate, e QUI PEGGIORA.
+  // Spazzata sullo zoo col sole a mano (stazione 3, azimut 40°), indice di
+  // frastagliatura per elevazione:
+  //        norm=0     0,047 (10°) · 0,098 (30°) · 0,119 (50°) · 0,203 (75°)
+  //        norm=0,5   0,183       · 0,175       · 0,191       · 0,171
+  //        norm=1,6   0,189       · 0,176       · 0,149       · 0,359
+  // Col sole basso PEGGIORA DI QUATTRO VOLTE, e la ragione è geometrica: a luce
+  // radente la normale del terreno è quasi perpendicolare al raggio, quindi
+  // scostarsi lungo di essa sposta il punto di lettura di parecchi texel DENTRO
+  // la mappa — e si legge l'ombra del vicino. Nemmeno scalando col coseno
+  // (provato: peggio ancora, il fattore esplode proprio dove non serve).
+  // Resta come manopola perché il committente possa provarla, ma parte da zero.
+  uControluceNorm: { value: 0 },     // texel di scostamento lungo la normale
   uTempo: { value: 0 },
   // il vento che piega gli alberi e l'ultimo urto ricevuto (vedi GLSL_VENTO)
   uVentoFurni: { value: new THREE.Vector4(1, 0, 0.10, 0.16) },
@@ -563,7 +588,13 @@ export const PARTI = {
   // dentro l'acqua, per sapere QUALE pezzo costa (misurato: l'acqua è il 60%
   // del pass principale sul Chromebook, 14,3 ms su 24)
   riflesso: 16, silhouette: 32, correnti: 64, riva: 128, impatti: 256,
-  tutte: 511,
+  // ⚠ IL SOLE NON AVEVA UN BISTURI, e per questo le misure del 27/08 avevano il
+  // segno sbagliato. Spegnere l'ombra del cielo passava dal PROFILO, cioè da una
+  // ricompilazione del programma del mondo, che cadeva dentro la fetta di
+  // misura: «+0,53 ms a sole spento» è esattamente cosa si misura ricompilando.
+  // Con un bit si spegne con una uniform, a programma identico.
+  sole: 512,
+  tutte: 1023,
 };
 export function impostaParti(maschera) { uniformi.uParti.value = maschera | 0; }
 
@@ -632,6 +663,8 @@ export function direzioneAstro() { return uniformi.uSoleDir.value; }
 
 const GLSL_VERTEX = /* glsl */`
   varying vec3 vPosMondo;
+  varying vec3 vLuceP;        // lo stesso punto, in spazio MAPPA D'OMBRA [0,1]³
+  uniform mat4 uControluceM;
   uniform mat4 uMondoInv;
   uniform float uTempo;
   uniform vec4 uVentoFurni;   // (dir.x, dir.z, forza di fondo, raffica)
@@ -722,6 +755,7 @@ const GLSL_VENTO = /* glsl */`
 `;
 const GLSL_FRAGMENT = /* glsl */`
   varying vec3 vPosMondo;
+  varying vec3 vLuceP;
 
   uniform vec4 uLuciPosRaggio[${LUCI_MAX}];
   uniform vec4 uLuciColore[${LUCI_MAX}];
@@ -989,7 +1023,30 @@ const GLSL_FRAGMENT = /* glsl */`
     // E si arrotonda al PIU' VICINO, non per eccesso: un ceil qui promuoveva
     // qualunque briciola di interpolazione a un terzo di ombra piena — erano i
     // «puntini in diagonale».
+    // ⚠ IL BISTURI NUOVO. Fino a oggi il sole si spegneva solo dal PROFILO, cioè
+    // ricompilando: ogni misura A/B del sole misurava anche la ricompilazione, e
+    // per questo il 27/08 «sole spento» risultava più LENTO del riferimento.
+    // Con un bit di uParti si spegne a programma identico.
+    if ((uParti & 512) == 0) return _term;
     if (uSolePassi == 0) return _term;
+
+    // ═════ LA COPPIA A/B, e la regola 2 del cantiere: il sistema nuovo esce
+    // SPENTO e vive accanto al vecchio finché il numero sul dispositivo del
+    // committente non lo giustifica. Il ramo si sceglie in COMPILAZIONE, non con
+    // un «if»: un ramo saltato con un if costa lo stesso sui registri di una GPU
+    // mobile, ed è la lezione già scritta più sotto in questo file.
+    #ifdef LANTERNA_CONTROLUCE
+      // IL MONDO VISTO DAL SOLE. Un confronto binario contro la profondità della
+      // GEOMETRIA VERA: niente iso-contorno di un campo continuo, quindi niente
+      // archi iperbolici e niente ginocchi ogni texel; e niente inviluppo di
+      // colonne, quindi la sagoma è quella del modello. Vedi fx/controluce.js.
+      // ⚠ LA NORMALE SERVE QUI ANCHE COL CHIAROSCURO SPENTO, ed è un costo
+      // nuovo che va detto: «normaleGeom» (due derivate, ~20 ALU) fino a ieri
+      // girava SOLO col terminatore acceso, cioè mai. Serve allo scostamento
+      // lungo la normale, che è l'unica cura all'acne sugli smussi che non
+      // vada ritarata a ogni ora del giorno.
+      return ombraDelSole(vLuceP, normaleGeom(), uSoleDir) * _term;
+    #else
     vec2 uvC = (vPosMondo.xz - uCieloInfo.xy) * uCieloInfo.z;
     float occ = 0.0;
     if (uvC.x > 0.0 && uvC.x < 1.0 && uvC.y > 0.0 && uvC.y < 1.0) {
@@ -1010,6 +1067,7 @@ const GLSL_FRAGMENT = /* glsl */`
     }
     occ = floor(occ * ${GBANDE} + 0.5) / ${GBANDE};
     return (1.0 - occ) * _term;
+    #endif
   }
 
   vec3 lanternaAccumulo() {
@@ -1255,17 +1313,25 @@ if (uParti != 0) {
 // Con i #define quei blocchi non vengono proprio COMPILATI: a qualità bassa lo
 // shader del mondo è un altro shader, piccolo. Cambiare profilo ricompila —
 // costa un momento, e succede solo quando la scala di qualità si muove.
-let _profilo = { sole: true, ombreLuci: true, acquaRicca: true };
+let _profilo = { sole: true, ombreLuci: true, acquaRicca: true, controluce: false };
 const _patchati = new Set();      // chi va ricompilato quando il profilo cambia
 
 /** Quali blocchi cari deve CONTENERE lo shader del mondo. Lo chiama la scala di
  *  qualità (main.js, applicaQualita). Ricompila solo se cambia davvero.
  *  `acquaRicca` = i pezzi cari del pelo (ondeggio del riflesso e schiuma a
  *  silhouette): sui gradini bassi escono dalla COMPILAZIONE, non solo dagli if. */
-export function impostaProfiloShader({ sole, ombreLuci, acquaRicca = true }) {
-  const s2 = !!sole, l2 = !!ombreLuci, a2 = !!acquaRicca;
-  if (s2 === _profilo.sole && l2 === _profilo.ombreLuci && a2 === _profilo.acquaRicca) return;
-  _profilo = { sole: s2, ombreLuci: l2, acquaRicca: a2 };
+export function impostaProfiloShader({
+  sole = _profilo.sole, ombreLuci = _profilo.ombreLuci,
+  acquaRicca = _profilo.acquaRicca, controluce = _profilo.controluce,
+} = {}) {
+  // ⚠ OGNI ASSE HA COME DEFAULT SÉ STESSO, e non è comodità: chi vuole muovere
+  // UN asse — l'interruttore di Controluce nel Banco V2 — altrimenti dovrebbe
+  // riderivare anche gli altri tre, e riderivarli male è come si spegne per
+  // sbaglio l'acqua ricca accendendo un'ombra.
+  const s2 = !!sole, l2 = !!ombreLuci, a2 = !!acquaRicca, c2 = !!controluce;
+  if (s2 === _profilo.sole && l2 === _profilo.ombreLuci && a2 === _profilo.acquaRicca
+      && c2 === _profilo.controluce) return;
+  _profilo = { sole: s2, ombreLuci: l2, acquaRicca: a2, controluce: c2 };
   for (const m of _patchati) m.needsUpdate = true;
 }
 
@@ -1318,15 +1384,22 @@ function iniettaLanterna(shader, ingombro, vento) {
   // uniform giusta non prova NIENTE. Prova solo il pixel.
   const define = (_profilo.sole ? '#define LANTERNA_SOLE\n' : '')
     + (_profilo.ombreLuci ? '#define LANTERNA_OMBRE_LUCI\n' : '')
-    + (_profilo.acquaRicca ? '#define LANTERNA_ACQUA_RICCA\n' : '');
+    + (_profilo.acquaRicca ? '#define LANTERNA_ACQUA_RICCA\n' : '')
+    + (_profilo.controluce ? '#define LANTERNA_CONTROLUCE\n' : '');
   shader.fragmentShader = define + shader.fragmentShader;
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\n' + GLSL_VERTEX)
     .replace('#include <begin_vertex>',
       '#include <begin_vertex>\n' + (vento ? GLSL_VENTO : '')
-      + 'vPosMondo = (uMondoInv * modelMatrix * vec4(transformed, 1.0)).xyz;');
+      + 'vPosMondo = (uMondoInv * modelMatrix * vec4(transformed, 1.0)).xyz;\n'
+      // ⚠ DOPO IL VENTO, e non è un dettaglio: l'albero piegato deve proiettare
+      // l'ombra dell'albero PIEGATO. Calcolarlo prima rifabbricherebbe «l'ombra
+      // non corrisponde al modello», stavolta in movimento — la stessa
+      // bocciatura, in una forma che si vede solo quando tira vento.
+      // ~16 ALU per VERTICE, non per pixel: sul mondo sono ~32.000 triangoli.
+      + 'vLuceP = (uControluceM * vec4(vPosMondo, 1.0)).xyz;');
   shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', '#include <common>\n' + glslFragmento(ingombro))
+    .replace('#include <common>', '#include <common>\n' + glslControluce() + glslFragmento(ingombro))
     .replace('#include <opaque_fragment>',
       GLSL_COMPOSIZIONE + '#include <opaque_fragment>\n' + GLSL_VELA);
 }
@@ -1350,9 +1423,110 @@ export function patchLuci(materiale, ingombro = false, vento = false) {
   // scambierebbero lo stesso programma compilato
   materiale.customProgramCacheKey = () =>
     'lanterna-luci-' + (ingombro ? 'furni' : 'mondo') + (vento ? '-vento' : '')
-    + (_profilo.sole ? '-s' : '') + (_profilo.ombreLuci ? '-o' : '') + (_profilo.acquaRicca ? '-a' : '');
+    + (_profilo.sole ? '-s' : '') + (_profilo.ombreLuci ? '-o' : '') + (_profilo.acquaRicca ? '-a' : '')
+    + (_profilo.controluce ? '-c' : '');
   _patchati.add(materiale);
   return materiale;
+}
+
+/**
+ * Collega la mappa d'ombra (fx/controluce.js) a tutti gli shader di casa.
+ * `attiva` a false NON spegne il ramo: lo fa uscire a 1.0 subito, che è quello
+ * che serve mentre la mappa non c'è ancora (primo frame, astro sotto l'orizzonte).
+ */
+export function impostaControluce(texture, matrice, { scarto = 0, texel = 0, attiva = false, norm } = {}) {
+  uniformi.uControluce.value = texture || null;
+  if (matrice) uniformi.uControluceM.value.copy(matrice);
+  if (norm !== undefined) uniformi.uControluceNorm.value = norm;
+  uniformi.uControluceInfo.value.set(0, scarto, texel, attiva && texture ? 1 : 0);
+}
+
+/** Quanti texel ci si scosta lungo la normale prima di leggere la mappa. È la
+ *  manopola contro l'acne sugli smussi (Banco V2). */
+export function scostamentoNormale(n) {
+  if (n !== undefined) uniformi.uControluceNorm.value = Math.max(0, +n || 0);
+  return uniformi.uControluceNorm.value;
+}
+
+/**
+ * I MATERIALI DELLA PASSATA D'OMBRA: vertice come quello vero, fragment VUOTO.
+ *
+ * ⚠ NON è un `overrideMaterial` piatto, e sarebbe l'errore che viene in mente
+ * per primo. Questo motore SPOSTA I VERTICI nello shader — GLSL_VENTO sui furni,
+ * l'erba istanziata — e un override piatto disegnerebbe alberi FERMI mentre a
+ * schermo ondeggiano: si rifabbricherebbe «l'ombra non corrisponde al modello»,
+ * stavolta in movimento. Qui il codice di vertice è LO STESSO, importato dalla
+ * stessa costante, non ricopiato.
+ *
+ * ⚠ E `colorWrite: false` DA SOLO NON BASTA: è `glColorMask`, ferma la scrittura
+ * ROP e NON l'esecuzione del fragment. Il risparmio vero è il fragment vuoto —
+ * ~150 ALU che non girano, un milione di volte per ricostruzione.
+ */
+const _matOmbra = new Map();
+export function materialeOmbra(vento = false) {
+  let m = _matOmbra.get(vento);
+  if (m) return m;
+  m = new THREE.ShaderMaterial({
+    uniforms: {
+      uTempo: uniformi.uTempo,
+      uVentoFurni: uniformi.uVentoFurni,
+      uUrtoFurni: uniformi.uUrtoFurni,
+    },
+    vertexShader: /* glsl */`
+      ${vento ? 'uniform float uTempo;\nuniform vec4 uVentoFurni;\nuniform vec4 uUrtoFurni;' : ''}
+      void main() {
+        vec3 transformed = vec3(position);
+        ${vento ? GLSL_VENTO : ''}
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
+      }`,
+    fragmentShader: 'void main() {}',
+    colorWrite: false,
+    // ⚠ LO SCARTO PROPORZIONALE ALLA PENDENZA, e senza questo non si spedisce.
+    // Una parete VERTICALE con il sole alto è quasi PARALLELA al raggio: la sua
+    // profondità in spazio-luce varia di tantissimo dentro un solo texel, e
+    // nessuno scarto COSTANTE può coprirla — troppo poco e la parete si
+    // punteggia di acne, abbastanza da coprirla e le ombre si staccano da terra.
+    // Misurato: a mezzogiorno, con il solo scarto costante, l'indice di
+    // frastagliatura saliva da 0,125 a 0,799 — cioè il bordo era pulito e la
+    // SUPERFICIE era un pulviscolo. `polygonOffset` aggiunge scarto in
+    // proporzione alla pendenza, che è esattamente la grandezza che serve, e lo
+    // fa in rasterizzazione: costo zero.
+    // ⚠ E `polygonOffsetUnits` è in ULP DEL DEPTH BUFFER: questa taratura vale
+    // per il D16 di controluce.js. Su un D24 non vorrebbe più dire niente — per
+    // questo lì lo stencil è vietato, che è ciò che promuoverebbe il formato.
+    polygonOffset: true,
+    polygonOffsetFactor: 2.5,
+    polygonOffsetUnits: 4,
+    // ⚠ FACCE DAVANTI, NON DIETRO — e la prima versione aveva sbagliato proprio
+    // questo. Il trucco classico è scrivere nella mappa solo le facce di DIETRO,
+    // così la superficie illuminata non compete mai con sé stessa. Non funziona
+    // QUI, e la ragione è il supercubo: il mesher fa culling DISTRUTTIVO, quindi
+    // una superficie di terreno ha SOLO la faccia di sopra. Con BackSide quella
+    // faccia viene scartata e il terreno non scrive NIENTE nella mappa: le
+    // colline smettono di proiettare. Misurato — l'area dell'ombra a mezzogiorno
+    // scendeva al 5% dello schermo contro l'11% del campo vecchio: metà
+    // dell'ombra semplicemente non c'era, e a occhio si vedeva solo che «il
+    // bordo è pulito».
+    // Con le facce DAVANTI, per un solido chiuso la superficie rivolta al sole
+    // scrive la profondità più vicina e tutto il resto del solido — pareti di
+    // fianco comprese — risulta più profondo, cioè in ombra. È corretto per
+    // costruzione, e lo scarto serve solo dove la superficie compete con sé
+    // stessa: da lì il polygonOffset qui sopra.
+    side: THREE.FrontSide,
+  });
+  _matOmbra.set(vento, m);
+  return m;
+}
+
+/** Le due manopole dello scarto, da tarare dal vivo (Banco V2). Restituisce i
+ *  valori applicati, così il pannello può scriverli accanto. */
+export function taraScartoOmbra({ fattore, unita } = {}) {
+  for (const m of _matOmbra.values()) {
+    if (fattore !== undefined) m.polygonOffsetFactor = fattore;
+    if (unita !== undefined) m.polygonOffsetUnits = unita;
+  }
+  const q = _matOmbra.values().next().value;
+  return q ? { fattore: q.polygonOffsetFactor, unita: q.polygonOffsetUnits } : null;
 }
 
 /** Il vento che piega la vegetazione. Lo guida il meteo, come per l'erba. */
