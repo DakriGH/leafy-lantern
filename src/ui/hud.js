@@ -74,15 +74,26 @@ export class HUD {
    * I millisecondi accanto sciolgono l'ambiguità: 2 ms su un budget di 6,9
    * (144 Hz) vuol dire che il lavoro occupa un terzo scarso del fotogramma.
    */
-  fps(n, ms = 0) {
-    const testo = ms > 0 ? `${n} fps · ${ms < 10 ? ms.toFixed(1) : Math.round(ms)} ms` : `${n} fps`;
+  fps(n, ms = 0, hz = 0) {
+    // ⚠ IL TETTO ACCANTO AL NUMERO. «123/144 fps» si legge in un colpo: siamo a
+    // un soffio dal massimo che questo schermo concede, e i fps che mancano non
+    // sono lentezza — sono attesa. Senza il tetto, «123» sembrava una bocciatura.
+    const capo = hz > 0 ? `${n}/${hz} fps` : `${n} fps`;
+    const testo = ms > 0 ? `${capo} · ${ms < 10 ? ms.toFixed(1) : Math.round(ms)} ms` : capo;
     if (n === this._uFps && testo === this._uFpsTesto) return;
     this._uFps = n;
     this._uFpsTesto = testo;
     this.elFps.textContent = testo;
     // semaforo: verde/bianco sopra 50, ambra 30-50, rosso sotto 30 — si capisce
     // se il gioco sta soffrendo senza dover leggere il numero
-    const classe = n < 30 ? 'fps-bassi' : n < 50 ? 'fps-medi' : '';
+    // ⚠ IL SEMAFORO SI GIUDICA SUL TETTO, non su 50 fissi. Su un pannello a
+    // 60 Hz «55 fps» è ottimo e il vecchio semaforo lo dipingeva d'ambra; su
+    // uno a 144 «55» è davvero un problema e lo dipingeva uguale. Senza il
+    // tetto misurato si ricade sulle soglie di prima, che è il comportamento
+    // storico e non peggiora niente.
+    const tetto = hz > 0 ? hz : 60;
+    const q = n / tetto;
+    const classe = n < 30 ? 'fps-bassi' : (q < 0.55 || n < 50) ? 'fps-medi' : '';
     if (classe !== this._uFpsClasse) {
       this._uFpsClasse = classe;
       this.elFps.className = 'hud' + (classe ? ' ' + classe : '');

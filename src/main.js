@@ -1,81 +1,81 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtbkj5ea';
-import { Rig } from './engine/renderer.js?v=mtbkj5ea';
-import { Input } from './engine/input.js?v=mtbkj5ea';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtbkj5ea';
-import { Cadenza } from './engine/cadenza.js?v=mtbkj5ea';
-import { GpuProfiler } from './engine/gpuTimer.js?v=mtbkj5ea';
-import { creaBatteria } from './engine/batteria.js?v=mtbkj5ea';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtbkj5ea';
-import { Mondo } from './world/world.js?v=mtbkj5ea';
-import { SimAcqua } from './world/acqua.js?v=mtbkj5ea';
-import { Lobby } from './net/lobby.js?v=mtbkj5ea';
-import { Segnalatore } from './net/segnalatore.js?v=mtbkj5ea';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtbkj5ea';
-import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtbkj5ea';
-import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtbkj5ea';
-import { PannelloInsieme } from './ui/multiplayer.js?v=mtbkj5ea';
-import { Targhetta } from './ui/targhetta.js?v=mtbkj5ea';
-import { Bolla } from './ui/bolla.js?v=mtbkj5ea';
-import { Scelta } from './ui/scelta.js?v=mtbkj5ea';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtbkj5ea';
-import { Zaino } from './ui/zaino.js?v=mtbkj5ea';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mtbkj5ea';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtbkj5ea';
-import { generaMostra } from './world/mostra.js?v=mtbkj5ea';
-import { generaCollaudo } from './world/collaudo.js?v=mtbkj5ea';
-import { generaTestLuci } from './world/testLuci.js?v=mtbkj5ea';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtbkj5ea';
-import { generaTestMacchine } from './world/testMacchine.js?v=mtbkj5ea';
-import { generaZoo } from './world/zoo.js?v=mtbkj5ea';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mtbkj5ea';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtbkj5ea';
-import { Meteo } from './fx/meteo.js?v=mtbkj5ea';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtbkj5ea';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtbkj5ea';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=mtbkj5ea';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtbkj5ea';
-import { CicloGiorno } from './fx/daynight.js?v=mtbkj5ea';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, materialeOmbra, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtbkj5ea';
-import { CampoSole } from './fx/campoSole.js?v=mtbkj5ea';
-import { Controluce, configuraMappa } from './fx/controluce.js?v=mtbkj5ea';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtbkj5ea';
-import { ModalitaAR } from './ar/ar.js?v=mtbkj5ea';
-import { Nuvole } from './fx/nuvole.js?v=mtbkj5ea';
-import { SagomaVista } from './fx/sagomaVista.js?v=mtbkj5ea';
-import { Erba } from './fx/erba.js?v=mtbkj5ea';
-import { Foglie } from './fx/foglie.js?v=mtbkj5ea';
-import { SegnaPercorso } from './fx/percorso.js?v=mtbkj5ea';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mtbkj5ea';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mtbkj5ea';
-import { Pioggia } from './fx/pioggia.js?v=mtbkj5ea';
-import { Particelle } from './fx/particelle.js?v=mtbkj5ea';
-import { Audio } from './fx/audio.js?v=mtbkj5ea';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtbkj5ea';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtbkj5ea';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtbkj5ea';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtbkj5ea';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtbkj5ea';
-import { Registro } from './ecs/registro.js?v=mtbkj5ea';
-import { Orologio, Rng } from './ecs/orologio.js?v=mtbkj5ea';
-import { Sistemi } from './ecs/sistemi.js?v=mtbkj5ea';
-import { Agenda } from './ecs/agenda.js?v=mtbkj5ea';
-import { Gatto } from './player/player.js?v=mtbkj5ea';
-import { ManoStrumento } from './player/mano.js?v=mtbkj5ea';
-import { dropDi } from './gioco/drop.js?v=mtbkj5ea';
-import { Controller } from './player/controller.js?v=mtbkj5ea';
-import { FURNI, centroide } from './furniture/registry.js?v=mtbkj5ea';
-import { caricaModelli } from './furniture/loader.js?v=mtbkj5ea';
-import { Arredo } from './furniture/furniture.js?v=mtbkj5ea';
-import { HUD } from './ui/hud.js?v=mtbkj5ea';
-import { MenuDebug } from './ui/debug.js?v=mtbkj5ea';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtbkj5ea';
-import { ModalitaXR } from './ar/ar-xr.js?v=mtbkj5ea';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtblppo3';
+import { Rig } from './engine/renderer.js?v=mtblppo3';
+import { Input } from './engine/input.js?v=mtblppo3';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtblppo3';
+import { Cadenza } from './engine/cadenza.js?v=mtblppo3';
+import { GpuProfiler } from './engine/gpuTimer.js?v=mtblppo3';
+import { creaBatteria } from './engine/batteria.js?v=mtblppo3';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtblppo3';
+import { Mondo } from './world/world.js?v=mtblppo3';
+import { SimAcqua } from './world/acqua.js?v=mtblppo3';
+import { Lobby } from './net/lobby.js?v=mtblppo3';
+import { Segnalatore } from './net/segnalatore.js?v=mtblppo3';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtblppo3';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtblppo3';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtblppo3';
+import { PannelloInsieme } from './ui/multiplayer.js?v=mtblppo3';
+import { Targhetta } from './ui/targhetta.js?v=mtblppo3';
+import { Bolla } from './ui/bolla.js?v=mtblppo3';
+import { Scelta } from './ui/scelta.js?v=mtblppo3';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtblppo3';
+import { Zaino } from './ui/zaino.js?v=mtblppo3';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mtblppo3';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtblppo3';
+import { generaMostra } from './world/mostra.js?v=mtblppo3';
+import { generaCollaudo } from './world/collaudo.js?v=mtblppo3';
+import { generaTestLuci } from './world/testLuci.js?v=mtblppo3';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtblppo3';
+import { generaTestMacchine } from './world/testMacchine.js?v=mtblppo3';
+import { generaZoo } from './world/zoo.js?v=mtblppo3';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mtblppo3';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtblppo3';
+import { Meteo } from './fx/meteo.js?v=mtblppo3';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtblppo3';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtblppo3';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=mtblppo3';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtblppo3';
+import { CicloGiorno } from './fx/daynight.js?v=mtblppo3';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, materialeOmbra, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtblppo3';
+import { CampoSole } from './fx/campoSole.js?v=mtblppo3';
+import { Controluce, configuraMappa } from './fx/controluce.js?v=mtblppo3';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtblppo3';
+import { ModalitaAR } from './ar/ar.js?v=mtblppo3';
+import { Nuvole } from './fx/nuvole.js?v=mtblppo3';
+import { SagomaVista } from './fx/sagomaVista.js?v=mtblppo3';
+import { Erba } from './fx/erba.js?v=mtblppo3';
+import { Foglie } from './fx/foglie.js?v=mtblppo3';
+import { SegnaPercorso } from './fx/percorso.js?v=mtblppo3';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mtblppo3';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mtblppo3';
+import { Pioggia } from './fx/pioggia.js?v=mtblppo3';
+import { Particelle } from './fx/particelle.js?v=mtblppo3';
+import { Audio } from './fx/audio.js?v=mtblppo3';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtblppo3';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtblppo3';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtblppo3';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtblppo3';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtblppo3';
+import { Registro } from './ecs/registro.js?v=mtblppo3';
+import { Orologio, Rng } from './ecs/orologio.js?v=mtblppo3';
+import { Sistemi } from './ecs/sistemi.js?v=mtblppo3';
+import { Agenda } from './ecs/agenda.js?v=mtblppo3';
+import { Gatto } from './player/player.js?v=mtblppo3';
+import { ManoStrumento } from './player/mano.js?v=mtblppo3';
+import { dropDi } from './gioco/drop.js?v=mtblppo3';
+import { Controller } from './player/controller.js?v=mtblppo3';
+import { FURNI, centroide } from './furniture/registry.js?v=mtblppo3';
+import { caricaModelli } from './furniture/loader.js?v=mtblppo3';
+import { Arredo } from './furniture/furniture.js?v=mtblppo3';
+import { HUD } from './ui/hud.js?v=mtblppo3';
+import { MenuDebug } from './ui/debug.js?v=mtblppo3';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtblppo3';
+import { ModalitaXR } from './ar/ar-xr.js?v=mtblppo3';
 import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot,
   spingiSnapshot, sbirciaSnapshot, togliSnapshot, livelliSnapshot,
-  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtbkj5ea';
+  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtblppo3';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -108,6 +108,12 @@ async function conCaricamento(testo, lavoro) {
   await new Promise((ok) => setTimeout(ok, 0));
   try { return await lavoro(); }
   finally {
+    // ⚠ UN MONDO NUOVO PORTA MATERIALI NUOVI, e ognuno si porta dietro il suo
+    // scatto al primo disegno. Si scalda QUI, che è l'ultimo istante in cui
+    // siamo ancora dietro il sipario. `scaldaShader` è dichiarata più in basso:
+    // è una `function`, quindi si issa, e questa riga gira comunque molto dopo
+    // che il modulo è stato valutato.
+    try { scaldaShader(); } catch { /* già segnalato dentro */ }
     // un altro frame perché il risultato sia già a schermo quando sparisce
     requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('attivo')));
   }
@@ -3388,6 +3394,9 @@ async function avvia() {
   crono('luci', () => aggiornaLuci(controller.pos));
   rig.aggiorna();
   rig.render();
+  // ⚠ QUI E NON DOPO: siamo ancora dietro la schermata di caricamento (va via
+  // fra 250 ms), che è l'unico posto dove una pausa non è uno scatto.
+  scaldaShader();
 
   requestAnimationFrame(loop);
   fineVigile();                                   // partito: niente più diagnosi
@@ -4238,46 +4247,217 @@ function adeguaControluce() {
 // stesso, il riempimento è nullo, e succede dentro un bilancio che possiamo
 // scegliere invece che dentro il fotogramma del giocatore.
 const _scaldati = new WeakSet();
+/** ⚠ E ANCHE I MATERIALI, non solo le geometrie. Il programma GPU nasce dalla
+ *  COPPIA (geometria, materiale): un materiale nuovo appiccicato a una
+ *  geometria già scaldata è un programma nuovo, e con la sola WeakSet delle
+ *  geometrie passava liscio. È il difetto che ha tenuto in piedi il picco più
+ *  grosso di tutti — la silhouette del gatto riusa la geometria del gatto, e il
+ *  fantasma di piazzamento quella del blocco: geometrie vecchie, materiali
+ *  nuovi. Misurato: un MeshBasicMaterial comparso al fotogramma 74, e ai
+ *  fotogrammi 75 e 76 due conti da **86 e 137 ms**. */
+const _scaldatiMat = new WeakSet();
 let _bersaglioScalda = null;
 let _camScalda = null;
+/** Il bersaglio da UN PIXEL dove si scalda: il costo è il caricamento in GPU,
+ *  il riempimento è nullo. Lo usano `scaldaChunk` (una mesh alla volta, a
+ *  bilancio) e `scaldaShader` (tutta la scena, dietro il sipario). */
+function creaBersaglioScalda() {
+  _bersaglioScalda = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false, stencilBuffer: false });
+  // ⚠ LARGA E PROFONDA, non da un pixel: il BERSAGLIO è un pixel (ed è lì che
+  // sta il risparmio), la CAMERA no. Con near/far stretti i piani di taglio
+  // buttano via la geometria prima di disegnarla, e si scalderebbe il vuoto.
+  _camScalda = new THREE.OrthographicCamera(-4096, 4096, 4096, -4096, -8192, 8192);
+  _camScalda.position.set(0, 0, 0);
+}
 /** Quanti millisecondi al massimo per fotogramma. Come il mesher: un bilancio
  *  d'orologio, non di lavoro — su una macchina lenta fa meno strada e ci mette
  *  più frame, che è esattamente il comportamento voluto. */
 const SCALDA_MS = 1.5;
 
+/**
+ * IL PRIMO USO DI UNO SHADER COSTA VENTI MILLISECONDI, e arriva sempre nel
+ * momento sbagliato.
+ *
+ * ⚠ MISURATO, NON SUPPOSTO (27/08): con la giornata ferma a mezzogiorno e poi
+ * portata a notte, UN fotogramma costa **21,9 ms** invece di 3,8 — e in quel
+ * fotogramma three linka **due programmi nuovi**. Guardando le chiavi di cache
+ * sono i `points`, cioè le LUCCIOLE, in due varianti (lo spazio colore della
+ * passata principale e quello del riflesso). Uno shader di quattro righe che
+ * costa venti millisecondi, perché il costo non è compilarlo: è che il driver
+ * finalizza il programma al PRIMO DISEGNO, e quella chiamata blocca il thread.
+ *
+ * È lo stesso difetto dei buffer curato stamattina (`scaldaChunk`), un piano
+ * più in là: three non fa niente finché non serve, e «quando serve» è sempre
+ * dentro il fotogramma del giocatore. E si ripete DUE VOLTE AL GIORNO di gioco,
+ * per sempre, perché la notte torna.
+ *
+ * ⚠ E SI ACCENDE TUTTO PRIMA. `renderer.compile` guarda solo quello che è
+ * VISIBILE, e le lucciole di giorno sono spente: compilare a scena com'è non le
+ * avrebbe prese, e la cura sarebbe sembrata fatta restando rotta. Si accendono
+ * tutti gli spenti, si compila, si rispengono — dentro lo stesso giro sincrono,
+ * quindi nessun fotogramma può vederli accesi.
+ *
+ * ⚠ E DUE VOLTE, UNA PER SPAZIO COLORE. Le due chiavi nuove differivano solo
+ * per `srgb` contro `srgb-linear`: three tiene programmi distinti a seconda del
+ * bersaglio, e il riflesso disegna in un bersaglio lineare. Scaldarne uno solo
+ * avrebbe lasciato l'altro scatto dov'era, solo più difficile da trovare.
+ */
+function scaldaShader() {
+  const spenti = [];
+  const nonCullati = [];
+  rig.scena.traverse((o) => {
+    if (!o.visible) { o.visible = true; spenti.push(o); }
+    // ⚠ E VA SPENTO IL CULLING, se no la scaldata non scalda. La prima versione
+    // disegnava con la camera da un pixel e i programmi passavano da 37 a 30:
+    // il tronco di piramide di quella camera non contiene NIENTE, quindi three
+    // scartava tutto prima di disegnarlo e il primo disegno vero restava da
+    // pagare. Una cura che sembra fatta ed è rotta — e si vedeva solo contando
+    // i programmi, non guardando.
+    if (o.frustumCulled) { o.frustumCulled = false; nonCullati.push(o); }
+  });
+  const rtPrima = rig.renderer.getRenderTarget();
+  try {
+    // ⚠ SI DISEGNA, NON SI COMPILA SOLTANTO, e la differenza l'ha detta la
+    // misura: con la sola `compile` la notte scendeva da 21,9 a 11 ms, ma
+    // l'arrivo della PIOGGIA costava ancora 29,7 — con ZERO programmi nuovi.
+    // Cioè il conto non era più lo shader, era il resto del primo disegno:
+    // i buffer che salgono in GPU, gli oggetti WebGL che nascono, le uniform
+    // che si scrivono la prima volta. `compile` non li tocca; una draw sì.
+    // È la stessa cura di `scaldaChunk`, allargata a tutta la scena.
+    if (!_bersaglioScalda) creaBersaglioScalda();
+    // `compile` prende TUTTI i materiali della scena, anche quelli che una draw
+    // non toccherebbe mai; la draw prende quello che `compile` non fa, cioè i
+    // buffer e gli oggetti WebGL. Servono tutt'e due, e nell'ordine.
+    rig.renderer.compile(rig.scena, rig.camera);
+    rig.renderer.setRenderTarget(_bersaglioScalda);
+    rig.renderer.render(rig.scena, _camScalda);
+    // e una seconda volta nel bersaglio del RIFLESSO: three tiene programmi
+    // distinti per spazio colore, e il riflesso disegna in uno lineare.
+    // Scaldarne uno solo lascerebbe l'altro scatto dov'è, solo più nascosto.
+    for (const rt of [riflesso && riflesso.rt, schiumaTop && schiumaTop.rt]) {
+      if (!rt) continue;
+      rig.renderer.setRenderTarget(rt);
+      rig.renderer.compile(rig.scena, rig.camera);
+      rig.renderer.render(rig.scena, _camScalda);
+    }
+  } catch (e) {
+    // ⚠ NON SI INGHIOTTE (regola 7): scaldare è un'ottimizzazione e il gioco
+    // deve partire lo stesso se fallisce — ma lo si deve sapere.
+    console.warn('[lantern] scaldaShader:', e);
+  } finally {
+    rig.renderer.setRenderTarget(rtPrima);
+    for (const o of spenti) o.visible = false;
+    for (const o of nonCullati) o.frustumCulled = true;
+  }
+}
+
+/** Disegna UNA mesh dov'è, in un bersaglio da un pixel, in tutt'e due gli spazi
+ *  colore. Serve che la draw AVVENGA, non che si veda: il costo è il
+ *  caricamento in GPU e la nascita del programma, non il riempimento. */
+function scaldaUna(m) {
+  if (!_bersaglioScalda) creaBersaglioScalda();
+  const r = rig.renderer;
+  const rtPrima = r.getRenderTarget();
+  const genitore = m.parent;
+  const eraCullata = m.frustumCulled;
+  m.frustumCulled = false;
+  try {
+    r.setRenderTarget(_bersaglioScalda);
+    r.render(m, _camScalda);
+    // ⚠ E ANCHE NEL BERSAGLIO DEL RIFLESSO, che è la metà che mancava. Il
+    // riflesso disegna in un bersaglio LINEARE, e three ci tiene un programma
+    // DIVERSO: la prova l'ha detto senza margini, le due chiavi nuove erano
+    // «basic,highp,srgb» e «basic,highp,srgb-linear», comparse a due fotogrammi
+    // di distanza e costate 12,8 e **135,3 ms**. Scaldare una faccia sola
+    // sembrava fatto ed era mezzo lavoro.
+    // ⚠ E IN TUTTI I BERSAGLI CHE IL GIOCO USA, non solo nel principale. Ogni
+    // bersaglio con uno spazio colore suo fa nascere un PROGRAMMA suo, e ogni
+    // programma nuovo nasce al primo disegno dentro il fotogramma del
+    // giocatore. Le passate sono tre: la principale, il RIFLESSO planare e la
+    // SCHIUMA del pelo dell'acqua — e le ultime due si accendono solo quando
+    // l'acqua entra in vista, cioè camminando, cioè nel momento peggiore.
+    for (const rt of [riflesso && riflesso.rt, schiumaTop && schiumaTop.rt]) {
+      if (!rt) continue;
+      r.setRenderTarget(rt);
+      r.render(m, _camScalda);
+    }
+  } catch { /* una mesh che non si lascia disegnare non deve fermare il loop */ }
+  finally {
+    r.setRenderTarget(rtPrima);
+    m.frustumCulled = eraCullata;
+    if (genitore && m.parent !== genitore) genitore.add(m);
+  }
+  if (m.geometry) _scaldati.add(m.geometry);
+}
+
+/**
+ * E TUTTO IL RESTO DELLA SCENA, non solo i chunk.
+ *
+ * ⚠ PERCHÉ NON BASTAVA SCALDARE ALL'AVVIO. `scaldaShader` prende quello che c'è
+ * quando parte il gioco; ma mezza scena NASCE DOPO — la silhouette del gatto
+ * dietro un muro, il fantasma di piazzamento, la crepa dello scavo, i cartelli
+ * del percorso, una palla, un mobile di un tipo mai visto. Ognuno si porta
+ * dietro il suo primo disegno, e il primo disegno di un materiale nuovo costa
+ * più di cento millisecondi. Camminando in terreno mai inquadrato la misura
+ * dava 127,9 e 107,5 ms in due fotogrammi vicini, con `dProg: 1` a fianco: due
+ * programmi `basic` nati lì.
+ *
+ * ⚠ E SI RIPASSA A OGNI FOTOGRAMMA, senza scorciatoie. La prima versione usava
+ * un segnale furbo — «solo se `scena.children.length` è cambiato» — e NON
+ * FUNZIONAVA: un mobile nuovo si attacca ad `arredo.radice`, non alla scena,
+ * quindi il conto restava identico e il picco da 137 ms restava dov'era. Una
+ * scorciatoia che sembra gratis e costa la cura intera.
+ * La passata vera costa ~1200 oggetti con un controllo su una WeakSet, sotto il
+ * decimo di millisecondo. Contro un fotogramma da 137 ms è un affare — e
+ * soprattutto è un costo COSTANTE, che è la moneta con cui si comprano i
+ * fotogrammi regolari.
+ */
+function scaldaScena(t0) {
+  let fatti = 0;
+  rig.scena.traverse((o) => {
+    if (fatti < 0) return;                                 // bilancio finito
+    if (!o.isMesh && !o.isPoints && !o.isLine) return;
+    if (!o.geometry || !o.material) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    if (_scaldati.has(o.geometry) && mats.every((m) => _scaldatiMat.has(m))) return;
+    const pos = o.geometry.attributes && o.geometry.attributes.position;
+    if (!pos || !pos.count) { _scaldati.add(o.geometry); return; }
+    scaldaUna(o);
+    for (const m of mats) _scaldatiMat.add(m);
+    fatti++;
+    if (performance.now() - t0 > SCALDA_MS) fatti = -1;     // si riprende al prossimo giro
+  });
+  return Math.max(0, fatti);
+}
+
 function scaldaChunk() {
-  if (!mesher.chunks || !mesher.chunks.size) return;
   const t0 = performance.now();
   let fatti = 0;
-  for (const [, e] of mesher.chunks) {
+  // ⚠ SENZA CHUNK SI SCALDA LO STESSO IL RESTO: la scena ha da scaldare anche
+  // quando il mondo non c'è ancora (AR, primi fotogrammi), e uscire di qui
+  // salterebbe `scaldaScena` proprio in quel caso.
+  for (const [, e] of (mesher.chunks || [])) {
     for (const m of [e.solidi, e.acqua]) {
-      if (!m || !m.geometry || _scaldati.has(m)) continue;
+      // ⚠ SI SEGNA LA GEOMETRIA, NON LA MESH, e la prima versione sbagliava.
+      // Un cambio di STAGIONE (o un remesh qualunque) lascia la stessa Mesh e le
+      // attacca un BufferGeometry NUOVO: buffer nuovi, da caricare da capo. Con
+      // il segno sulla mesh quel chunk risultava «già scaldato» per sempre, e il
+      // caricamento tornava dov'era — addosso al primo disegno. Misurato:
+      // dopo un giro di stagioni, la prima passeggiata in terreno mai inquadrato
+      // costava **132 ms** in un fotogramma (riflesso 129,7 · disegno 117,6);
+      // la seconda passeggiata sullo stesso terreno, 3,2. Un difetto che si
+      // vede solo esplorando, cioè esattamente quando dà più fastidio.
+      if (!m || !m.geometry || !m.material) continue;
+      if (_scaldati.has(m.geometry) && _scaldatiMat.has(m.material)) continue;
       const pos = m.geometry.attributes && m.geometry.attributes.position;
-      if (!pos || !pos.count) { _scaldati.add(m); continue; }
-      if (!_bersaglioScalda) {
-        _bersaglioScalda = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false, stencilBuffer: false });
-        _camScalda = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 2);
-        _camScalda.position.set(0, 0, 1);
-      }
-      // ⚠ SI DISEGNA LA MESH DOV'È, con una camera che non guarda niente: serve
-      // che la draw AVVENGA, non che si veda. Un pixel di bersaglio e nessuna
-      // profondità: il costo è il caricamento e basta.
-      const r = rig.renderer;
-      const rtPrima = r.getRenderTarget();
-      const genitore = m.parent;
-      try {
-        r.setRenderTarget(_bersaglioScalda);
-        r.render(m, _camScalda);
-      } catch { /* una mesh che non si lascia disegnare non deve fermare il loop */ }
-      finally {
-        r.setRenderTarget(rtPrima);
-        if (genitore && m.parent !== genitore) genitore.add(m);
-      }
-      _scaldati.add(m);
+      if (!pos || !pos.count) { _scaldati.add(m.geometry); continue; }
+      scaldaUna(m);
+      _scaldatiMat.add(m.material);
       fatti++;
       if (performance.now() - t0 > SCALDA_MS) return;
     }
   }
+  fatti += scaldaScena(t0);
   if (fatti) mesher.statistiche.scaldati = (mesher.statistiche.scaldati || 0) + fatti;
 }
 
@@ -4667,8 +4847,45 @@ function loop(adesso) {
   cadenza.fpsMax = opzioni.fpsMax;
   const dTick = adesso - _ultimoTick;
   _ultimoTick = adesso;
+  stimaRefresh(dTick);
   if (!cadenza.tick(dTick)) return;
   passo(adesso, null);
+}
+
+/**
+ * QUANTI HERTZ FA LO SCHERMO, misurati invece che chiesti.
+ *
+ * PERCHÉ SERVE (committente, 27/08): «io vedo gli fps limitati, forse devi
+ * mettere 2 numeri, il refresh rate e gli fps veri?». Ha ragione, ed è la
+ * domanda giusta: in un browser `requestAnimationFrame` è agganciato al refresh
+ * dello schermo, quindi il contatore non può salire sopra quel numero. Scritto
+ * da solo, «123 fps» non dice se il motore arranca o se ha finito e aspetta.
+ *
+ * ⚠ NON ESISTE UNA API CHE LO CHIEDA. `screen.refreshRate` non c'è in nessun
+ * browser: l'unico modo è misurare l'INTERVALLO PIÙ CORTO fra due fotogrammi,
+ * perché sotto quello lo schermo non va. Quindi un minimo — ma un minimo
+ * assoluto si incastra sul primo intervallo storto che capita e non torna più
+ * indietro. Qui scende SUBITO e risale PIANISSIMO: se lo schermo cambia davvero
+ * (si stacca il monitor esterno, si passa a 60 Hz) il numero ci arriva in
+ * qualche secondo, e un singolo fotogramma anomalo non lo inchioda.
+ */
+const REFRESH_NOTI = [24, 30, 48, 50, 60, 72, 75, 90, 100, 120, 144, 165, 180, 240, 360];
+let _dtMinimo = 0;
+let _refreshHz = 0;
+function stimaRefresh(dTick) {
+  if (!(dTick > 0.5) || dTick > 200) return;      // fotogrammi assurdi: non contano
+  if (_dtMinimo === 0 || dTick < _dtMinimo) _dtMinimo = dTick;
+  else _dtMinimo += (dTick - _dtMinimo) * 0.0006; // risalita lenta: ~mezzo minuto
+  const hz = 1000 / _dtMinimo;
+  // ⚠ SI AGGANCIA AL VALORE NOTO PIÙ VICINO, e solo se è vicino davvero: un
+  // «143» o un «146» sono lo stesso pannello a 144, e mostrare il numero grezzo
+  // farebbe sembrare instabile una cosa che non lo è. Se non somiglia a niente
+  // di conosciuto si mostra il grezzo, che è più onesto di un aggancio a forza.
+  let scelto = Math.round(hz);
+  for (const n of REFRESH_NOTI) {
+    if (Math.abs(hz - n) <= n * 0.06) { scelto = n; break; }
+  }
+  _refreshHz = scelto;
 }
 
 function passo(adesso, frameXR) {
@@ -4956,7 +5173,9 @@ function passo(adesso, frameXR) {
   }
 
   crono('mesher', () => mesher.aggiorna(mondo, rig.bersaglio));   // i chunk sporchi, i vicini prima
-  crono('scalda', () => scaldaChunk());
+  // le sagome dei mobili che hanno cambiato stato, a rate: vedi
+  // Arredo.smaltisciSagome — al tramonto sono venti lampioni in un colpo solo.
+  crono('sagomeCoda', () => arredo.smaltisciSagome(0.7));
   menuDebug.aggiorna(dt);
   // coi comandi touch la mira è il mirino centrale (l'anteprima segue lì)
   if (opzioni.comandiTouch) { mira.x = innerWidth / 2; mira.y = innerHeight / 2; }
@@ -5000,6 +5219,13 @@ function passo(adesso, frameXR) {
   _riflAlterna = !_riflAlterna;
   _riflGiro = (_riflGiro + 1) % RIFL_OGNI;
 
+  // ⚠ SI SCALDA QUI, SUBITO PRIMA DI DISEGNARE, e la posizione conta. Stava in
+  // cima al fotogramma, e un oggetto NATO durante l'aggiornamento di questo
+  // stesso giro — la silhouette del gatto che passa dietro un muro, un mobile
+  // piazzato adesso — nasceva DOPO la scaldata e finiva a freddo nella draw.
+  // Un fotogramma di ritardo, ed è proprio il fotogramma che conta.
+  crono('scalda', () => scaldaChunk());
+
   _schiumaDt += dt;
   if (pianoAcqua === null || !_schiumaQ) { schiumaTop.spegni(); _schiumaDt = 0; }
   else if (_riflAlterna) { perf.regione('schiuma', () => schiumaTop.aggiorna(rig.scena, rig.bersaglio, pianoAcqua, _schiumaDt)); _schiumaDt = 0; }
@@ -5033,7 +5259,7 @@ function passo(adesso, frameXR) {
     // quindi può voler dire «il motore arranca» o «il motore ha finito in due
     // millisecondi e aspetta il monitor». Col lavoro scritto a fianco la
     // differenza si legge, e si sa se ottimizzare noi o smettere di provarci.
-    hud.fps(fps, _perfAcceso && perf.disponibile ? _cpuMsMedio + perf.statistiche().totaleMedia : 0);
+    hud.fps(fps, _perfAcceso && perf.disponibile ? _cpuMsMedio + perf.statistiche().totaleMedia : 0, _refreshHz);
     _fpsUltimi = fps;          // per il ping di presenza, che gira fuori dal frame
     adattaQualita(fps);
     aggiornaPerf(fps);         // overlay perf (~2 Hz): fps, ms CPU, ms GPU per passata

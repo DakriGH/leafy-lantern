@@ -29,7 +29,7 @@
 // y=1, PIEDI a y=2. Le lampade dei blocchi accendono la sfera al CENTRO della
 // cella, cioè mezza cella sopra la quota che si legge qui.
 
-import { registraBlocco, BLOCCHI, CATEGORIA_PROVE } from './blocks.js?v=mtbkj5ea';
+import { registraBlocco, BLOCCHI, CATEGORIA_PROVE } from './blocks.js?v=mtblppo3';
 
 const SUOLO = 0, SUPERFICIE = 1, PIEDI = 2;
 

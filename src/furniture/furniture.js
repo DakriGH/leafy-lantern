@@ -4,10 +4,10 @@
 // (finta luce emessa, separata dal fake pointlight), fluttuazione di 1 px.
 
 import * as THREE from 'three';
-import { PX } from '../config.js?v=mtbkj5ea';
-import { FURNI, celleOccupate, celleAppoggio, centroide } from './registry.js?v=mtbkj5ea';
-import { defDi } from '../world/blocks.js?v=mtbkj5ea';
-import { creaLuce, rimuoviLuce } from '../fx/materials.js?v=mtbkj5ea';
+import { PX } from '../config.js?v=mtblppo3';
+import { FURNI, celleOccupate, celleAppoggio, centroide } from './registry.js?v=mtblppo3';
+import { defDi } from '../world/blocks.js?v=mtblppo3';
+import { creaLuce, rimuoviLuce } from '../fx/materials.js?v=mtblppo3';
 
 let prossimoId = 1;
 
@@ -558,11 +558,56 @@ export class Arredo {
     this.versione++;
   }
 
+  /**
+   * ⚠ LE SAGOME SI RIFANNO A RATE, e questa coda è la cura a uno scatto vero.
+   *
+   * MISURATO (27/08): al calare della notte `aggiornaNotte` accende i lampioni,
+   * ogni accensione è un cambio di stato, e ogni cambio di stato ripassava i
+   * TRIANGOLI del modello per rifare le scatole d'ombra. Venti lampioni =
+   * **4 ms in un fotogramma solo**, cioè 0,2 ms a lampione — e cresce col numero
+   * di lampioni: nel mondo grande di prima erano settantasette. Tutto dentro il
+   * fotogramma in cui il sole tramonta, che è già il più carico della giornata.
+   *
+   * E si può rimandare senza che si veda, per una ragione precisa: da oggi
+   * l'ombra dei mobili la disegna la MAPPA (fx/controluce.js) dalla mesh vera,
+   * non da queste scatole. Le scatole le leggono ancora le PARTICELLE, e una
+   * particella che per due fotogrammi usa la sagoma del lampione spento invece
+   * di quello acceso non la distingue nessuno — la differenza fra i due stati è
+   * il vetro che si illumina.
+   *
+   * Un bilancio d'orologio, come il mesher e `scaldaChunk`: su una macchina
+   * lenta si fa meno strada e ci si mette più fotogrammi, che è il
+   * comportamento voluto.
+   */
+  smaltisciSagome(bilancioMs = 0.7) {
+    if (!this._codaSagome || !this._codaSagome.size) return 0;
+    const t0 = performance.now();
+    let fatte = 0;
+    for (const ist of this._codaSagome) {
+      this._codaSagome.delete(ist);
+      // può essere stato rimosso mentre aspettava in coda
+      if (this.istanze.indexOf(ist) < 0) continue;
+      this._ricalcolaSagome(ist);
+      fatte++;
+      if (performance.now() - t0 > bilancioMs) break;
+    }
+    return fatte;
+  }
+
   _applicaStato(istanza) {
     const stato = istanza.def.stati ? istanza.def.stati[istanza.stato] : null;
     if (istanza.visualiStato) {
       istanza.visualiStato.forEach((v, i) => { v.visible = i === istanza.stato; });
-      this._ricalcolaSagome(istanza);
+      // ⚠ LA PRIMA VOLTA SUBITO, le successive in coda. Al piazzamento le
+      // scatole non esistono ancora: rimandarle lascerebbe `scatoleOmbra`
+      // indefinita per qualche fotogramma, e chi la legge si aspetta un array.
+      // Lo scatto che si cura è il CAMBIO DI STATO in massa al tramonto, non il
+      // piazzamento di un mobile alla volta.
+      if (!istanza.scatoleOmbra) this._ricalcolaSagome(istanza);
+      else {
+        if (!this._codaSagome) this._codaSagome = new Set();
+        this._codaSagome.add(istanza);
+      }
     }
     const accesa = !!(stato && stato.luce);
     // BASTA LA SFERA. Qui si avvisava anche il mesher (onLuce → main.js →

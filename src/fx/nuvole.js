@@ -25,8 +25,8 @@
 // alle superfici. Di notte le nuvole si tingono con l'ambiente.
 
 import * as THREE from 'three';
-import { NUVOLE } from '../config.js?v=mtbkj5ea';
-import { impostaOmbreNuvole, ambienteAttuale, sbiecoAstro, direzioneAstro } from './materials.js?v=mtbkj5ea';
+import { NUVOLE } from '../config.js?v=mtblppo3';
+import { impostaOmbreNuvole, ambienteAttuale, sbiecoAstro, direzioneAstro } from './materials.js?v=mtblppo3';
 
 function hash(n) {
   const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
