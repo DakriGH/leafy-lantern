@@ -2,9 +2,9 @@
 // t ∈ [0,1): 0 mezzanotte · 0.25 alba · 0.5 mezzogiorno · 0.75 tramonto.
 
 import * as THREE from 'three';
-import { TEMPO } from '../config.js?v=mtbj9tmp';
-import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=mtbj9tmp';
-import { Cielo } from './cielo.js?v=mtbj9tmp';
+import { TEMPO } from '../config.js?v=mtbkj5ea';
+import { impostaAmbiente, impostaOmbraCielo } from './materials.js?v=mtbkj5ea';
+import { Cielo } from './cielo.js?v=mtbkj5ea';
 
 // `ambiente` È IL GIORNO E LA NOTTE, e non serve altro: lo shader moltiplica
 // l'albedo per questo colore e ci somma sopra le luci-sfera. Un tentativo aveva

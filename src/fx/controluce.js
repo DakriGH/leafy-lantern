@@ -273,6 +273,35 @@ export class Controluce {
 
   get texture() { return this.rt.depthTexture; }
 
+  /**
+   * CAMBIA IL LATO DELLA MAPPA A CALDO.
+   *
+   * ⚠ SERVE PERCHÉ IL LATO NON SI PUÒ DECIDERE UNA VOLTA SOLA. `configuraMappa`
+   * lo ricava dall'ALTEZZA DI RESA, e quell'altezza non è una costante: cambia
+   * quando si ridimensiona la finestra, quando la scala di qualità scende, e —
+   * il caso insidioso — vale ancora il default della tela (150 px) se qualcuno
+   * la misura prima che il renderer l'abbia dimensionata. Misurato il 27/08 nel
+   * mio stesso banco: con 150 px di altezza `configuraMappa` rende N = 512
+   * invece di 2048, cioè un texel QUATTRO VOLTE più largo — 0,1875 unità invece
+   * di 0,047. E a quel texel le ombre dei mobili diventano quadrati grossi
+   * come otto pixel di schermo: esattamente il «pixelloso» che il committente
+   * ha fotografato. Un numero letto una volta sola, che quando sbaglia sbaglia
+   * per sempre e in silenzio.
+   */
+  ridimensiona(N) {
+    if (N === this.N || !N) return false;
+    this.rt.depthTexture.dispose();
+    this.rt.dispose();
+    this.N = N;
+    this.rt = creaBersaglio(N);
+    // il lato del texel è cambiato: la chiave vecchia non descrive più questa
+    // mappa, e senza azzerarla si terrebbe il contenuto disegnato all'altra
+    // risoluzione finché il sole non scatta.
+    this.chiave = '';
+    this._ultima = -1e9;
+    return true;
+  }
+
   /** Il lato di un texel in unità di mondo: serve allo scarto (bias). */
   get texel() { return this.lato ? 2 * this.lato / this.N : 0; }
 

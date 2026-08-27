@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbj9tmp';
-import { glslControluce } from './controluce.js?v=mtbj9tmp';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbj9tmp';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbkj5ea';
+import { glslControluce } from './controluce.js?v=mtbkj5ea';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbkj5ea';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con

@@ -10,7 +10,7 @@
 // aritmetica pura — così si prova per intero in Node (test/diagnostica.test.mjs)
 // senza un contesto grafico.
 
-import { riassuntoBanco } from './banco.js?v=mtbj9tmp';
+import { riassuntoBanco } from './banco.js?v=mtbkj5ea';
 
 // 2 = c'è il banco standard: le scene se le costruisce la diagnostica, quindi i
 // numeri sono confrontabili fra dispositivi e fra versioni (prima no).

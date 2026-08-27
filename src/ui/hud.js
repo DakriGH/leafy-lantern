@@ -61,10 +61,25 @@ export class HUD {
     if (!this.trascinandoTempo && v !== this._uBarra) { this._uBarra = v; this.elBarra.value = v; }
   }
 
-  fps(n) {
-    if (n === this._uFps) return;
+  /**
+   * @param n    fotogrammi al secondo osservati
+   * @param ms   millisecondi di LAVORO per fotogramma (CPU + GPU), o 0
+   *
+   * ⚠ IL SOLO NUMERO DI FPS È FUORVIANTE, ed è costato una delusione: in un
+   * browser `requestAnimationFrame` NON PUÒ superare la frequenza dello schermo.
+   * Su un pannello a 144 Hz il tetto è 144, e sopra quello si aspetta e basta —
+   * quindi «123 fps» può voler dire tanto «il motore arranca» quanto «il motore
+   * ha finito in due millisecondi e sta aspettando il monitor». Sono due
+   * situazioni opposte e il contatore le scriveva uguali.
+   * I millisecondi accanto sciolgono l'ambiguità: 2 ms su un budget di 6,9
+   * (144 Hz) vuol dire che il lavoro occupa un terzo scarso del fotogramma.
+   */
+  fps(n, ms = 0) {
+    const testo = ms > 0 ? `${n} fps · ${ms < 10 ? ms.toFixed(1) : Math.round(ms)} ms` : `${n} fps`;
+    if (n === this._uFps && testo === this._uFpsTesto) return;
     this._uFps = n;
-    this.elFps.textContent = `${n} fps`;
+    this._uFpsTesto = testo;
+    this.elFps.textContent = testo;
     // semaforo: verde/bianco sopra 50, ambra 30-50, rosso sotto 30 — si capisce
     // se il gioco sta soffrendo senza dover leggere il numero
     const classe = n < 30 ? 'fps-bassi' : n < 50 ? 'fps-medi' : '';

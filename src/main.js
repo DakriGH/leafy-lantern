@@ -1,81 +1,81 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtbj9tmp';
-import { Rig } from './engine/renderer.js?v=mtbj9tmp';
-import { Input } from './engine/input.js?v=mtbj9tmp';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtbj9tmp';
-import { Cadenza } from './engine/cadenza.js?v=mtbj9tmp';
-import { GpuProfiler } from './engine/gpuTimer.js?v=mtbj9tmp';
-import { creaBatteria } from './engine/batteria.js?v=mtbj9tmp';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtbj9tmp';
-import { Mondo } from './world/world.js?v=mtbj9tmp';
-import { SimAcqua } from './world/acqua.js?v=mtbj9tmp';
-import { Lobby } from './net/lobby.js?v=mtbj9tmp';
-import { Segnalatore } from './net/segnalatore.js?v=mtbj9tmp';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtbj9tmp';
-import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtbj9tmp';
-import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtbj9tmp';
-import { PannelloInsieme } from './ui/multiplayer.js?v=mtbj9tmp';
-import { Targhetta } from './ui/targhetta.js?v=mtbj9tmp';
-import { Bolla } from './ui/bolla.js?v=mtbj9tmp';
-import { Scelta } from './ui/scelta.js?v=mtbj9tmp';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtbj9tmp';
-import { Zaino } from './ui/zaino.js?v=mtbj9tmp';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mtbj9tmp';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtbj9tmp';
-import { generaMostra } from './world/mostra.js?v=mtbj9tmp';
-import { generaCollaudo } from './world/collaudo.js?v=mtbj9tmp';
-import { generaTestLuci } from './world/testLuci.js?v=mtbj9tmp';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtbj9tmp';
-import { generaTestMacchine } from './world/testMacchine.js?v=mtbj9tmp';
-import { generaZoo } from './world/zoo.js?v=mtbj9tmp';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mtbj9tmp';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtbj9tmp';
-import { Meteo } from './fx/meteo.js?v=mtbj9tmp';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtbj9tmp';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtbj9tmp';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=mtbj9tmp';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtbj9tmp';
-import { CicloGiorno } from './fx/daynight.js?v=mtbj9tmp';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, materialeOmbra, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtbj9tmp';
-import { CampoSole } from './fx/campoSole.js?v=mtbj9tmp';
-import { Controluce, configuraMappa } from './fx/controluce.js?v=mtbj9tmp';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtbj9tmp';
-import { ModalitaAR } from './ar/ar.js?v=mtbj9tmp';
-import { Nuvole } from './fx/nuvole.js?v=mtbj9tmp';
-import { SagomaVista } from './fx/sagomaVista.js?v=mtbj9tmp';
-import { Erba } from './fx/erba.js?v=mtbj9tmp';
-import { Foglie } from './fx/foglie.js?v=mtbj9tmp';
-import { SegnaPercorso } from './fx/percorso.js?v=mtbj9tmp';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mtbj9tmp';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mtbj9tmp';
-import { Pioggia } from './fx/pioggia.js?v=mtbj9tmp';
-import { Particelle } from './fx/particelle.js?v=mtbj9tmp';
-import { Audio } from './fx/audio.js?v=mtbj9tmp';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtbj9tmp';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtbj9tmp';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtbj9tmp';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtbj9tmp';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtbj9tmp';
-import { Registro } from './ecs/registro.js?v=mtbj9tmp';
-import { Orologio, Rng } from './ecs/orologio.js?v=mtbj9tmp';
-import { Sistemi } from './ecs/sistemi.js?v=mtbj9tmp';
-import { Agenda } from './ecs/agenda.js?v=mtbj9tmp';
-import { Gatto } from './player/player.js?v=mtbj9tmp';
-import { ManoStrumento } from './player/mano.js?v=mtbj9tmp';
-import { dropDi } from './gioco/drop.js?v=mtbj9tmp';
-import { Controller } from './player/controller.js?v=mtbj9tmp';
-import { FURNI, centroide } from './furniture/registry.js?v=mtbj9tmp';
-import { caricaModelli } from './furniture/loader.js?v=mtbj9tmp';
-import { Arredo } from './furniture/furniture.js?v=mtbj9tmp';
-import { HUD } from './ui/hud.js?v=mtbj9tmp';
-import { MenuDebug } from './ui/debug.js?v=mtbj9tmp';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtbj9tmp';
-import { ModalitaXR } from './ar/ar-xr.js?v=mtbj9tmp';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtbkj5ea';
+import { Rig } from './engine/renderer.js?v=mtbkj5ea';
+import { Input } from './engine/input.js?v=mtbkj5ea';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtbkj5ea';
+import { Cadenza } from './engine/cadenza.js?v=mtbkj5ea';
+import { GpuProfiler } from './engine/gpuTimer.js?v=mtbkj5ea';
+import { creaBatteria } from './engine/batteria.js?v=mtbkj5ea';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtbkj5ea';
+import { Mondo } from './world/world.js?v=mtbkj5ea';
+import { SimAcqua } from './world/acqua.js?v=mtbkj5ea';
+import { Lobby } from './net/lobby.js?v=mtbkj5ea';
+import { Segnalatore } from './net/segnalatore.js?v=mtbkj5ea';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtbkj5ea';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtbkj5ea';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtbkj5ea';
+import { PannelloInsieme } from './ui/multiplayer.js?v=mtbkj5ea';
+import { Targhetta } from './ui/targhetta.js?v=mtbkj5ea';
+import { Bolla } from './ui/bolla.js?v=mtbkj5ea';
+import { Scelta } from './ui/scelta.js?v=mtbkj5ea';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtbkj5ea';
+import { Zaino } from './ui/zaino.js?v=mtbkj5ea';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mtbkj5ea';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtbkj5ea';
+import { generaMostra } from './world/mostra.js?v=mtbkj5ea';
+import { generaCollaudo } from './world/collaudo.js?v=mtbkj5ea';
+import { generaTestLuci } from './world/testLuci.js?v=mtbkj5ea';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtbkj5ea';
+import { generaTestMacchine } from './world/testMacchine.js?v=mtbkj5ea';
+import { generaZoo } from './world/zoo.js?v=mtbkj5ea';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mtbkj5ea';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtbkj5ea';
+import { Meteo } from './fx/meteo.js?v=mtbkj5ea';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtbkj5ea';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtbkj5ea';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=mtbkj5ea';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtbkj5ea';
+import { CicloGiorno } from './fx/daynight.js?v=mtbkj5ea';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, materialeOmbra, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtbkj5ea';
+import { CampoSole } from './fx/campoSole.js?v=mtbkj5ea';
+import { Controluce, configuraMappa } from './fx/controluce.js?v=mtbkj5ea';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtbkj5ea';
+import { ModalitaAR } from './ar/ar.js?v=mtbkj5ea';
+import { Nuvole } from './fx/nuvole.js?v=mtbkj5ea';
+import { SagomaVista } from './fx/sagomaVista.js?v=mtbkj5ea';
+import { Erba } from './fx/erba.js?v=mtbkj5ea';
+import { Foglie } from './fx/foglie.js?v=mtbkj5ea';
+import { SegnaPercorso } from './fx/percorso.js?v=mtbkj5ea';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mtbkj5ea';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mtbkj5ea';
+import { Pioggia } from './fx/pioggia.js?v=mtbkj5ea';
+import { Particelle } from './fx/particelle.js?v=mtbkj5ea';
+import { Audio } from './fx/audio.js?v=mtbkj5ea';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtbkj5ea';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtbkj5ea';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtbkj5ea';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtbkj5ea';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtbkj5ea';
+import { Registro } from './ecs/registro.js?v=mtbkj5ea';
+import { Orologio, Rng } from './ecs/orologio.js?v=mtbkj5ea';
+import { Sistemi } from './ecs/sistemi.js?v=mtbkj5ea';
+import { Agenda } from './ecs/agenda.js?v=mtbkj5ea';
+import { Gatto } from './player/player.js?v=mtbkj5ea';
+import { ManoStrumento } from './player/mano.js?v=mtbkj5ea';
+import { dropDi } from './gioco/drop.js?v=mtbkj5ea';
+import { Controller } from './player/controller.js?v=mtbkj5ea';
+import { FURNI, centroide } from './furniture/registry.js?v=mtbkj5ea';
+import { caricaModelli } from './furniture/loader.js?v=mtbkj5ea';
+import { Arredo } from './furniture/furniture.js?v=mtbkj5ea';
+import { HUD } from './ui/hud.js?v=mtbkj5ea';
+import { MenuDebug } from './ui/debug.js?v=mtbkj5ea';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtbkj5ea';
+import { ModalitaXR } from './ar/ar-xr.js?v=mtbkj5ea';
 import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot,
   spingiSnapshot, sbirciaSnapshot, togliSnapshot, livelliSnapshot,
-  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtbj9tmp';
+  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtbkj5ea';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -4173,11 +4173,46 @@ const campoSole = new CampoSole(256, -128, rig.mobile ? 1 : 2);
 // doppio perché è la TERZA cura di questo difetto. Si accende dal Banco V2, si
 // guarda dalla stazione 3 dello zoo, e il numero che la promuove è l'indice di
 // frastagliatura (bancoPixel.frastagliatura): oggi 0,140, bersaglio ≤ 0,05.
-const _confControluce = configuraMappa({
-  hRender: Math.round(rig.renderer.domElement.height || 1080),
-  fovGradi: CAMERA.fov, pxBersaglio: rig.mobile ? 4 : 2, tetto: rig.mobile ? 1024 : 2048,
-});
+/** L'altezza del BUFFER di resa, in pixel. ⚠ Si legge `height` e non
+ *  `clientHeight`: `clientHeight` è una misura di LAYOUT e leggerla ogni
+ *  fotogramma obbligherebbe il browser a ricalcolare lo stile prima di
+ *  rispondere. `height` è quello che `setSize` ha scritto, cioè esattamente i
+ *  pixel che si disegnano — e non costa niente. */
+function _altezzaResa() { return rig.renderer.domElement.height || Math.round(innerHeight) || 1080; }
+function _confDaSchermo(h) {
+  return configuraMappa({
+    hRender: h,
+    fovGradi: CAMERA.fov, pxBersaglio: rig.mobile ? 4 : 2, tetto: rig.mobile ? 1024 : 2048,
+  });
+}
+let _hControluce = _altezzaResa();
+const _confControluce = _confDaSchermo(_hControluce);
 const controluce = new Controluce(rig.renderer, _confControluce.N);
+
+/**
+ * RIMISURA LA MAPPA SULLO SCHERMO VERO.
+ *
+ * ⚠ NON È UNA RIFINITURA: è la differenza fra un texel da 0,047 unità e uno da
+ * 0,1875. `configuraMappa` deriva il lato dall'ALTEZZA DI RESA, e quell'altezza
+ * cambia — si ridimensiona la finestra, la scala di qualità scende, o
+ * semplicemente la si è letta prima che il renderer dimensionasse la tela. Una
+ * misura presa una volta sola, quando sbaglia, sbaglia per sempre: la mappa
+ * resta al minimo (512) su qualunque schermo, e le ombre dei mobili diventano
+ * quadrati grossi otto pixel. L'ho visto succedere nel mio banco, con la
+ * fotografia a fianco della sua: è lo stesso difetto.
+ *
+ * Si chiama al ridimensionamento E una volta dopo l'avvio, perché il primo
+ * fotogramma è proprio il momento in cui la tela può non essere ancora a misura.
+ */
+function adeguaControluce() {
+  const h = _altezzaResa();
+  if (h === _hControluce) return false;        // un confronto di interi per frame
+  _hControluce = h;
+  const c = _confDaSchermo(h);
+  const cambiato = controluce.ridimensiona(c.N);
+  Object.assign(_confControluce, c);
+  return cambiato;
+}
 
 /** Il giro della mappa: decide dove va e, SE è cambiato qualcosa, la ridisegna.
  *  ⚠ Le cose che si MUOVONO restano fuori: la mappa è cachata per quanto di
@@ -4247,7 +4282,53 @@ function scaldaChunk() {
 }
 
 const _nascostiOmbra = [];
+const _proiettano = new Set();
+
+/**
+ * CHI PROIETTA È UN ELENCO, non «tutto meno le tre cose che mi sono ricordato».
+ *
+ * ⚠ QUESTA È UNA CORREZIONE DI POLARITÀ, ed è la stessa lezione della chiave
+ * mancante nella scala di qualità: quando il DEFAULT è «sì», ogni modulo nuovo
+ * entra nella mappa d'ombra senza che nessuno l'abbia deciso, e non lo dice
+ * nessun errore. Il committente l'ha trovato guardando (27/08): «anche la
+ * preview di dove posiziono l'oggetto fa ombra il che è strano — anche le
+ * farfalle fanno ombra, ma secondo me è un errore che appesantisce e basta».
+ * Aveva ragione su tutt'e due, e l'elenco vero era più lungo di così: nella
+ * mappa finivano anche la CUPOLA DEL CIELO, le nuvole, la pioggia, le
+ * particelle, le lucciole, i fuochi fatui, la crepa dello scavo, i cartelli del
+ * percorso e i gatti degli ALTRI giocatori. Il fantasma di piazzamento poi ci
+ * entrava per una via tutta sua: è `transparent` con `depthWrite:false`, ma
+ * `overrideMaterial` sostituisce il materiale INTERO — trasparenza compresa —
+ * quindi in mappa tornava un blocco pieno.
+ *
+ * Adesso proietta solo chi è in questo elenco. Un modulo nuovo che si aggiunge
+ * alla scena NON proietta finché qualcuno non lo scrive qui, che è il verso
+ * giusto: l'ombra di troppo è muta, l'ombra che manca si vede.
+ */
+function proiettanoOmbra(soloMobili) {
+  _proiettano.clear();
+  // i MOBILI sempre: sono l'unica cosa che la marcia dei voxel non conosce
+  // (alberi, lampioni, panchine non sono blocchi della griglia).
+  if (arredo.radice) _proiettano.add(arredo.radice);
+  // il TERRENO solo in modo «controluce»: con la marcia lo fa la griglia, meglio
+  // e senza il reticolo — ed è anche la cura all'acne, che nasceva dalle pareti
+  // del terreno che competevano con sé stesse.
+  if (!soloMobili) {
+    for (const [, e] of mesher.chunks) {
+      if (e.solidi) _proiettano.add(e.solidi);
+      if (e.acqua) _proiettano.add(e.acqua);
+    }
+  }
+  return _proiettano;
+}
+
 function giraControluce() {
+  // ⚠ PRIMA DI TUTTO: la mappa è ancora della misura giusta per questo schermo?
+  // Non è una domanda oziosa — vedi `adeguaControluce`. Costa un confronto di
+  // interi per fotogramma e copre tutt'e tre i modi in cui l'altezza cambia:
+  // la finestra ridimensionata, la scala di qualità che scende, e la tela che
+  // al primo fotogramma non era ancora stata dimensionata.
+  adeguaControluce();
   // ⚠ LA MAPPA SERVE ANCHE ALLA MARCIA, e con dentro una cosa diversa. In modo
   // «controluce» contiene TUTTO; in modo «marcia» contiene i SOLI MOBILI —
   // perché la griglia dei voxel conosce i blocchi e basta, e senza la mappa gli
@@ -4266,16 +4347,14 @@ function giraControluce() {
   if (rifatta) {
     controluce.costruisci(rig.scena, () => {
       _nascostiOmbra.length = 0;
-      for (const g of [gatto.gruppo, erba.mesh, foglie.mesh]) {
-        if (g && g.visible) { g.visible = false; _nascostiOmbra.push(g); }
+      // ⚠ SI SPEGNE TUTTO QUELLO CHE NON È NELL'ELENCO, e si spegne alla RADICE:
+      // `visible = false` su un figlio della scena taglia via l'intero sottoalbero
+      // in `projectObject`, quindi una farfalla non costa nemmeno la visita.
+      const proiettano = proiettanoOmbra(soloMobili);
+      for (const c of rig.scena.children) {
+        if (c.visible && !proiettano.has(c)) { c.visible = false; _nascostiOmbra.push(c); }
       }
       if (soloMobili) {
-        // il terreno lo fa già la marcia, meglio e senza reticolo
-        for (const [, e] of mesher.chunks) {
-          for (const m of [e.solidi, e.acqua]) {
-            if (m && m.visible) { m.visible = false; _nascostiOmbra.push(m); }
-          }
-        }
         // ⚠ E QUI `overrideMaterial` VA BENE, mentre in generale NO. La regola
         // della casa è che un override piatto disegnerebbe alberi FERMI mentre a
         // schermo ondeggiano — ma qui nella mappa restano SOLO i mobili, cioè
@@ -4948,7 +5027,13 @@ function passo(adesso, frameXR) {
   contFrame++; contTempo += dt;
   if (contTempo >= 0.5) {
     const fps = Math.round(contFrame / contTempo);
-    hud.fps(fps);
+    // ⚠ IL LAVORO ACCANTO AGLI FPS, e solo col misuratore acceso (G) perché è
+    // l'unico momento in cui il numero della GPU esiste davvero. Senza, «123
+    // fps» è ambiguo: in un browser rAF non supera la frequenza dello schermo,
+    // quindi può voler dire «il motore arranca» o «il motore ha finito in due
+    // millisecondi e aspetta il monitor». Col lavoro scritto a fianco la
+    // differenza si legge, e si sa se ottimizzare noi o smettere di provarci.
+    hud.fps(fps, _perfAcceso && perf.disponibile ? _cpuMsMedio + perf.statistiche().totaleMedia : 0);
     _fpsUltimi = fps;          // per il ping di presenza, che gira fuori dal frame
     adattaQualita(fps);
     aggiornaPerf(fps);         // overlay perf (~2 Hz): fps, ms CPU, ms GPU per passata
