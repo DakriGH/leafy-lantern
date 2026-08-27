@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbggcsp';
-import { glslControluce } from './controluce.js?v=mtbggcsp';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbggcsp';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbgs2w6';
+import { glslControluce } from './controluce.js?v=mtbgs2w6';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbgs2w6';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -1178,8 +1178,22 @@ const GLSL_FRAGMENT = /* glsl */`
         // si parte mezzo passo FUORI dalla superficie, se no la cella di
         // partenza è la propria e ogni faccia si dichiara in ombra da sola
         vec3 da = vPosMondo + n * 0.02 + uSoleDir * 0.02;
-        // UN RAGGIO: il taglio netto di sempre, e costa uno.
-        if (uSoleRaggi <= 1) return marciaSole(da, uSoleDir, uMarciaPassi) ? 0.0 : _term;
+        // ⚠ E I MOBILI LI SA SOLO LA MAPPA. La griglia dei voxel conosce i
+        // BLOCCHI e basta: alberi, panchine e lampioni sono modelli FBX e non
+        // stanno lì dentro, quindi con la sola marcia SPARISCONO le loro ombre —
+        // il committente l'ha visto subito («non ci sono più le ombre degli
+        // alberi»). Metterli nella griglia non è la cura: il passo è di UN
+        // BLOCCO, e un albero verrebbe fuori un quadrato 3×3 a scalini, che è
+        // la bocciatura di due giri fa.
+        // Quindi i due sistemi fanno ciascuno la cosa che sa fare, e il buio
+        // vince: la MARCIA per il terreno (esatta, senza reticolo, senza acne)
+        // e la MAPPA per i mobili (silhouette vera del modello). E la mappa
+        // ADESSO CONTIENE SOLO I MOBILI — vedi giraControluce in main.js — che è
+        // anche il motivo per cui la sua acne sparisce: l'acne nasceva dalle
+        // pareti del terreno che competevano con sé stesse, e il terreno lì
+        // dentro non c'è più.
+        float mob = ombraDelSole(vLuceP, n, uSoleDir);
+        if (uSoleRaggi <= 1) return (marciaSole(da, uSoleDir, uMarciaPassi) ? 0.0 : _term) * mob;
         // PIÙ RAGGI: la penombra del disco solare, quantizzata alle bande.
         float aperti = 0.0;
         for (int i = 0; i < ${RAGGI_MAX}; i++) {
@@ -1187,7 +1201,7 @@ const GLSL_FRAGMENT = /* glsl */`
           if (!marciaSole(da, ruotaNelCono(uSoleDir, uSoleCono, i), uMarciaPassi)) aperti += 1.0;
         }
         float q = aperti / float(uSoleRaggi);
-        return (floor(q * ${GBANDE} + 0.5) / ${GBANDE}) * _term;
+        return (floor(q * ${GBANDE} + 0.5) / ${GBANDE}) * _term * mob;
       }
     #elif defined(LANTERNA_CONTROLUCE)
       // IL MONDO VISTO DAL SOLE. Un confronto binario contro la profondità della
