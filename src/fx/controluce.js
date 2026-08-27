@@ -474,14 +474,32 @@ export function creaBersaglio(N) {
  *  in meno e non si vedono. Sopra si comincia a staccare l'ombra dalla base. */
 export const PENDENZA_SCARTO = 1.5;
 
-export function glslControluce() { return /* glsl */`
-  const float PENDENZA_SCARTO = ${PENDENZA_SCARTO.toFixed(2)};
-  uniform highp sampler2D uControluce;
-  uniform vec4 uControluceInfo;      // (1/N, scarto, texel in unità, attiva)
-  uniform mat4 uControluceM;
-  uniform float uControluceNorm;     // quanti texel si scosta lungo la normale
+/**
+ * IL GLSL DELLA LETTURA, e adesso si può stampare PIÙ DI UNA VOLTA.
+ *
+ * ⚠ SERVE PERCHÉ LE MAPPE SONO DUE, e la seconda esiste per una ragione che il
+ * committente ha messo in fila da solo: «poi ci sarà la gestione dei rigid body,
+ * veicoli e npc». La mappa del SOLE è cachata per quanto di sole — ci sta dentro
+ * roba ferma, e un corpo in movimento ci lascerebbe l'ombra incollata dov'era.
+ * I corpi vivi hanno quindi una mappa LORO, piccola e rifatta ogni fotogramma.
+ *
+ * Due mappe, stessa matematica: invece di copiare cinquanta righe (che poi
+ * divergono al primo ritocco, ed è successo tre volte in questo file con altre
+ * cose) la stringa si stampa due volte con un PREFISSO diverso per le uniform.
+ * `costanti: false` sulla seconda copia, se no `PENDENZA_SCARTO` è dichiarata
+ * due volte e lo shader non compila.
+ */
+export function glslControluce({ pre = 'uControluce', nome = 'ombraDelSole', costanti = true } = {}) { return /* glsl */`
+  ${costanti ? `const float PENDENZA_SCARTO = ${PENDENZA_SCARTO.toFixed(2)};` : ''}
+  uniform highp sampler2D ${pre};
+  uniform vec4 ${pre}Info;      // (1/N, scarto, texel in unità, attiva)
+  uniform mat4 ${pre}M;
+  uniform float ${pre}Norm;     // quanti texel si scosta lungo la normale
 
-  // «p» È GIÀ IN SPAZIO MAPPA, [0,1]³: la matrice l'ha applicata il VERTICE.
+  // «p» È GIÀ IN SPAZIO MAPPA, [0,1]³: la matrice l'ha applicata CHI CHIAMA —
+  // il VERTICE per la mappa del sole (una volta per vertice invece che per
+  // pixel), il FRAMMENTO per quella dei corpi, che è piccola e non merita un
+  // varying in più a carico anche degli shader che non la usano.
   // Ortografica ⇒ w = 1, quindi niente divisione prospettica.
   //
   // ⚠ LO SCOSTAMENTO LUNGO LA NORMALE, e senza questo gli smussi del supercubo
@@ -518,11 +536,11 @@ export function glslControluce() { return /* glsl */`
   // stessa uniform è già dichiarata dal fragment del mondo, e in GLSL
   // ridichiararla è un errore di compilazione. Una stringa condivisa non può
   // dichiarare niente che il chiamante possa già avere.
-  float ombraDelSole(vec3 p, vec3 nMondo, vec3 dirSole) {
-    if (uControluceInfo.w < 0.5) return 1.0;
+  float ${nome}(vec3 p, vec3 nMondo, vec3 dirSole) {
+    if (${pre}Info.w < 0.5) return 1.0;
     float c = clamp(abs(dot(nMondo, dirSole)), 0.06, 1.0);
     float t = min(sqrt(1.0 - c * c) / c, 4.0);
-    vec3 q = p + (uControluceM * vec4(nMondo * (uControluceInfo.z * uControluceNorm * t), 0.0)).xyz;
+    vec3 q = p + (${pre}M * vec4(nMondo * (${pre}Info.z * ${pre}Norm * t), 0.0)).xyz;
     if (q.x <= 0.0 || q.x >= 1.0 || q.y <= 0.0 || q.y >= 1.0 || q.z >= 1.0) return 1.0;
     // ═══ LO SCARTO CRESCE CON LA PENDENZA, e non è lo scostamento normale ═══
     //
@@ -542,9 +560,9 @@ export function glslControluce() { return /* glsl */`
     // 0 quando la luce arriva in faccia (dove l'acne non c'è) e cresce quando
     // rade. Col filtro a quattro prese conta il doppio, perché le prese vicine
     // stanno un texel più in là — cioè proprio dove la profondità è cambiata.
-    float z = q.z - uControluceInfo.y * (1.0 + PENDENZA_SCARTO * t);
-    float u = uControluceInfo.x;                     // 1 / lato della mappa
-    if (u <= 0.0) return step(z, texture2D(uControluce, q.xy).r);   // ricambio
+    float z = q.z - ${pre}Info.y * (1.0 + PENDENZA_SCARTO * t);
+    float u = ${pre}Info.x;                     // 1 / lato della mappa
+    if (u <= 0.0) return step(z, texture2D(${pre}, q.xy).r);   // ricambio
     // ═══ QUATTRO PRESE, PESATE: il bordo smette di essere una scalinata ═══
     //
     // ⚠ E QUI CAMBIO IDEA RISPETTO A QUELLO CHE C'ERA SCRITTO, quindi lo dico
@@ -575,10 +593,10 @@ export function glslControluce() { return /* glsl */`
     vec2 g = q.xy / u - 0.5;
     vec2 f = fract(g);
     vec2 b = (floor(g) + 0.5) * u;
-    float s00 = step(z, texture2D(uControluce, b).r);
-    float s10 = step(z, texture2D(uControluce, b + vec2(u, 0.0)).r);
-    float s01 = step(z, texture2D(uControluce, b + vec2(0.0, u)).r);
-    float s11 = step(z, texture2D(uControluce, b + vec2(u, u)).r);
+    float s00 = step(z, texture2D(${pre}, b).r);
+    float s10 = step(z, texture2D(${pre}, b + vec2(u, 0.0)).r);
+    float s01 = step(z, texture2D(${pre}, b + vec2(0.0, u)).r);
+    float s11 = step(z, texture2D(${pre}, b + vec2(u, u)).r);
     return mix(mix(s00, s10, f.x), mix(s01, s11, f.x), f.y);
   }
 `; }

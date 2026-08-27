@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbs03je';
-import { glslControluce } from './controluce.js?v=mtbs03je';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbs03je';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbsyyoo';
+import { glslControluce } from './controluce.js?v=mtbsyyoo';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbsyyoo';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -417,6 +417,14 @@ const uniformi = {
   // (provato: peggio ancora, il fattore esplode proprio dove non serve).
   // Resta come manopola perché il committente possa provarla, ma parte da zero.
   uControluceNorm: { value: 0 },     // texel di scostamento lungo la normale
+  // ═══ LA MAPPA DEI CORPI IN MOVIMENTO (§14.23) ═══
+  // Piccola e rifatta a ogni fotogramma: ci stanno gatto, ospiti, palle e
+  // creature. Non può stare nella mappa del sole perché quella è CACHATA per
+  // quanto di sole, e un corpo che si muove ci lascerebbe l'ombra incollata.
+  uCorpi: { value: null },
+  uCorpiInfo: { value: new THREE.Vector4(0, 0, 0, 0) },
+  uCorpiM: { value: new THREE.Matrix4() },
+  uCorpiNorm: { value: 0 },
   // ⚠ LA MARCIA HA UN BUDGET SUO, e non è un doppione di `uSolePassi`.
   // `solePassi` vale 0/8/12/13 nei preset ed è documentato come interruttore
   // MORTO — per il mondo era testato solo per `== 0`, quindi 8, 12 e 13 sono lo
@@ -1147,6 +1155,28 @@ const GLSL_FRAGMENT = /* glsl */`
     return clamp((s - 0.5) / (w * 1.2) + 0.5, 0.0, 1.0);
   }
 
+  /**
+   * L'OMBRA DEI CORPI CHE SI MUOVONO, da una mappa TUTTA LORO.
+   *
+   * ⚠ PERCHÉ NON STANNO NELLA MAPPA DEL SOLE. Quella è cachata per quanto di
+   * sole — si rifà una decina di volte al secondo e solo quando il sole scatta
+   * — ed è giusto così: ci sta dentro roba ferma. Un corpo in movimento ci
+   * lascerebbe l'ombra INCOLLATA dov'era fino alla ricostruzione dopo.
+   *
+   * ⚠ E LA MATRICE SI APPLICA QUI, nel frammento, non nel vertice come per il
+   * sole. È un «mat4 × vec4» per pixel invece che per vertice — di solito il
+   * baratto sbagliato — ma l'alternativa è un varying in più, e i varying li
+   * pagano ANCHE gli shader che questa mappa non la usano (l'erba, l'acqua, le
+   * particelle). Un costo che si spegne col profilo è meglio di uno che resta.
+   */
+  float ombraCorpiQui(vec3 n) {
+  #ifdef LANTERNA_CORPI
+    return affilaOmbra(ombraDeiCorpi((uCorpiM * vec4(vPosMondo, 1.0)).xyz, n, uSoleDir));
+  #else
+    return 1.0;
+  #endif
+  }
+
   float ombraCielo() {
     if (uSoleForza <= 0.0) return 1.0;               // opzione spenta o astro sotto
     if (uSoleDir.y <= 0.02) return 1.0;              // astro sull'orizzonte: nessuna ombra
@@ -1235,7 +1265,7 @@ const GLSL_FRAGMENT = /* glsl */`
         // anche il motivo per cui la sua acne sparisce: l'acne nasceva dalle
         // pareti del terreno che competevano con sé stesse, e il terreno lì
         // dentro non c'è più.
-        float mob = affilaOmbra(ombraDelSole(vLuceP, n, uSoleDir));
+        float mob = affilaOmbra(ombraDelSole(vLuceP, n, uSoleDir)) * ombraCorpiQui(n);
         if (uSoleRaggi <= 1) return (marciaSole(da, uSoleDir, uMarciaPassi) ? 0.0 : _term) * mob;
         // PIÙ RAGGI: la penombra del disco solare, quantizzata alle bande.
         float aperti = 0.0;
@@ -1256,7 +1286,8 @@ const GLSL_FRAGMENT = /* glsl */`
       // girava SOLO col terminatore acceso, cioè mai. Serve allo scostamento
       // lungo la normale, che è l'unica cura all'acne sugli smussi che non
       // vada ritarata a ogni ora del giorno.
-      return affilaOmbra(ombraDelSole(vLuceP, normaleGeom(), uSoleDir)) * _term;
+      vec3 _nc = normaleGeom();
+      return affilaOmbra(ombraDelSole(vLuceP, _nc, uSoleDir)) * ombraCorpiQui(_nc) * _term;
     #else
     vec2 uvC = (vPosMondo.xz - uCieloInfo.xy) * uCieloInfo.z;
     float occ = 0.0;
@@ -1524,7 +1555,7 @@ if (uParti != 0) {
 // Con i #define quei blocchi non vengono proprio COMPILATI: a qualità bassa lo
 // shader del mondo è un altro shader, piccolo. Cambiare profilo ricompila —
 // costa un momento, e succede solo quando la scala di qualità si muove.
-let _profilo = { sole: true, ombreLuci: true, acquaRicca: true, controluce: false, marcia: false };
+let _profilo = { sole: true, ombreLuci: true, acquaRicca: true, controluce: false, marcia: false, corpi: false };
 const _patchati = new Set();      // chi va ricompilato quando il profilo cambia
 
 /** Quali blocchi cari deve CONTENERE lo shader del mondo. Lo chiama la scala di
@@ -1534,16 +1565,16 @@ const _patchati = new Set();      // chi va ricompilato quando il profilo cambia
 export function impostaProfiloShader({
   sole = _profilo.sole, ombreLuci = _profilo.ombreLuci,
   acquaRicca = _profilo.acquaRicca, controluce = _profilo.controluce,
-  marcia = _profilo.marcia,
+  marcia = _profilo.marcia, corpi = _profilo.corpi,
 } = {}) {
   // ⚠ OGNI ASSE HA COME DEFAULT SÉ STESSO, e non è comodità: chi vuole muovere
   // UN asse — l'interruttore di Controluce nel Banco V2 — altrimenti dovrebbe
   // riderivare anche gli altri tre, e riderivarli male è come si spegne per
   // sbaglio l'acqua ricca accendendo un'ombra.
-  const s2 = !!sole, l2 = !!ombreLuci, a2 = !!acquaRicca, c2 = !!controluce, m2 = !!marcia;
+  const s2 = !!sole, l2 = !!ombreLuci, a2 = !!acquaRicca, c2 = !!controluce, m2 = !!marcia, p2 = !!corpi;
   if (s2 === _profilo.sole && l2 === _profilo.ombreLuci && a2 === _profilo.acquaRicca
-      && c2 === _profilo.controluce && m2 === _profilo.marcia) return;
-  _profilo = { sole: s2, ombreLuci: l2, acquaRicca: a2, controluce: c2, marcia: m2 };
+      && c2 === _profilo.controluce && m2 === _profilo.marcia && p2 === _profilo.corpi) return;
+  _profilo = { sole: s2, ombreLuci: l2, acquaRicca: a2, controluce: c2, marcia: m2, corpi: p2 };
   for (const m of _patchati) m.needsUpdate = true;
 }
 
@@ -1598,7 +1629,8 @@ function iniettaLanterna(shader, ingombro, vento) {
     + (_profilo.ombreLuci ? '#define LANTERNA_OMBRE_LUCI\n' : '')
     + (_profilo.acquaRicca ? '#define LANTERNA_ACQUA_RICCA\n' : '')
     + (_profilo.controluce ? '#define LANTERNA_CONTROLUCE\n' : '')
-    + (_profilo.marcia ? '#define LANTERNA_MARCIA\n' : '');
+    + (_profilo.marcia ? '#define LANTERNA_MARCIA\n' : '')
+    + (_profilo.corpi ? '#define LANTERNA_CORPI\n' : '');
   shader.fragmentShader = define + shader.fragmentShader;
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\n' + GLSL_VERTEX)
@@ -1612,7 +1644,9 @@ function iniettaLanterna(shader, ingombro, vento) {
       // ~16 ALU per VERTICE, non per pixel: sul mondo sono ~32.000 triangoli.
       + 'vLuceP = (uControluceM * vec4(vPosMondo, 1.0)).xyz;');
   shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', '#include <common>\n' + glslControluce() + glslFragmento(ingombro))
+    .replace('#include <common>', '#include <common>\n' + glslControluce()
+      + (_profilo.corpi ? glslControluce({ pre: 'uCorpi', nome: 'ombraDeiCorpi', costanti: false }) : '')
+      + glslFragmento(ingombro))
     .replace('#include <opaque_fragment>',
       GLSL_COMPOSIZIONE + '#include <opaque_fragment>\n' + GLSL_VELA);
 }
@@ -1637,7 +1671,7 @@ export function patchLuci(materiale, ingombro = false, vento = false) {
   materiale.customProgramCacheKey = () =>
     'lanterna-luci-' + (ingombro ? 'furni' : 'mondo') + (vento ? '-vento' : '')
     + (_profilo.sole ? '-s' : '') + (_profilo.ombreLuci ? '-o' : '') + (_profilo.acquaRicca ? '-a' : '')
-    + (_profilo.controluce ? '-c' : '') + (_profilo.marcia ? '-m' : '');
+    + (_profilo.controluce ? '-c' : '') + (_profilo.marcia ? '-m' : '') + (_profilo.corpi ? '-p' : '');
   _patchati.add(materiale);
   return materiale;
 }
@@ -1647,6 +1681,18 @@ export function patchLuci(materiale, ingombro = false, vento = false) {
  * `attiva` a false NON spegne il ramo: lo fa uscire a 1.0 subito, che è quello
  * che serve mentre la mappa non c'è ancora (primo frame, astro sotto l'orizzonte).
  */
+/**
+ * Collega la mappa dei CORPI IN MOVIMENTO (§14.23). Stessa forma di
+ * `impostaControluce`, mappa diversa: piccola, attorno al giocatore, rifatta a
+ * ogni fotogramma. `attiva` a false la fa uscire a 1.0 subito.
+ */
+export function impostaCorpi(texture, matrice, { scarto = 0, texel = 0, attiva = false, norm, invN = 0 } = {}) {
+  uniformi.uCorpi.value = texture || null;
+  if (matrice) uniformi.uCorpiM.value.copy(matrice);
+  if (norm !== undefined) uniformi.uCorpiNorm.value = norm;
+  uniformi.uCorpiInfo.value.set(invN, scarto, texel, attiva && texture ? 1 : 0);
+}
+
 export function impostaControluce(texture, matrice, { scarto = 0, texel = 0, attiva = false, norm, invN = 0 } = {}) {
   uniformi.uControluce.value = texture || null;
   if (matrice) uniformi.uControluceM.value.copy(matrice);

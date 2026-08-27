@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=mtbs03je';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtbs03je';
-import { FISICA } from '../config.js?v=mtbs03je';
+import { CHUNK } from '../world/world.js?v=mtbsyyoo';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtbsyyoo';
+import { FISICA } from '../config.js?v=mtbsyyoo';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -63,6 +63,7 @@ const HTML = /* html */`
     <div class="dbg-tit">☀️ Sole e ombre <span style="font-size:11px;opacity:.55">tutto dal vivo</span></div>
     <div class="dbg-riga">
       <button data-az="controluce" data-el="btnControluce" title="I TRE sistemi d'ombra del sole, in fila. Controluce = il mondo visto dal sole in una mappa di profondità. Marcia = si cammina la griglia dei voxel, come fanno le lampade (il bordo cade sullo spigolo del blocco). Campo = la quota per colonna, com'era.">🌓 Controluce</button>
+      <button data-az="corpi" data-el="btnCorpi" title="L'ombra dei CORPI CHE SI MUOVONO da una mappa loro, piccola e rifatta ogni fotogramma, invece dei coni sotto i piedi. Serve per veicoli e NPC: un cono non ha la forma del corpo, non segue il sole e non si allunga al tramonto. Esce SPENTA: accendila e guarda.">🚗 Ombra corpi</button>
       <button data-az="soleManuale" data-el="btnSoleManuale" title="Ferma l'astro e lo comanda a mano con le due manopole qui sotto. Per un A/B è OBBLIGATORIO: con l'astro che cammina si misura il tempo che passa, non la modifica.">🎯 Sole a mano</button>
       <button data-az="soleBisturi" data-el="btnSoleBisturi" title="Spegne l'ombra del sole con una UNIFORM, a programma identico. È il bisturi che prima non c'era, e senza il quale ogni misura A/B del sole misurava anche la ricompilazione.">☀️ ombra on</button>
     </div>
@@ -248,6 +249,8 @@ export class MenuDebug {
       c.textContent = nomi[q] || String(q);
       c.classList.toggle('attivo', q !== 'campo');
     }
+    const p = this.el.querySelector('[data-el="btnCorpi"]');
+    if (p && this.azioni.corpiStato) p.classList.toggle('attivo', !!this.azioni.corpiStato());
     const m = this.el.querySelector('[data-el="btnSoleManuale"]');
     if (m) m.classList.toggle('attivo', !!(this.ciclo.sole && this.ciclo.sole.manuale));
     const s = this.el.querySelector('[data-el="btnSoleBisturi"]');
