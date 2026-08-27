@@ -442,6 +442,28 @@
     display: flex; flex-direction: column; align-items: center; gap: 8px;
   }
   body.comandi-touch #hudBasso { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+
+  /* ---- IL TIMBRO DI VERSIONE, in basso a sinistra ----
+     Chiesto dal committente il 27/08: «mi è difficile capire se è la versione
+     aggiornata». Il gioco si pubblica su GitHub Pages, che serve ogni file con
+     `Cache-Control: max-age=600`: per dieci minuti il browser può mostrare il
+     codice vecchio, e da fuori è indistinguibile da «la modifica non è stata
+     fatta». Adesso si legge a schermo, e si confronta.
+     ⚠ `pointer-events: none` NON è pignoleria: sta nell'angolo dove su telefono
+     vive il pollice sinistro sul joystick, e un'etichetta che mangia un tocco
+     lì si nota subito e non si capisce da dove venga. */
+  #versione {
+    position: fixed; left: max(8px, env(safe-area-inset-left));
+    bottom: max(6px, env(safe-area-inset-bottom));
+    z-index: 5; pointer-events: none; user-select: none;
+    font: 500 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: .04em; color: #fff; opacity: .28;
+    text-shadow: 0 1px 2px rgba(0,0,0,.55);
+  }
+  /* COI COMANDI A SCHERMO il joystick occupa proprio quell'angolo (vedi la
+     regola del padding a 176px più sotto): il timbro sale sopra di lui, se no
+     è scritto ma non si legge — che è come non esserci. */
+  body.comandi-touch #versione { bottom: calc(184px + env(safe-area-inset-bottom)); }
   /* COI COMANDI A SCHERMO la tavolozza si piega in 4×2 e si stringe sul lato
      del pollice. Distesa su tutta la larghezza i posti lontani cadevano fuori
      dall'arco che il pollice copre senza cambiare presa — cioè il difetto per
@@ -1550,6 +1572,11 @@
   <div id="loading"><div><span class="lanterna">🏮</span><span id="loadingTxt">Un momento…</span></div></div>
 
   <input id="fileImporta" type="file" accept="application/json" style="display:none">
-  <script type="module" src="./src/main.js?v=mtatdt9r"></script>
+  <script type="module" src="./src/main.js?v=mtatm933"></script>
+  <!-- ⚠ IL CONTENUTO È UN SEGNAPOSTO: lo riscrive `scripts/prepara-www.mjs` al
+       momento della pubblicazione. Su localhost resta «dev», ed è giusto così:
+       in sviluppo non c'è nessuna build da riconoscere, e scrivere una data
+       finta sarebbe peggio di non scrivere niente. -->
+  <div id="versione" data-timbro="mtatm933">27/08 03:05 · 6ec701f</div>
 </body>
 </html>
