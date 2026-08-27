@@ -9,14 +9,14 @@
 // Il mondo è a chunk: si ricostruiscono solo i chunk sporchi.
 
 import * as THREE from 'three';
-import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=mtbgs2w6';
-import { paletteBlocco, coloreFaccia } from './stagioni.js?v=mtbgs2w6';
-import { materiaDi, tingiMateria } from './materie.js?v=mtbgs2w6';
-import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=mtbgs2w6';
-import { tintaPalette } from './motivi.js?v=mtbgs2w6';
-import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=mtbgs2w6';
-import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel, mondoVelato } from '../fx/materials.js?v=mtbgs2w6';
-import { CHUNK } from './world.js?v=mtbgs2w6';
+import { BLOCCHI, defDi, tipoBase, livelloAcqua } from './blocks.js?v=mtbh33f2';
+import { paletteBlocco, coloreFaccia } from './stagioni.js?v=mtbh33f2';
+import { materiaDi, tingiMateria } from './materie.js?v=mtbh33f2';
+import { FORME_EXTRA, FORME_VUOTE } from './forme.js?v=mtbh33f2';
+import { tintaPalette } from './motivi.js?v=mtbh33f2';
+import { GrigliaLuce, scatolaPerMondo } from './luce.js?v=mtbh33f2';
+import { materialeMondo, materialeAcqua, aggiornaCielo, impostaVoxel, spegniVoxel, latoMassimoVoxel, mondoVelato } from '../fx/materials.js?v=mtbh33f2';
+import { CHUNK } from './world.js?v=mtbh33f2';
 
 const U = 1 / 16;                 // 1 pixel in unità mondo
 const COPPIE_SMUSSO = [[0, 1], [0, 2], [1, 2]];

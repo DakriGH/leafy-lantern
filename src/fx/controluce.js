@@ -223,6 +223,25 @@ export class Controluce {
     this.chiave = '';
     this.ricostruzioni = 0;
     this.ms = 0;
+    /** Quando è stata rifatta l'ultima volta (orologio). */
+    this._ultima = -1e9;
+    /**
+     * ⚠ IL FRENO ALLE RICOSTRUZIONI, e senza questo il sistema si mangia da solo.
+     *
+     * Tutta l'economia della mappa si regge su una frase: «si rifà quando il
+     * sole scatta di un quanto, cioè di rado». Misurato il 27/08 col sole che
+     * cammina alla velocità di gioco: **24,5 ricostruzioni al SECONDO**. Il
+     * quanto in texel è corretto in teoria — un texel a N=2048 su un riquadro
+     * di lato 32 è 1/64 di blocco — ma a quella finezza «di rado» diventa «ogni
+     * due fotogrammi», e ogni ricostruzione porta con sé due traversate della
+     * scena in CPU più il nascondere e riscoprire i chunk. Da lì gli scatti.
+     *
+     * La cura non è allargare il quanto (che riporterebbe i salti dell'ombra):
+     * è un intervallo MINIMO. Se la chiave è cambiata ma sono passati meno di
+     * tanto, la mappa resta indietro di un quanto — un sedicesimo di blocco,
+     * che non si vede — invece di rubare un fotogramma.
+     */
+    this.intervalloMin = 90;
 
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400);
     this.matrice = new THREE.Matrix4();       // mondo → spazio mappa [0,1]³
@@ -260,6 +279,12 @@ export class Controluce {
     const k = chiaveRicostruzione({ dir, lato, N: this.N, centro: this._centro, base: this.base,
       versioneCielo, versioneArredo });
     if (k === this.chiave) return false;
+    // ⚠ IL FRENO. La chiave è cambiata, ma se si è appena rifatta si aspetta:
+    // vedi `intervalloMin`. La chiave NON si aggiorna, così al prossimo giro si
+    // riprova — se no si perderebbe il cambiamento invece di rimandarlo.
+    const ora = (typeof performance !== 'undefined' ? performance.now() : 0);
+    if (ora - this._ultima < this.intervalloMin) return false;
+    this._ultima = ora;
     this.chiave = k;
 
     // ⚠ LO SLAB DI PROFONDITÀ NON È ADATTIVO, ED È UNA SCELTA. Allungarlo non
