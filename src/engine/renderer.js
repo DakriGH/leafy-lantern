@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { CAMERA } from '../config.js?v=mtavac71';
+import { CAMERA } from '../config.js?v=mtavh9vl';
 
 /**
  * Il browser sta disegnando via SOFTWARE (niente GPU)?
@@ -129,6 +129,19 @@ export class Rig {
     // risoluzione INTERNA (0.4…1) e come la si ingrandisce sul canvas pieno
     this.scalaInterna = 1;
     this.nitido = true;
+    /** Campioni MSAA sul bersaglio interno. 0 = spento.
+     *
+     * ⚠ PERCHÉ SERVE, e il difetto è invisibile finché non lo si cerca:
+     * `antialias: true` vale SOLO per il framebuffer di default. Appena la scala
+     * scende sotto 1 nasce il composer, la scena finisce in un
+     * `WebGLRenderTarget` — e quel target NON eredita l'antialias del contesto.
+     * Cioè: abbassando la qualità perché la macchina arranca si perde ANCHE
+     * l'antialias, e i bordi diventano una scaletta proprio sul dispositivo che
+     * la vedrà ingrandita dall'upscale. Il committente l'ha detto così:
+     * «vorrei anche una opzione più smoothata ai bordi, non pixellosa».
+     * In WebGL2 un render target sa fare MSAA da solo (`rt.samples`), e questo
+     * lo riaccende dove three l'aveva lasciato cadere. */
+    this.campioni = 0;
 
     // collisione della camera coi muri (spenta col settaggio "camera fantasma")
     this.solido = null;          // (x,y,z) => bool, iniettato da main
@@ -178,6 +191,8 @@ export class Rig {
     this.composer.addPass(new RenderPass(this.scena, this.camera));
     this._uscita = new ShaderPass(ShaderUscita);   // sRGB + ingrandimento: è l'output
     this.composer.addPass(this._uscita);
+    // i campioni scelti valgono anche per i target appena nati
+    for (const rt of [this.composer.renderTarget1, this.composer.renderTarget2]) rt.samples = this.campioni;
     this.dimensiona(Math.max(1, innerWidth), Math.max(1, innerHeight));
   }
 
@@ -188,6 +203,31 @@ export class Rig {
    * piatti, bande nette). `morbido` = LinearFilter, l'impasto di prima.
    * A scala piena non cambia niente: il filtro non entra mai in gioco.
    */
+  /**
+   * I BORDI: pixellosi o morbidi, ed è una SCELTA, non una conseguenza.
+   *
+   * `nitido` decide come si INGRANDISCE (pixel quadrati o impasto) e vale solo
+   * sotto scala 1; `campioni` decide se i bordi della GEOMETRIA sono a scaletta
+   * o smussati, e vale a qualunque scala. Sono due cose diverse che si
+   * confondono a occhio: un pixel grande e un bordo seghettato «sembrano» lo
+   * stesso difetto e hanno due manopole diverse.
+   *
+   * ⚠ Zero campioni NON è «uguale a prima»: sopra scala 1 senza composer i bordi
+   * li smussa il framebuffer di default (`antialias: !mobile`). Questa manopola
+   * serve al caso in cui il composer c'è — cioè quando la scala è scesa.
+   */
+  setCampioni(n) {
+    const c = Math.max(0, Math.min(4, n | 0));
+    if (c === this.campioni) return this.campioni;
+    this.campioni = c;
+    if (this.composer) {
+      for (const rt of [this.composer.renderTarget1, this.composer.renderTarget2]) {
+        if (rt.samples !== c) { rt.samples = c; rt.dispose(); }
+      }
+    }
+    return this.campioni;
+  }
+
   _filtroInterno() {
     const f = (this.scalaInterna < 0.995 && this.nitido) ? THREE.NearestFilter : THREE.LinearFilter;
     for (const rt of [this.composer.renderTarget1, this.composer.renderTarget2]) {

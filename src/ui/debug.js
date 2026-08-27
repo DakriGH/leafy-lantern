@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=mtavac71';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtavac71';
-import { FISICA } from '../config.js?v=mtavac71';
+import { CHUNK } from '../world/world.js?v=mtavh9vl';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtavh9vl';
+import { FISICA } from '../config.js?v=mtavh9vl';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -294,6 +294,14 @@ export class MenuDebug {
         aiuto: 'quanto è «grosso» il sole. Zero = puntiforme (nessuna penombra anche con più raggi).',
         leggi: () => Math.round((this.azioni.conoSole ? this.azioni.conoSole() : 0.045) * 1000),
         scrivi: (v) => { if (this.azioni.conoSole) this.azioni.conoSole(v / 1000); } },
+      { id: 'scala', nome: '🔎 Grandezza dei pixel', min: 40, max: 100, passo: 5, unita: '% di scala',
+        aiuto: 'la leva PIÙ GRANDE che esista sulle prestazioni: misurata sul Chromebook, 69,8 ms a scala piena contro 24,1 a metà. Pixel più grandi = molto più veloce.',
+        leggi: () => Math.round((this.azioni.scalaResa ? this.azioni.scalaResa() : 1) * 100),
+        scrivi: (v) => { if (this.azioni.impostaScala) this.azioni.impostaScala(v / 100); } },
+      { id: 'campioni', nome: '🪶 Bordi morbidi (MSAA)', min: 0, max: 4, passo: 2, unita: ' campioni',
+        aiuto: 'la scaletta dei POLIGONI è un\'altra cosa dai pixel grandi. Sotto scala 1 l\'antialias del contesto non arriva al bersaglio interno: questa lo riaccende lì. 0 = bordi vivi.',
+        leggi: () => (this.azioni.campioni ? this.azioni.campioni() : 0),
+        scrivi: (v) => { if (this.azioni.campioni) this.azioni.campioni(v); } },
       { id: 'norm', nome: '🪚 Scostamento sugli smussi', min: 0, max: 60, passo: 1, unita: '/10 texel',
         aiuto: 'è la cura ai denti sugli smussi del supercubo: si sposta il punto di lettura lungo la normale, così lo scostamento è giusto a QUALUNQUE ora invece che a una sola',
         leggi: () => Math.round((this.azioni.scostaNormale ? this.azioni.scostaNormale() : 1.6) * 10),
