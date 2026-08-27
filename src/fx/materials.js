@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbytwog';
-import { glslControluce } from './controluce.js?v=mtbytwog';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbytwog';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbzxc5q';
+import { glslControluce } from './controluce.js?v=mtbzxc5q';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbzxc5q';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -1686,6 +1686,16 @@ function iniettaLanterna(shader, ingombro, vento) {
  *  sistema — se ne accorge chi guarda, non chi scrive. */
 export function patchLuci(materiale, ingombro = false, vento = false) {
   materiale.onBeforeCompile = (shader) => iniettaLanterna(shader, ingombro, vento);
+  // ⚠ E IL VENTO SI SCRIVE ANCHE SUL MATERIALE, non solo nello shader. La passata
+  // d'ombra (`giraControluce` in main) sceglie il materiale-ombra COL vento
+  // leggendo `material.userData.vento`: è l'unico modo che ha di sapere quali
+  // mesh si piegano, perché il piegamento vive dentro un `onBeforeCompile` e da
+  // fuori non si vede. Questa riga non c'è mai stata, quindi la bandiera era
+  // sempre `undefined` e in mappa gli alberi finivano DRITTI mentre a schermo
+  // ondeggiavano — «siccome l'albero è animato l'ombra si stacca dal modello».
+  // Il commento in `controluce.js` che avverte di non usare un override piatto
+  // stava lì da sempre; la regola era scritta e il dato per applicarla no.
+  materiale.userData.vento = !!vento;
   // marca per il cache-key: materiali con patch diversa non condividono
   // programma — e il PROFILO ci sta dentro, se no due qualità diverse si
   // scambierebbero lo stesso programma compilato
