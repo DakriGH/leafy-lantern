@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbh8fyh';
-import { glslControluce } from './controluce.js?v=mtbh8fyh';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbh8fyh';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtbifcbo';
+import { glslControluce } from './controluce.js?v=mtbifcbo';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtbifcbo';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -939,6 +939,23 @@ const GLSL_FRAGMENT = /* glsl */`
   // questo è un test binario che manda allo STESSO unico livello di scuro di
   // tutto il resto — e il committente l'ha chiarito il 27/08: «mi va bene che le
   // facce siano in ombra».
+  // ⚠⚠ IL CONO DEL SOLE È SPENTO DI FABBRICA, e la ragione è aritmetica — non
+  // una taratura da ritentare. Il committente, guardandolo a tre raggi: «c'è
+  // una biformazione netta delle ombre a 3 sfasate rispetto la forma».
+  // Ha ragione, e non è un difetto di implementazione: è la tecnica.
+  //
+  // Con N raggi su un cono di semiapertura θ, alla distanza d dall'ostacolo i
+  // campioni si spargono su un cerchio di raggio d·θ, e le N copie dell'ombra
+  // restano SEPARATE di circa √N · d · θ. Con d = 20 unità e θ = 0,045 fanno
+  // **1,5 unità**: più di un blocco. Non è una penombra, sono tre ombre.
+  // Perché si fondano servirebbe che quella distanza stesse sotto il pixel —
+  // a venti unità circa 0,01 — cioè θ ≈ 0,0005, che non ammorbidisce niente.
+  //
+  // ⇒ POCHI RAGGI DISCRETI NON POSSONO DARE UNA PENOMBRA. O sono tanti (16+, e
+  // il costo è lineare: fuori discussione qui) o si sbircia per pixel, che dà
+  // rumore invece di bande. La manopola resta per chi vuole provarla, ma parte
+  // da UNO e la scala di qualità non la alza più.
+  //
   // ⚠ IL CONO DEL SOLE, e perché è la risposta ai «raggi quasi paralleli».
   //
   // Committente, 27/08: «ci sono ancora momenti dove si è seghettato, i pixel
