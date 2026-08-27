@@ -1,81 +1,81 @@
 // Leafy‑Lantern — P0 sandbox. La regia: collega mondo, player, furni, luci e HUD.
 
 import * as THREE from 'three';
-import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtbifcbo';
-import { Rig } from './engine/renderer.js?v=mtbifcbo';
-import { Input } from './engine/input.js?v=mtbifcbo';
-import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtbifcbo';
-import { Cadenza } from './engine/cadenza.js?v=mtbifcbo';
-import { GpuProfiler } from './engine/gpuTimer.js?v=mtbifcbo';
-import { creaBatteria } from './engine/batteria.js?v=mtbifcbo';
-import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtbifcbo';
-import { Mondo } from './world/world.js?v=mtbifcbo';
-import { SimAcqua } from './world/acqua.js?v=mtbifcbo';
-import { Lobby } from './net/lobby.js?v=mtbifcbo';
-import { Segnalatore } from './net/segnalatore.js?v=mtbifcbo';
-import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtbifcbo';
-import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtbifcbo';
-import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtbifcbo';
-import { PannelloInsieme } from './ui/multiplayer.js?v=mtbifcbo';
-import { Targhetta } from './ui/targhetta.js?v=mtbifcbo';
-import { Bolla } from './ui/bolla.js?v=mtbifcbo';
-import { Scelta } from './ui/scelta.js?v=mtbifcbo';
-import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtbifcbo';
-import { Zaino } from './ui/zaino.js?v=mtbifcbo';
-import { Mesher, geometriaSingola } from './world/mesher.js?v=mtbifcbo';
-import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtbifcbo';
-import { generaMostra } from './world/mostra.js?v=mtbifcbo';
-import { generaCollaudo } from './world/collaudo.js?v=mtbifcbo';
-import { generaTestLuci } from './world/testLuci.js?v=mtbifcbo';
-import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtbifcbo';
-import { generaTestMacchine } from './world/testMacchine.js?v=mtbifcbo';
-import { generaZoo } from './world/zoo.js?v=mtbifcbo';
-import { FuochiFatui } from './fx/fuochiFatui.js?v=mtbifcbo';
-import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtbifcbo';
-import { Meteo } from './fx/meteo.js?v=mtbifcbo';
-import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtbifcbo';
-import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtbifcbo';
-import { StriscaTavolozza } from './ui/tavolozza.js?v=mtbifcbo';
-import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtbifcbo';
-import { CicloGiorno } from './fx/daynight.js?v=mtbifcbo';
-import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, materialeOmbra, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtbifcbo';
-import { CampoSole } from './fx/campoSole.js?v=mtbifcbo';
-import { Controluce, configuraMappa } from './fx/controluce.js?v=mtbifcbo';
-import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtbifcbo';
-import { ModalitaAR } from './ar/ar.js?v=mtbifcbo';
-import { Nuvole } from './fx/nuvole.js?v=mtbifcbo';
-import { SagomaVista } from './fx/sagomaVista.js?v=mtbifcbo';
-import { Erba } from './fx/erba.js?v=mtbifcbo';
-import { Foglie } from './fx/foglie.js?v=mtbifcbo';
-import { SegnaPercorso } from './fx/percorso.js?v=mtbifcbo';
-import { ComandiTouch } from './ui/comandi-touch.js?v=mtbifcbo';
-import { RiflessoAcqua } from './fx/riflesso.js?v=mtbifcbo';
-import { Pioggia } from './fx/pioggia.js?v=mtbifcbo';
-import { Particelle } from './fx/particelle.js?v=mtbifcbo';
-import { Audio } from './fx/audio.js?v=mtbifcbo';
-import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtbifcbo';
-import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtbifcbo';
-import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtbifcbo';
-import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtbifcbo';
-import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtbifcbo';
-import { Registro } from './ecs/registro.js?v=mtbifcbo';
-import { Orologio, Rng } from './ecs/orologio.js?v=mtbifcbo';
-import { Sistemi } from './ecs/sistemi.js?v=mtbifcbo';
-import { Agenda } from './ecs/agenda.js?v=mtbifcbo';
-import { Gatto } from './player/player.js?v=mtbifcbo';
-import { ManoStrumento } from './player/mano.js?v=mtbifcbo';
-import { dropDi } from './gioco/drop.js?v=mtbifcbo';
-import { Controller } from './player/controller.js?v=mtbifcbo';
-import { FURNI, centroide } from './furniture/registry.js?v=mtbifcbo';
-import { caricaModelli } from './furniture/loader.js?v=mtbifcbo';
-import { Arredo } from './furniture/furniture.js?v=mtbifcbo';
-import { HUD } from './ui/hud.js?v=mtbifcbo';
-import { MenuDebug } from './ui/debug.js?v=mtbifcbo';
-import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtbifcbo';
-import { ModalitaXR } from './ar/ar-xr.js?v=mtbifcbo';
+import { PX, RAGGIO_CLICK, ACQUA, NET, SCAVO, ANALITICA_URL, CHIAVE_SALVATAGGIO, CAMERA } from './config.js?v=mtbir7zv';
+import { Rig } from './engine/renderer.js?v=mtbir7zv';
+import { Input } from './engine/input.js?v=mtbir7zv';
+import { raggioGriglia, raggioDaSchermo } from './engine/raycast.js?v=mtbir7zv';
+import { Cadenza } from './engine/cadenza.js?v=mtbir7zv';
+import { GpuProfiler } from './engine/gpuTimer.js?v=mtbir7zv';
+import { creaBatteria } from './engine/batteria.js?v=mtbir7zv';
+import { BLOCCHI, CATEGORIE_BLOCCHI, defDi, tipoBase, livelloAcqua } from './world/blocks.js?v=mtbir7zv';
+import { Mondo } from './world/world.js?v=mtbir7zv';
+import { SimAcqua } from './world/acqua.js?v=mtbir7zv';
+import { Lobby } from './net/lobby.js?v=mtbir7zv';
+import { Segnalatore } from './net/segnalatore.js?v=mtbir7zv';
+import { avviaAnalitica, urlPannello } from './net/analitica.js?v=mtbir7zv';
+import { puo as ruoloPuo, DESCRIZIONE as RUOLO_DESCR, RUOLI } from './net/permessi.js?v=mtbir7zv';
+import { leggiProfilo, salvaProfilo, COLORI as COLORI_PROFILO } from './net/profilo.js?v=mtbir7zv';
+import { PannelloInsieme } from './ui/multiplayer.js?v=mtbir7zv';
+import { Targhetta } from './ui/targhetta.js?v=mtbir7zv';
+import { Bolla } from './ui/bolla.js?v=mtbir7zv';
+import { Scelta } from './ui/scelta.js?v=mtbir7zv';
+import { Bersaglio, POSE } from './gioco/bersaglio.js?v=mtbir7zv';
+import { Zaino } from './ui/zaino.js?v=mtbir7zv';
+import { Mesher, geometriaSingola } from './world/mesher.js?v=mtbir7zv';
+import { generaIsola, generaArcipelago, generaOpenWorld, generaMondoGigante, SPAWN, ARREDO_INIZIALE } from './world/worldgen.js?v=mtbir7zv';
+import { generaMostra } from './world/mostra.js?v=mtbir7zv';
+import { generaCollaudo } from './world/collaudo.js?v=mtbir7zv';
+import { generaTestLuci } from './world/testLuci.js?v=mtbir7zv';
+import { generaBancoOmbre } from './world/bancoOmbre.js?v=mtbir7zv';
+import { generaTestMacchine } from './world/testMacchine.js?v=mtbir7zv';
+import { generaZoo } from './world/zoo.js?v=mtbir7zv';
+import { FuochiFatui } from './fx/fuochiFatui.js?v=mtbir7zv';
+import { STAGIONI, impostaStagione, stagioneCorrente, ritingiFogliame, avviaTransizione, aggiornaTransizione } from './world/stagioni.js?v=mtbir7zv';
+import { Meteo } from './fx/meteo.js?v=mtbir7zv';
+import { Inventario, ATTREZZI } from './gioco/inventario.js?v=mtbir7zv';
+import { Tavolozza, ZAMPA } from './gioco/tavolozza.js?v=mtbir7zv';
+import { StriscaTavolozza } from './ui/tavolozza.js?v=mtbir7zv';
+import { Scavo, DUREZZE } from './gioco/scavo.js?v=mtbir7zv';
+import { CicloGiorno } from './fx/daynight.js?v=mtbir7zv';
+import { aggiornaLuci, aggiornaTempo, impostaPioggia, impostaRiflesso, impostaOmbre, impostaForo, impostaForzaRiflesso, impostaSchiumaAcqua, impostaSchiumaTop, creaLuce, creaLuceLeggera, spostaLuce, rimuoviLuce, impostaOcclusione, uniformiCondivise, impostaLatoMassimoVoxel, memoriaVoxel, statLuci, impostaParti, PARTI, impostaMaxOmbre, maxOmbre, impostaPassiCielo, passiCielo, impostaTerminatore, impostaProfiloShader, ambienteAttuale, impostaVentoFurni, urtaFurni, impostaAmbiente, filtroCieloLineare, cieloSorgente, impostaCampoSole, impostaControluce, materialeOmbra, taraScartoOmbra, scostamentoNormale, passiMarcia, MARCIA_PASSI_MAX, raggiSole, conoSole, RAGGI_SOLE_MAX } from './fx/materials.js?v=mtbir7zv';
+import { CampoSole } from './fx/campoSole.js?v=mtbir7zv';
+import { Controluce, configuraMappa } from './fx/controluce.js?v=mtbir7zv';
+import { SchiumaTop, LAYER_SCHIUMA } from './fx/schiumaTop.js?v=mtbir7zv';
+import { ModalitaAR } from './ar/ar.js?v=mtbir7zv';
+import { Nuvole } from './fx/nuvole.js?v=mtbir7zv';
+import { SagomaVista } from './fx/sagomaVista.js?v=mtbir7zv';
+import { Erba } from './fx/erba.js?v=mtbir7zv';
+import { Foglie } from './fx/foglie.js?v=mtbir7zv';
+import { SegnaPercorso } from './fx/percorso.js?v=mtbir7zv';
+import { ComandiTouch } from './ui/comandi-touch.js?v=mtbir7zv';
+import { RiflessoAcqua } from './fx/riflesso.js?v=mtbir7zv';
+import { Pioggia } from './fx/pioggia.js?v=mtbir7zv';
+import { Particelle } from './fx/particelle.js?v=mtbir7zv';
+import { Audio } from './fx/audio.js?v=mtbir7zv';
+import { Creature, registraComponentiCreature, sistemaCreature, pensaCreatura } from './gioco/creature.js?v=mtbir7zv';
+import { RICETTE, puoiCraftare, crafta } from './gioco/craft.js?v=mtbir7zv';
+import { registraComponentiPalle, creaEntitaPalla, distruggiPalla, calciaPalla, sistemaPalle, sistemaResaPalle } from './gioco/palla.js?v=mtbir7zv';
+import { registraComponentiMacchine, GestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, haPannello, impostaConfig } from './gioco/macchine.js?v=mtbir7zv';
+import { PannelloMacchina } from './ui/pannelloMacchina.js?v=mtbir7zv';
+import { Registro } from './ecs/registro.js?v=mtbir7zv';
+import { Orologio, Rng } from './ecs/orologio.js?v=mtbir7zv';
+import { Sistemi } from './ecs/sistemi.js?v=mtbir7zv';
+import { Agenda } from './ecs/agenda.js?v=mtbir7zv';
+import { Gatto } from './player/player.js?v=mtbir7zv';
+import { ManoStrumento } from './player/mano.js?v=mtbir7zv';
+import { dropDi } from './gioco/drop.js?v=mtbir7zv';
+import { Controller } from './player/controller.js?v=mtbir7zv';
+import { FURNI, centroide } from './furniture/registry.js?v=mtbir7zv';
+import { caricaModelli } from './furniture/loader.js?v=mtbir7zv';
+import { Arredo } from './furniture/furniture.js?v=mtbir7zv';
+import { HUD } from './ui/hud.js?v=mtbir7zv';
+import { MenuDebug } from './ui/debug.js?v=mtbir7zv';
+import { Officina, caricaOfficina, registraDaRete, rimuoviDaRete } from './ui/officina.js?v=mtbir7zv';
+import { ModalitaXR } from './ar/ar-xr.js?v=mtbir7zv';
 import { serializza, applica, salvaLocale, caricaLocale, cancellaLocale, esportaFile, elencoSlot, salvaSlot, caricaSlot, rinominaSlot, cancellaSlot,
   spingiSnapshot, sbirciaSnapshot, togliSnapshot, livelliSnapshot,
-  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtbifcbo';
+  migraOpzioni, leggiOpzioni, scriviOpzioni, VERSIONE_OPZIONI } from './save.js?v=mtbir7zv';
 
 // Gli ERRORI si vedono A SCHERMO (sul telefono non c'è console): qualsiasi
 // eccezione non gestita finisce in un banner rosso leggibile e riferibile.
@@ -3370,7 +3370,7 @@ async function avvia() {
   applicaOpzioni(false);     // fog/distanza/effetti salvati dall'utente (⚙️)
 
   // debug in console
-  window.LANTERN = { controluce, sistemaOmbra, SISTEMI_OMBRA, taraScartoOmbra, scartoOmbra, scostamentoNormale, mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, campoSole, erba, foglie, segnaPercorso, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, generaTestMacchine, inventario, tavolozza, strisca, zaino, bolla, scelta, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, gestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, pannelloMacchina, apriPannelloMacchina, ecs, orologioSim, passo, sistemiSim, sistemiResa, rngSim, servizi, agenda, creature, sistemaCreature, pensaCreatura, calciaPalla, sistemaPalle, sistemaResaPalle, creaEntitaPalla, distruggiPalla, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf, diagnostica: () => batteria.esegui() };
+  window.LANTERN = { misuraFrame, controluce, sistemaOmbra, SISTEMI_OMBRA, taraScartoOmbra, scartoOmbra, scostamentoNormale, mondo, arredo, controller, ciclo, rig, gatto, nuvole, scavo, FURNI, BLOCCHI, mesher, aggiornaLuci, campoSole, erba, foglie, segnaPercorso, creaLuceLeggera, spostaLuce, rimuoviLuce, generaArcipelago, generaOpenWorld, generaCollaudo, generaTestLuci, generaTestMacchine, inventario, tavolozza, strisca, zaino, bolla, scelta, sim, lobby, menuDebug, rompiBlocco, riflesso, pioggia, particelle, gestoreMacchine, guidaMacchina, toccaMacchina, macchinaDi, pannelloMacchina, apriPannelloMacchina, ecs, orologioSim, passo, sistemiSim, sistemiResa, rngSim, servizi, agenda, creature, sistemaCreature, pensaCreatura, calciaPalla, sistemaPalle, sistemaResaPalle, creaEntitaPalla, distruggiPalla, schiumaTop, aggiornaSchiumaAcqua, meteo, modalitaAR, modalitaXR, particelleBlocchi, luciBlocchi, nidiFatui, fuochiFatui, statLuci, hud, cadenza, opzioni, uniformi: uniformiCondivise(), perf, impostaPerf, diagnostica: () => batteria.esegui() };
 
   // accelerazione hardware: avvisa se il WebView disegna in SOFTWARE (fps bassi)
   if (rig.software) {
@@ -4432,11 +4432,26 @@ const cadenza = new Cadenza(0);  // decide quali tick diventano frame (vedi cade
 // per voce e solo mentre la batteria di misure gira, zero il resto del tempo.
 const _sez = new Map();
 const _round2 = (x) => (typeof x === 'number' && isFinite(x) ? Math.round(x * 100) / 100 : null);
+/** ⚠ IL CRONOMETRO SI ACCENDE ANCHE DA FUORI, e prima no.
+ *
+ * Registrava SOLO mentre girava la batteria di misure, e `batteria` non è
+ * esposta: dal Banco V2 o dalla console non c'era modo di accenderlo. Il 27/08
+ * il committente ha segnalato scatti muovendo la camera e ho dovuto scrivere
+ * «non l'ho isolato, il cronometro non è raggiungibile» — che è il modo giusto
+ * di fermarsi, ma la seconda volta è una cosa da sistemare, non da ripetere.
+ * Un fotogramma che non si può spezzare in voci si diagnostica per ipotesi, e
+ * le ipotesi su questo progetto hanno già sbagliato tre volte oggi.
+ */
+let _cronoAcceso = false;
 function crono(nome, fn) {
-  if (!batteria.inCorso) return fn();
+  if (!_cronoAcceso && !batteria.inCorso) return fn();
   const t = performance.now();
   const v = fn();
-  _sez.set(nome, (_sez.get(nome) || 0) + (performance.now() - t));
+  const d = performance.now() - t;
+  _sez.set(nome, (_sez.get(nome) || 0) + d);
+  // IL PICCO, non solo la media: uno scatto è per definizione un valore raro e
+  // grande, e una media lo nasconde. È la grandezza che serve qui.
+  if (!(nome in _picchi) || d > _picchi[nome]) _picchi[nome] = Math.round(d * 100) / 100;
   return v;
 }
 let _sezFrame = 0;
@@ -4446,6 +4461,31 @@ function _sezLeggi() {
   return out;
 }
 function _sezAzzera() { _sez.clear(); _sezFrame = 0; }
+
+/**
+ * Accende il cronometro per voce e rende un lettore.
+ *   const m = LANTERN.misuraFrame();   // …si gioca/si ruota…
+ *   m.leggi()   → { disegno: 2.1, riflesso: 0.8, controluce: 0.3, … } in ms/frame
+ *   m.spegni()
+ * ⚠ I numeri sono MEDIE per fotogramma, non picchi: una voce che costa 40 ms
+ * una volta ogni cento frame esce a 0,4 e sembra innocua. Per gli SCATTI serve
+ * guardare `picchi`, che tiene il massimo visto per voce.
+ */
+function misuraFrame() {
+  // ⚠ ANCHE I PICCHI, e la prima versione se li dimenticava: `_sezAzzera` pulisce
+  // le somme e il conteggio dei frame ma non `_picchi`, quindi una seconda
+  // misura tornava i massimi della PRIMA. Me ne sono accorto solo perché due
+  // giri diversi hanno reso 230,1 e 239,7 identici al centesimo — e un numero
+  // che non cambia fra due prove diverse non è una misura, è un ricordo.
+  _sezAzzera(); for (const k in _picchi) delete _picchi[k];
+  _cronoAcceso = true;
+  return {
+    leggi: () => ({ medie: _sezLeggi(), picchi: { ..._picchi }, frame: _sezFrame }),
+    azzera: () => { _sezAzzera(); for (const k in _picchi) delete _picchi[k]; },
+    spegni: () => { _cronoAcceso = false; return { medie: _sezLeggi(), picchi: { ..._picchi } }; },
+  };
+}
+const _picchi = {};
 
 // ---- LA BATTERIA DI MISURE, e tutto ciò di cui ha bisogno --------------------
 //
@@ -4476,7 +4516,7 @@ const batteria = creaBatteria({
 function loop(adesso) {
   requestAnimationFrame(loop);
   batteria.contaRaf();               // gli inviti del browser, contati prima di tutto
-  if (batteria.inCorso) _sezFrame++;
+  if (_cronoAcceso || batteria.inCorso) _sezFrame++;
   // in XR i frame arrivano SOLO dalla sessione (setAnimationLoop): il rAF
   // di pagina si mette da parte per non fare passi doppi
   if (modalitaXR.attiva) return;

@@ -4,9 +4,9 @@
 // (∞) è istantaneo. Overlay "crepa": un guscio scuro che si infittisce.
 
 import * as THREE from 'three';
-import { SCAVO } from '../config.js?v=mtbifcbo';
-import { defDi } from '../world/blocks.js?v=mtbifcbo';
-import { ATTREZZI } from './inventario.js?v=mtbifcbo';
+import { SCAVO } from '../config.js?v=mtbir7zv';
+import { defDi } from '../world/blocks.js?v=mtbir7zv';
+import { ATTREZZI } from './inventario.js?v=mtbir7zv';
 
 const chiave = (x, y, z) => x + ',' + y + ',' + z;
 
