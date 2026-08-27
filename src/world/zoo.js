@@ -78,7 +78,7 @@
 //  │ (il CORRIDOIO x −6..−3 corre da nord a sud e unisce le tre passeggiate)   │
 //  └───────────────────────────────────────────────────────────────────────────┘
 
-import { registraBlocco, BLOCCHI, CATEGORIA_PROVE } from './blocks.js?v=mtaudh1w';
+import { registraBlocco, BLOCCHI, CATEGORIA_PROVE } from './blocks.js?v=mtaui0h5';
 
 const SUOLO = 0, SUPERFICIE = 1, PIEDI = 2;
 

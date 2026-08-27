@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=mtaudh1w';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtaudh1w';
-import { FISICA } from '../config.js?v=mtaudh1w';
+import { CHUNK } from '../world/world.js?v=mtaui0h5';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtaui0h5';
+import { FISICA } from '../config.js?v=mtaui0h5';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -282,6 +282,10 @@ export class MenuDebug {
       { id: 'contrasto', nome: '🌗 Contrasto dell\'ombra', min: 0, max: 200, passo: 5, unita: '%',
         leggi: () => Math.round(this.ciclo.forzaOmbra * 100),
         scrivi: (v) => { this.ciclo.forzaOmbra = v / 100; } },
+      { id: 'passi', nome: '🧭 Lunghezza dell\'ombra', min: 0, max: 28, passo: 1, unita: ' blocchi',
+        aiuto: 'quante celle cammina la MARCIA prima di arrendersi: è letteralmente quanto lontano arriva l\'ombra. A zero il sole non proietta più.',
+        leggi: () => (this.azioni.passiMarcia ? this.azioni.passiMarcia() : 0),
+        scrivi: (v) => { if (this.azioni.passiMarcia) this.azioni.passiMarcia(v); } },
       { id: 'norm', nome: '🪚 Scostamento sugli smussi', min: 0, max: 60, passo: 1, unita: '/10 texel',
         aiuto: 'è la cura ai denti sugli smussi del supercubo: si sposta il punto di lettura lungo la normale, così lo scostamento è giusto a QUALUNQUE ora invece che a una sola',
         leggi: () => Math.round((this.azioni.scostaNormale ? this.azioni.scostaNormale() : 1.6) * 10),

@@ -3,9 +3,9 @@
 // (SPEC-TECNICA.md §2)
 
 import * as THREE from 'three';
-import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtaudh1w';
-import { glslControluce } from './controluce.js?v=mtaudh1w';
-import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtaudh1w';
+import { LUCI_MAX, BANDE_LUCE } from '../config.js?v=mtaui0h5';
+import { glslControluce } from './controluce.js?v=mtaui0h5';
+import { PASSI_MAX, SCARTO_OMBRA } from '../world/luce.js?v=mtaui0h5';
 
 // BANDE_LUCE COME LETTERALE GLSL, e passa da qui per un motivo pratico: scritto
 // a mano come `${BANDE_LUCE}.0` funziona solo se la costante è un intero — con
@@ -378,6 +378,17 @@ const uniformi = {
   // (provato: peggio ancora, il fattore esplode proprio dove non serve).
   // Resta come manopola perché il committente possa provarla, ma parte da zero.
   uControluceNorm: { value: 0 },     // texel di scostamento lungo la normale
+  // ⚠ LA MARCIA HA UN BUDGET SUO, e non è un doppione di `uSolePassi`.
+  // `solePassi` vale 0/8/12/13 nei preset ed è documentato come interruttore
+  // MORTO — per il mondo era testato solo per `== 0`, quindi 8, 12 e 13 sono lo
+  // stesso numero e nessuno li ha mai tarati per davvero. Con la marcia quel
+  // numero tornerebbe a voler dire qualcosa — «di quante celle è lunga l'ombra»
+  // — e su «media» l'ombra del sole si troncherebbe a OTTO BLOCCHI: un albero
+  // alto sei non arriverebbe a proiettare fino a terra col sole basso.
+  // Un numero stantio che torna vivo è peggio di un numero morto: si comporta
+  // come una taratura e non lo è mai stata. Quindi la marcia ha il suo, e parte
+  // dal massimo che la griglia consente.
+  uMarciaPassi: { value: PASSI_MAX },
   uTempo: { value: 0 },
   // il vento che piega gli alberi e l'ultimo urto ricevuto (vedi GLSL_VENTO)
   uVentoFurni: { value: new THREE.Vector4(1, 0, 0.10, 0.16) },
@@ -778,6 +789,7 @@ const GLSL_FRAGMENT = /* glsl */`
   uniform float uSoleForza;        // 0 = niente ombra dal cielo (interruttore, non intensità)
   uniform vec3 uOmbraFatt;         // per cosa si moltiplica l'ambiente DENTRO l'ombra
   uniform int uSolePassi;          // celle di cammino concesse (0 = spento)
+  uniform int uMarciaPassi;        // e QUESTO è il budget della marcia (vedi la uniform)
   // LA HEIGHTMAP DEL CIELO — quota della superficie per colonna. La usano DUE
   // cose: l'ombra delle nuvole (piu' in basso) e l'ombra del sole (ombraCielo,
   // qui sotto). Sta dichiarata QUI, in alto, e non accanto alle nuvole dov'era:
@@ -1086,11 +1098,11 @@ const GLSL_FRAGMENT = /* glsl */`
       {
         vec3 n = normaleGeom();
         // l'uscita anticipata: se il sole non vede la faccia, non si cammina
-        if (dot(n, uSoleDir) <= 0.0) return uOmbraFatt.r > 0.0 ? 0.0 : 0.0;
+        if (dot(n, uSoleDir) <= 0.0) return 0.0;   // ombra piena, l'unico livello di scuro
         // si parte mezzo passo FUORI dalla superficie, se no la cella di
         // partenza è la propria e ogni faccia si dichiara in ombra da sola
         vec3 da = vPosMondo + n * 0.02 + uSoleDir * 0.02;
-        return marciaSole(da, uSoleDir, uSolePassi) ? 0.0 : _term;
+        return marciaSole(da, uSoleDir, uMarciaPassi) ? 0.0 : _term;
       }
     #elif defined(LANTERNA_CONTROLUCE)
       // IL MONDO VISTO DAL SOLE. Un confronto binario contro la profondità della
@@ -2416,6 +2428,14 @@ const SBIECO_MAX = 2.5;
 // l'interruttore — 0 = ombra del cielo spenta, >0 = accesa — con la stessa
 // firma di sempre perché la muovono la scala di qualità e le opzioni.
 export function impostaPassiCielo(n) { uniformi.uSolePassi.value = Math.max(0, n | 0); }
+/** Quante celle cammina la marcia del sole: è la LUNGHEZZA dell'ombra, in
+ *  blocchi. Sopra PASSI_MAX il ciclo GLSL non va comunque — il tetto è cotto
+ *  nella compilazione, quindi chiedere di più non allunga niente e basta. */
+export function passiMarcia(n) {
+  if (n !== undefined) uniformi.uMarciaPassi.value = Math.max(0, Math.min(PASSI_MAX, n | 0));
+  return uniformi.uMarciaPassi.value;
+}
+export const MARCIA_PASSI_MAX = PASSI_MAX;
 export function passiCielo() { return uniformi.uSolePassi.value; }
 
 /** Rampa liscia in [0,1]: agli estremi la derivata e' nulla, quindi il congedo
