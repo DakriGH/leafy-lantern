@@ -41,11 +41,31 @@ import * as THREE from 'three';
  *  lo strisciamento del bordo — non servirebbe a niente. */
 export const LATI = [24, 32, 48, 64, 96, 128, 192, 256];
 
-/** Quanti texel di lato fa un passo del centro. Il centro si muove SOLO di
- *  multipli interi di texel: così il reticolo è letteralmente lo stesso fra un
- *  fotogramma e l'altro e il bordo non striscia. Otto invece di uno perché a
- *  uno si ricostruirebbe a ogni passo del gatto. */
-export const PASSO_TEXEL = 8;
+/**
+ * In quante celle si divide il lato del riquadro per il passo del centro.
+ *
+ * ⚠ QUESTO NUMERO ERA IN TEXEL ED ERA IL DIFETTO DEGLI SCATTI. Il centro si
+ * muove solo di multipli interi di texel — quella parte è giusta e non si tocca,
+ * è la cura allo strisciamento del bordo. Ma il passo era «otto TEXEL», e un
+ * texel a N=2048 su un riquadro di lato 32 è 1/64 di blocco: otto texel fanno
+ * **un ottavo di blocco**. Cioè bastava camminare dodici centimetri di mondo
+ * per rifare la mappa. Il committente l'ha visto così: «gli scatti ci sono
+ * eccome, specialmente quando mi sposto, salto e muovo la telecamera».
+ *
+ * Adesso il passo si misura sul RIQUADRO e non sul texel: un trentaduesimo del
+ * lato, che a lato 32 fa due unità di mondo — si cammina due blocchi prima di
+ * pagare. E resta un numero INTERO di texel per costruzione, perché N è una
+ * potenza di due e 32 pure: l'invariante che tiene fermo il reticolo non si
+ * perde.
+ */
+export const CELLE_CENTRO = 32;
+
+/** Il passo del centro, in unità di mondo. Intero in texel per costruzione. */
+export function passoCentro(lato, N) {
+  const texel = 2 * lato / N;
+  const passi = Math.max(1, Math.round((2 * lato / CELLE_CENTRO) / texel));
+  return texel * passi;
+}
 
 /**
  * Il lato del riquadro, con ISTERESI.
@@ -96,7 +116,7 @@ const _ALTO_RICAMBIO = /* @__PURE__ */ new THREE.Vector3(0, 0, 1);
  * difetto che si nota molto più della scaletta.
  */
 export function centroSnappato(bersaglio, base, lato, N, fuori = new THREE.Vector3()) {
-  const passo = (2 * lato / N) * PASSO_TEXEL;
+  const passo = passoCentro(lato, N);
   const u = Math.round(bersaglio.dot(base.x) / passo) * passo;
   const v = Math.round(bersaglio.dot(base.y) / passo) * passo;
   // ⚠ SI SNAPPA ANCHE LUNGO IL RAGGIO, e la prima versione non lo faceva.
@@ -138,7 +158,7 @@ export function chiaveRicostruzione({ dir, lato, N, centro, base, versioneCielo 
   const s = ALT_RIF / Math.max(dir.y, 0.08);      // lunghezza d'ombra per unità di quota
   const px = Math.round(dir.x * s / texel);
   const pz = Math.round(dir.z * s / texel);
-  const passo = texel * PASSO_TEXEL;
+  const passo = passoCentro(lato, N);
   const cu = Math.round(centro.dot(base.x) / passo);
   const cv = Math.round(centro.dot(base.y) / passo);
   return `${px},${pz}|${lato}|${N}|${cu},${cv}|${versioneCielo}|${versioneArredo}`;
@@ -271,7 +291,7 @@ export class Controluce {
     // Il passo del centro va SOMMATO al raggio: il centro è snappato, quindi
     // può stare fino a mezzo passo fuori posto, e senza margine si scoprirebbe
     // uno spigolo dell'inquadratura.
-    const passo = 2 * (this.lato || LATI[0]) / this.N * PASSO_TEXEL;
+    const passo = passoCentro(this.lato || LATI[0], this.N);
     const lato = scegliLato(raggio + passo, this.lato);
     this.lato = lato;
     centroSnappato(bersaglio, this.base, lato, this.N, this._centro);

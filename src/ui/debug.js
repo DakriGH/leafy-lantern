@@ -4,9 +4,9 @@
 // e comandi player (volo, respawn, lampioni forzati).
 
 import * as THREE from 'three';
-import { CHUNK } from '../world/world.js?v=mtbh33f2';
-import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtbh33f2';
-import { FISICA } from '../config.js?v=mtbh33f2';
+import { CHUNK } from '../world/world.js?v=mtbh8fyh';
+import { elencoLuci, statLuci, statImpatti, memoriaVoxel } from '../fx/materials.js?v=mtbh8fyh';
+import { FISICA } from '../config.js?v=mtbh8fyh';
 
 /** Le condizioni della griglia dei muri, DISTINTE: spenta dall'utente, mondo
  *  vuoto, troppe celle per il paracadute, o un lato oltre il massimo della GPU.
@@ -334,6 +334,15 @@ export class MenuDebug {
    *  via) e la mappa d'ombra va rifatta, perché la sua chiave non sa niente
    *  delle manopole. */
   _suManopola(id) {
+    // ⚠ MUOVERE AZIMUT O ELEVAZIONE ACCENDE IL MODO A MANO DA SOLO. Senza,
+    // quelle due manopole non fanno NIENTE finché l'arco è automatico — si
+    // trascina, non succede niente, e si conclude che sono rotte. Una manopola
+    // che chiede di premere prima un altro bottone è una manopola che nessuno
+    // userà mai nel modo giusto.
+    if (['azimut', 'elev'].includes(id) && !this.ciclo.sole.manuale) {
+      this.ciclo.sole.manuale = true; this.ciclo.auto = false;
+      this.sincronizza();
+    }
     if (['azimut', 'elev', 'asse', 'inclina'].includes(id)) {
       this.ciclo.aggiorna(0);
       if (this.azioni.rifaiOmbra) this.azioni.rifaiOmbra();
@@ -383,9 +392,17 @@ export class MenuDebug {
     else if (az === 'open') this.azioni.openWorld(Number(this.elSeme.value) || 0, Number(this.elEst.value));
     else if (az === 'controluce') b.classList.toggle('attivo', this.azioni.controluce());
     else if (az === 'soleManuale') {
-      this.ciclo.sole.manuale = !this.ciclo.sole.manuale;
-      if (this.ciclo.sole.manuale) this.ciclo.auto = false;   // a mano l'ora non scorre
-      b.classList.toggle('attivo', this.ciclo.sole.manuale);
+      const aMano = !this.ciclo.sole.manuale;
+      this.ciclo.sole.manuale = aMano;
+      // ⚠ E SPEGNENDO SI RIACCENDE L'OROLOGIO. La prima versione spegneva
+      // `ciclo.auto` entrando in manuale e NON lo riaccendeva uscendo: chi
+      // premeva il bottone una volta per provare le manopole si ritrovava il
+      // sole fermo PER SEMPRE, anche dopo aver rispento il modo a mano — e da
+      // fuori si legge «il gioco è rotto, non gira più il sole». Il committente
+      // c'è cascato, ed è la classe di difetto peggiore: un interruttore che
+      // lascia dietro uno stato che non ha messo lui.
+      this.ciclo.auto = !aMano;
+      b.classList.toggle('attivo', aMano);
       this.ciclo.aggiorna(0); this.sincronizza();
       if (this.azioni.rifaiOmbra) this.azioni.rifaiOmbra();
     }
